@@ -1,7 +1,10 @@
 package com.suso.miiptv.player
 
+import android.app.Activity
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
@@ -17,6 +20,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -71,7 +75,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.C as MC
 import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
+import androidx.media3.ui.SubtitleView
 import coil.compose.AsyncImage
 import com.suso.miiptv.data.PlayItem
 import com.suso.miiptv.data.Repo
@@ -79,6 +85,7 @@ import com.suso.miiptv.ui.C
 import com.suso.miiptv.ui.fmtTime
 import com.suso.miiptv.ui.hm
 import com.suso.miiptv.ui.tvClick
+import com.suso.miiptv.vpn.VpnManager
 import kotlinx.coroutines.delay
 
 @OptIn(UnstableApi::class)
@@ -90,6 +97,39 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
     var overlayTick by remember { mutableIntStateOf(0) }
     var listOpen by remember { mutableStateOf(false) }
     var tracksOpen by remember { mutableStateOf(false) }
+    var aspect by remember { mutableStateOf(Repo.prefs.resizeMode) }
+    // Permiso de Android para la VPN (solo la primera vez).
+    val vpnPerm = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+        if (r.resultCode == Activity.RESULT_OK) VpnManager.connect()
+        else Toast.makeText(ctx, "Sin permiso no se puede activar la VPN", Toast.LENGTH_SHORT).show()
+    }
+    fun toggleVpn() {
+        val p = Repo.prefs
+        if (VpnManager.state == VpnManager.State.ON || VpnManager.state == VpnManager.State.CONNECTING) {
+            VpnManager.disconnect()
+            return
+        }
+        if (p.vpnMode == "off") p.vpnMode = if (p.wgConf != null) "wg" else "warp"
+        val intent = VpnManager.permissionIntent(ctx)
+        if (intent == null) {
+            VpnManager.connect()
+            return
+        }
+        try {
+            vpnPerm.launch(intent)
+        } catch (e: android.content.ActivityNotFoundException) {
+            Toast.makeText(ctx, "Este dispositivo no permite que las apps usen VPN", Toast.LENGTH_SHORT).show()
+        }
+    }
+    // Al conectar o desconectar la VPN se vuelve a abrir el canal por la nueva ruta.
+    val vpnChanges = VpnManager.changes
+    var lastVpnChanges by remember { mutableIntStateOf(vpnChanges) }
+    LaunchedEffect(vpnChanges) {
+        if (vpnChanges != lastVpnChanges) {
+            lastVpnChanges = vpnChanges
+            ctl.retry()
+        }
+    }
     val rootFr = remember { FocusRequester() }
     val pv = Repo.prefs.version
     val fav = remember(pv, ctl.index) { ctl.isFavorite() }
@@ -133,7 +173,7 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
         }
     }
 
-    fun step(repeat: Int): Long = 10_000L * (1 + repeat / 5).coerceAtMost(6)
+    fun step(repeat: Int): Long = ctl.seekStepMs(repeat)
 
     val onKey: (KeyEvent) -> Boolean = handler@{ e ->
         if (e.type != KeyEventType.KeyDown) return@handler false
@@ -218,22 +258,36 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
             .focusRequester(rootFr)
             .focusable()
     ) {
-        AndroidView(
-            factory = { c ->
-                PlayerView(c).apply {
-                    layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-                    useController = false
-                    player = ctl.player
-                    isFocusable = false
-                    isFocusableInTouchMode = false
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                    setShowBuffering(PlayerView.SHOW_BUFFERING_ALWAYS)
-                    setShutterBackgroundColor(android.graphics.Color.BLACK)
-                    keepScreenOn = true
-                }
-            },
-            modifier = Modifier.fillMaxSize(),
-        )
+        val ratio = when (aspect) {
+            "16:9" -> 16f / 9f
+            "4:3" -> 4f / 3f
+            else -> null
+        }
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            AndroidView(
+                factory = { c ->
+                    PlayerView(c).apply {
+                        layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                        useController = false
+                        player = ctl.player
+                        isFocusable = false
+                        isFocusableInTouchMode = false
+                        setShowBuffering(PlayerView.SHOW_BUFFERING_ALWAYS)
+                        setShutterBackgroundColor(android.graphics.Color.BLACK)
+                        keepScreenOn = true
+                        styleSubtitles(subtitleView)
+                    }
+                },
+                update = { v ->
+                    v.resizeMode = when (aspect) {
+                        "zoom" -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                        "fill", "16:9", "4:3" -> AspectRatioFrameLayout.RESIZE_MODE_FILL
+                        else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+                    }
+                },
+                modifier = if (ratio != null) Modifier.aspectRatio(ratio) else Modifier.fillMaxSize(),
+            )
+        }
 
         // Capa táctil (móvil y tablet).
         Box(
@@ -286,7 +340,7 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    "Audio y subtítulos",
+                    "Opciones",
                     color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
@@ -314,7 +368,17 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
         }
 
         if (tracksOpen) {
-            TracksPanel(ctl, Modifier.align(Alignment.TopEnd)) { tracksOpen = false }
+            OptionsPanel(
+                ctl,
+                Modifier.align(Alignment.TopEnd),
+                aspect = aspect,
+                onAspect = { aspect = nextAspect(aspect) },
+                onVpn = { toggleVpn() },
+                onExternal = {
+                    tracksOpen = false
+                    if (PlayQueue.openExternal(ctx, ctl.current)) ctl.player.pause()
+                },
+            ) { tracksOpen = false }
         }
     }
 }
@@ -377,7 +441,7 @@ private fun LiveOverlay(ctl: PlayerCtl, item: PlayItem, fav: Boolean, onFav: () 
             Column(horizontalAlignment = Alignment.End) {
                 Text("▲ ▼  Cambiar canal", color = C.text2, fontSize = 13.sp)
                 Text("◀  Lista de canales", color = C.text2, fontSize = 13.sp)
-                Text("▶  Audio y subtítulos", color = C.text2, fontSize = 13.sp)
+                Text("▶  Opciones", color = C.text2, fontSize = 13.sp)
                 Text("OK  Favorito", color = C.text2, fontSize = 13.sp)
             }
         }
@@ -410,7 +474,7 @@ private fun VodOverlay(ctl: PlayerCtl, item: PlayItem) {
                 item.subtitle?.let {
                     Text(it, color = Color(0xFFDDDDDD), fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                Text("▼  Audio y subtítulos     ◀ ▶  Retroceder / avanzar     OK  Pausa", color = C.text2, fontSize = 13.sp, maxLines = 1)
+                Text("▼  Opciones     ◀ ▶  Retroceder / avanzar     OK  Pausa", color = C.text2, fontSize = 13.sp, maxLines = 1)
                 Spacer(Modifier.height(16.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
@@ -534,9 +598,52 @@ private fun ChannelListPanel(ctl: PlayerCtl, onPick: (Int) -> Unit, onClose: () 
     }
 }
 
-/** Panel lateral derecho para elegir idioma de audio y subtítulos. */
+private val ASPECTS = listOf("fit", "zoom", "fill", "16:9", "4:3")
+
+fun nextAspect(a: String): String = ASPECTS[(ASPECTS.indexOf(a) + 1) % ASPECTS.size]
+
+fun aspectLabel(a: String): String = when (a) {
+    "zoom" -> "Rellenar (zoom)"
+    "fill" -> "Estirar"
+    "16:9" -> "16:9"
+    "4:3" -> "4:3"
+    else -> "Ajustar"
+}
+
+/** Aplica el tamaño, color y fondo de subtítulos elegidos en Ajustes. */
+@OptIn(UnstableApi::class)
+fun styleSubtitles(v: SubtitleView?) {
+    v ?: return
+    val p = Repo.prefs
+    val fg = if (p.subColor == "yellow") android.graphics.Color.rgb(255, 230, 80) else android.graphics.Color.WHITE
+    val style = if (p.subBg == "band") {
+        CaptionStyleCompat(fg, android.graphics.Color.argb(170, 0, 0, 0), android.graphics.Color.TRANSPARENT, CaptionStyleCompat.EDGE_TYPE_NONE, android.graphics.Color.BLACK, null)
+    } else {
+        CaptionStyleCompat(fg, android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT, CaptionStyleCompat.EDGE_TYPE_OUTLINE, android.graphics.Color.BLACK, null)
+    }
+    val scale = when (p.subSize) {
+        "s" -> 0.85f
+        "l" -> 1.25f
+        "xl" -> 1.5f
+        else -> 1f
+    }
+    v.setApplyEmbeddedStyles(false)
+    v.setApplyEmbeddedFontSizes(false)
+    v.setStyle(style)
+    v.setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * scale)
+}
+
+/** Panel lateral derecho: audio, subtítulos, imagen, velocidad, VPN y reproductor externo. */
 @Composable
-private fun TracksPanel(ctl: PlayerCtl, modifier: Modifier, onClose: () -> Unit) {
+private fun OptionsPanel(
+    ctl: PlayerCtl,
+    modifier: Modifier,
+    aspect: String,
+    onAspect: () -> Unit,
+    onVpn: () -> Unit,
+    onExternal: () -> Unit,
+    onClose: () -> Unit,
+) {
     val v = ctl.tracksVersion
     val audio = remember(v, ctl.index) { ctl.trackOptions(MC.TRACK_TYPE_AUDIO) }
     val subs = remember(v, ctl.index) { ctl.trackOptions(MC.TRACK_TYPE_TEXT) }
@@ -580,9 +687,33 @@ private fun TracksPanel(ctl: PlayerCtl, modifier: Modifier, onClose: () -> Unit)
                 ctl.selectTrack(MC.TRACK_TYPE_TEXT, o)
             }
         }
+        Spacer(Modifier.height(22.dp))
+        Text("Imagen y reproducción", color = C.gold, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 10.dp, bottom = 8.dp))
+        TrackRow("Formato de imagen: ${aspectLabel(aspect)}", false, requestFocus = false) { onAspect() }
+        if (!ctl.current.live) {
+            TrackRow("Velocidad: ${speedLabel(ctl.speed)}", false, requestFocus = false) { ctl.nextSpeed() }
+        }
+        val vs = VpnManager.state
+        val vpnText = when (vs) {
+            VpnManager.State.ON -> "VPN: activada" + (VpnManager.info?.let { " · $it" } ?: "")
+            VpnManager.State.CONNECTING -> "VPN: conectando…"
+            VpnManager.State.ERROR -> "VPN: error · " + (VpnManager.message ?: "")
+            VpnManager.State.OFF -> "VPN: desactivada"
+        }
+        TrackRow(vpnText, vs == VpnManager.State.ON, requestFocus = false) { onVpn() }
+        TrackRow("Abrir en otro reproductor", false, requestFocus = false) { onExternal() }
         Spacer(Modifier.height(18.dp))
         Text("◀ para cerrar", color = C.text2, fontSize = 13.sp, modifier = Modifier.padding(start = 10.dp))
     }
+}
+
+private fun speedLabel(f: Float): String = when (f) {
+    0.5f -> "0,5x"
+    0.75f -> "0,75x"
+    1.25f -> "1,25x"
+    1.5f -> "1,5x"
+    2f -> "2x"
+    else -> "normal"
 }
 
 @Composable

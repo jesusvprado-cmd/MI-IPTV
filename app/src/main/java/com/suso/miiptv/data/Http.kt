@@ -1,5 +1,6 @@
 package com.suso.miiptv.data
 
+import com.suso.miiptv.vpn.VpnManager
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -23,6 +24,12 @@ object Http {
     }
 
     fun open(url: String): Response {
+        // Si la VPN se está conectando, esperamos a que termine para no salir sin ella.
+        var waited = 0
+        while (VpnManager.isConnecting() && waited < 15_000) {
+            Thread.sleep(100)
+            waited += 100
+        }
         val req = try {
             Request.Builder().url(url).header("User-Agent", userAgent).build()
         } catch (e: IllegalArgumentException) {

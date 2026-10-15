@@ -33,19 +33,147 @@ class Prefs(ctx: Context) {
             sp.edit().putString("lastLive", v).apply()
         }
 
-    /** Último idioma de audio elegido (código ISO, p. ej. "es"). */
+    // ---------- Ajustes ----------
+
+    /** Cambia cada vez que cambia un ajuste, para refrescar la pantalla de Ajustes. */
+    var settingsVersion by mutableIntStateOf(0)
+        private set
+
+    private fun str(k: String, def: String): String = sp.getString(k, def) ?: def
+    private fun putStr(k: String, v: String?) {
+        sp.edit().putString(k, v).apply()
+        settingsVersion++
+    }
+    private fun putInt(k: String, v: Int) {
+        sp.edit().putInt(k, v).apply()
+        settingsVersion++
+    }
+    private fun putBool(k: String, v: Boolean) {
+        sp.edit().putBoolean(k, v).apply()
+        settingsVersion++
+    }
+
+    /** Idioma de audio preferido (código ISO, p. ej. "es"). "orig" = sin preferencia. null = español. */
     var audioLang: String?
         get() = sp.getString("audioLang", null)
-        set(v) {
-            sp.edit().putString("audioLang", v).apply()
-        }
+        set(v) = putStr("audioLang", v)
 
-    /** Último idioma de subtítulos elegido. "" = desactivados, null = nunca elegido. */
+    /** Idioma de subtítulos preferido. "" = desactivados, null = nunca elegido. */
     var subLang: String?
         get() = sp.getString("subLang", null)
-        set(v) {
-            sp.edit().putString("subLang", v).apply()
-        }
+        set(v) = putStr("subLang", v)
+
+    /** fit, zoom, fill, 16:9, 4:3 */
+    var resizeMode: String
+        get() = str("resize", "fit")
+        set(v) = putStr("resize", v)
+
+    /** low, normal, high */
+    var bufferMode: String
+        get() = str("buffer", "normal")
+        set(v) = putStr("buffer", v)
+
+    /** Segundos por pulsación al avanzar o retroceder. */
+    var seekStep: Int
+        get() = sp.getInt("seekStep", 10)
+        set(v) = putInt("seekStep", v)
+
+    var externalPlayer: Boolean
+        get() = sp.getBoolean("external", false)
+        set(v) = putBool("external", v)
+
+    /** true = decodificar siempre el audio en la app (para canales que no se oyen). */
+    var audioDecode: Boolean
+        get() = sp.getBoolean("audioDecode", false)
+        set(v) = putBool("audioDecode", v)
+
+    /** Aumento de volumen en dB (0, 3, 6, 10). */
+    var volumeBoost: Int
+        get() = sp.getInt("boost", 0)
+        set(v) = putInt("boost", v)
+
+    /** s, m, l, xl */
+    var subSize: String
+        get() = str("subSize", "m")
+        set(v) = putStr("subSize", v)
+
+    /** white, yellow */
+    var subColor: String
+        get() = str("subColor", "white")
+        set(v) = putStr("subColor", v)
+
+    /** none (contorno negro), band (franja oscura) */
+    var subBg: String
+        get() = str("subBg", "none")
+        set(v) = putStr("subBg", v)
+
+    /** Ajustar la frecuencia de la pantalla al vídeo (teles que lo admitan). */
+    var afr: Boolean
+        get() = sp.getBoolean("afr", false)
+        set(v) = putBool("afr", v)
+
+    // ---------- VPN ----------
+
+    /** off, warp, wg */
+    var vpnMode: String
+        get() = str("vpnMode", "off")
+        set(v) = putStr("vpnMode", v)
+
+    var warpConf: String?
+        get() = sp.getString("warpConf", null)
+        set(v) = putStr("warpConf", v)
+
+    var wgConf: String?
+        get() = sp.getString("wgConf", null)
+        set(v) = putStr("wgConf", v)
+
+    var wgName: String?
+        get() = sp.getString("wgName", null)
+        set(v) = putStr("wgName", v)
+
+    // ---------- Categorías ocultas y PIN ----------
+
+    /** Cambia cuando se ocultan o muestran categorías. */
+    var hiddenVersion by mutableIntStateOf(0)
+        private set
+
+    private var hidden: MutableSet<String>? = null
+
+    private fun hiddenSet(): MutableSet<String> {
+        hidden?.let { return it }
+        val s = HashSet(sp.getStringSet("hidden", emptySet()) ?: emptySet())
+        hidden = s
+        return s
+    }
+
+    fun catKey(kind: Kind, catId: String) = "${kind.name}|$catId"
+
+    fun isHidden(kind: Kind, catId: String): Boolean = catKey(kind, catId) in hiddenSet()
+
+    fun setHidden(keys: Collection<String>, hide: Boolean) {
+        val s = hiddenSet()
+        if (hide) s.addAll(keys) else s.removeAll(keys.toSet())
+        sp.edit().putStringSet("hidden", HashSet(s)).apply()
+        hiddenVersion++
+    }
+
+    /** Categorías ya vistas alguna vez (para aplicar la detección automática solo a las nuevas). */
+    fun unseen(keys: Collection<String>): List<String> {
+        val seen = sp.getStringSet("seenCats", emptySet()) ?: emptySet()
+        return keys.filter { it !in seen }
+    }
+
+    fun markSeen(keys: Collection<String>) {
+        if (keys.isEmpty()) return
+        val seen = HashSet(sp.getStringSet("seenCats", emptySet()) ?: emptySet())
+        seen.addAll(keys)
+        sp.edit().putStringSet("seenCats", seen).apply()
+    }
+
+    /** PIN para ver o cambiar las categorías ocultas. "" = sin PIN. */
+    var pin: String
+        get() = str("pin", "")
+        set(v) = putStr("pin", v)
 
     // ---------- Favoritos ----------
 

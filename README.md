@@ -14,6 +14,11 @@ No trae canales: se usa con tu propia lista (Xtream Codes o M3U).
 - Reproductor: ▲▼ cambia de canal, ◀ abre la lista de canales, OK marca favorito;
   en películas ◀▶ avanza o retrocede (más rápido si se mantiene pulsado) y OK pausa.
 - "Continuar viendo" en Inicio.
+- Ajustes: categorías ocultas (las de adultos se ocultan solas) con PIN opcional.
+- VPN integrada solo para la app: WARP de Cloudflare o tu propio perfil WireGuard (.conf).
+- Vídeo: formato de imagen, búfer, salto, frecuencia de pantalla automática, reproductor externo.
+- Audio: decodificación propia (AC3/E-AC3/DTS), aumento de volumen e idioma preferido.
+- Subtítulos: idioma, tamaño, color y fondo.
 
 ## Cómo obtener el APK (sin instalar nada en el ordenador)
 

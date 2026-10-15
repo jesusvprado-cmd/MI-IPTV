@@ -32,6 +32,13 @@ object Repo {
     private var searchIndex: List<Pair<String, Item>>? = null
     private val searchMutex = Mutex()
 
+    private val ADULT = Regex(
+        "(adult|adulto|xxx|\\+ ?18|18 ?\\+|\\bporn|erotic|erótic|erotik|\\bsexy?\\b|\\bhot\\b|playboy|hustler|brazzers|onlyfans)",
+        RegexOption.IGNORE_CASE,
+    )
+
+    fun isAdult(name: String): Boolean = ADULT.containsMatchIn(name)
+
     fun isReady() = ::prefs.isInitialized
 
     fun init(ctx: Context) {
@@ -69,12 +76,27 @@ object Repo {
 
     private fun src(): Source = source ?: throw IOException("No hay ninguna lista configurada.")
 
-    suspend fun categories(kind: Kind): List<Category> {
+    /** Todas las categorías, incluidas las ocultas (para la pantalla de Ajustes). */
+    suspend fun allCategories(kind: Kind): List<Category> {
         catCache[kind]?.let { return it }
         val l = src().categories(kind)
+        // Las categorías nuevas con nombre de adultos se ocultan solas (una única vez).
+        val keys = l.map { prefs.catKey(kind, it.id) }
+        val fresh = prefs.unseen(keys).toSet()
+        if (fresh.isNotEmpty()) {
+            val adult = l.filter { prefs.catKey(kind, it.id) in fresh && isAdult(it.name) }.map { prefs.catKey(kind, it.id) }
+            if (adult.isNotEmpty()) prefs.setHidden(adult, true)
+            prefs.markSeen(fresh)
+        }
         catCache[kind] = l
         return l
     }
+
+    /** Categorías visibles. */
+    suspend fun categories(kind: Kind): List<Category> =
+        allCategories(kind).filter { !prefs.isHidden(kind, it.id) }
+
+    fun visible(item: Item): Boolean = item.categoryId.isEmpty() || !prefs.isHidden(item.kind, item.categoryId)
 
     suspend fun items(kind: Kind, cat: String?): List<Item> {
         val k = "${kind.name}|${cat ?: "*"}"
@@ -87,14 +109,17 @@ object Repo {
 
     suspend fun latest(kind: Kind): List<Item> {
         val k = "${kind.name}|__recent"
-        itemCache[k]?.let { return it }
-        val everything = items(kind, null)
-        val l = withContext(Dispatchers.Default) { everything.sortedByDescending { it.added }.take(300) }
-        itemCache[k] = l
-        return l
+        val sorted = itemCache[k] ?: run {
+            allCategories(kind)
+            val everything = items(kind, null)
+            val s = withContext(Dispatchers.Default) { everything.sortedByDescending { it.added } }
+            itemCache[k] = s
+            s
+        }
+        return withContext(Dispatchers.Default) { sorted.asSequence().filter { visible(it) }.take(300).toList() }
     }
 
-    fun favorites(kind: Kind): List<Item> = prefs.favorites().filter { it.kind == kind }
+    fun favorites(kind: Kind): List<Item> = prefs.favorites().filter { it.kind == kind && visible(it) }
 
     suspend fun movieDetail(item: Item): MovieDetail = src().movieDetail(item)
 
@@ -132,13 +157,12 @@ object Repo {
             searchIndex ?: run {
                 val everything = ArrayList<Item>()
                 for (k in Kind.values()) {
-                    everything.addAll(
-                        try {
-                            items(k, null)
-                        } catch (e: Exception) {
-                            emptyList()
-                        }
-                    )
+                    try {
+                        allCategories(k)
+                        everything.addAll(items(k, null))
+                    } catch (e: Exception) {
+                        // Si un tipo falla, se busca en los demás.
+                    }
                 }
                 val built = withContext(Dispatchers.Default) { everything.map { norm(it.name) to it } }
                 searchIndex = built
@@ -146,7 +170,9 @@ object Repo {
             }
         }
         val nq = norm(q.trim())
-        val found = withContext(Dispatchers.Default) { idx.filter { it.first.contains(nq) }.map { it.second } }
+        val found = withContext(Dispatchers.Default) {
+            idx.filter { it.first.contains(nq) && visible(it.second) }.map { it.second }
+        }
         return SearchResult(
             live = found.filter { it.kind == Kind.LIVE }.take(60),
             movies = found.filter { it.kind == Kind.MOVIE }.take(60),

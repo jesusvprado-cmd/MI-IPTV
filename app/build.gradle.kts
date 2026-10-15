@@ -6,14 +6,19 @@ plugins {
 
 android {
     namespace = "com.suso.miiptv"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.suso.miiptv"
         minSdk = 21
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1"
+        versionCode = 2
+        versionName = "0.2"
+
+        // Teles, boxes y móviles usan procesadores ARM: así el APK pesa menos.
+        ndk {
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a")
+        }
     }
 
     signingConfigs {
@@ -70,10 +75,14 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-core")
 
-    implementation("androidx.media3:media3-exoplayer:1.4.1")
-    implementation("androidx.media3:media3-exoplayer-hls:1.4.1")
-    implementation("androidx.media3:media3-ui:1.4.1")
-    implementation("androidx.media3:media3-datasource-okhttp:1.4.1")
+    implementation("androidx.media3:media3-exoplayer:1.5.0")
+    implementation("androidx.media3:media3-exoplayer-hls:1.5.0")
+    implementation("androidx.media3:media3-ui:1.5.0")
+    implementation("androidx.media3:media3-datasource-okhttp:1.5.0")
+    // Decodificador de audio (AC3, E-AC3, DTS...) para los equipos que no lo traen.
+    implementation("org.jellyfin.media3:media3-ffmpeg-decoder:1.5.0+1")
+    // VPN WireGuard (WARP y perfiles propios).
+    implementation("com.wireguard.android:tunnel:1.0.20230706")
 
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("io.coil-kt:coil-compose:2.7.0")

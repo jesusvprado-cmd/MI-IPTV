@@ -1,12 +1,17 @@
 package com.suso.miiptv.player
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import android.media.audiofx.LoudnessEnhancer
+import android.net.Uri
+import android.widget.Toast
 import android.os.Handler
 import android.os.Looper
 import androidx.annotation.OptIn
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -48,9 +53,27 @@ object PlayQueue {
         items = list
         index = idx.coerceIn(0, list.lastIndex)
         startPos = pos
+        if (Repo.prefs.externalPlayer && openExternal(ctx, list[index])) return
         val i = Intent(ctx, PlayerActivity::class.java)
         if (ctx !is android.app.Activity) i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         ctx.startActivity(i)
+    }
+
+    /** Abre el vídeo en otro reproductor instalado (VLC, MX Player...). Devuelve false si no hay ninguno. */
+    fun openExternal(ctx: Context, item: PlayItem): Boolean {
+        val i = Intent(Intent.ACTION_VIEW)
+            .setDataAndType(Uri.parse(item.url), "video/*")
+            .putExtra("title", item.title)
+        if (ctx !is android.app.Activity) i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        return try {
+            ctx.startActivity(Intent.createChooser(i, "Abrir con…").apply {
+                if (ctx !is android.app.Activity) addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            })
+            true
+        } catch (e: ActivityNotFoundException) {
+            Toast.makeText(ctx, "No hay otro reproductor instalado. Se usa el de la app.", Toast.LENGTH_SHORT).show()
+            false
+        }
     }
 }
 
@@ -80,6 +103,14 @@ class PlayerCtl(ctx: Context) {
 
     var onFinished: (() -> Unit)? = null
 
+    /** Se llama cuando se conoce la imagen del vídeo (para ajustar la frecuencia de la pantalla). */
+    var onVideoFormat: ((Format) -> Unit)? = null
+
+    var speed by mutableFloatStateOf(1f)
+        private set
+
+    private var loudness: LoudnessEnhancer? = null
+
     private var triedHls = false
     private var retries = 0
     private var started = false
@@ -89,11 +120,20 @@ class PlayerCtl(ctx: Context) {
     val player: ExoPlayer
 
     init {
+        val prefs = Repo.prefs
         val http = OkHttpDataSource.Factory(Http.client).setUserAgent(Http.userAgent)
-        val renderers = DefaultRenderersFactory(ctx).setEnableDecoderFallback(true)
-        val load = DefaultLoadControl.Builder()
-            .setBufferDurationsMs(15_000, 50_000, 2_000, 4_000)
-            .build()
+        // El decodificador de audio de la app (FFmpeg) se usa como respaldo, o siempre si así se ha elegido.
+        val renderers = DefaultRenderersFactory(ctx)
+            .setEnableDecoderFallback(true)
+            .setExtensionRendererMode(
+                if (prefs.audioDecode) DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
+                else DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON
+            )
+        val load = when (prefs.bufferMode) {
+            "low" -> DefaultLoadControl.Builder().setBufferDurationsMs(6_000, 20_000, 1_000, 2_000)
+            "high" -> DefaultLoadControl.Builder().setBufferDurationsMs(30_000, 120_000, 3_000, 6_000)
+            else -> DefaultLoadControl.Builder().setBufferDurationsMs(15_000, 50_000, 2_000, 4_000)
+        }.build()
         player = ExoPlayer.Builder(ctx, renderers)
             .setMediaSourceFactory(DefaultMediaSourceFactory(http))
             .setLoadControl(load)
@@ -120,18 +160,63 @@ class PlayerCtl(ctx: Context) {
 
             override fun onTracksChanged(tracks: Tracks) {
                 tracksVersion++
+                for (g in tracks.groups) {
+                    if (g.type != C.TRACK_TYPE_VIDEO) continue
+                    for (i in 0 until g.length) {
+                        if (g.isTrackSelected(i)) onVideoFormat?.invoke(g.getTrackFormat(i))
+                    }
+                }
+            }
+
+            override fun onAudioSessionIdChanged(audioSessionId: Int) {
+                applyBoost(audioSessionId)
             }
         })
 
-        // Idiomas preferidos: el último que eligió el usuario (o español por defecto).
-        val prefs = Repo.prefs
+        // Idiomas preferidos: los de Ajustes o el último que eligió el usuario (español por defecto).
         val tb = player.trackSelectionParameters.buildUpon()
-            .setPreferredAudioLanguage(prefs.audioLang ?: "es")
+        val al = prefs.audioLang ?: "es"
+        if (al != "orig") tb.setPreferredAudioLanguage(al)
         val sub = prefs.subLang
         if (!sub.isNullOrEmpty()) tb.setPreferredTextLanguage(sub)
         if (sub == "") tb.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
         player.trackSelectionParameters = tb.build()
+        applyBoost(player.audioSessionId)
     }
+
+    /** Aumento de volumen (para canales que suenan bajos). */
+    private fun applyBoost(sessionId: Int) {
+        try {
+            loudness?.release()
+        } catch (e: Exception) {
+            // Sin importancia.
+        }
+        loudness = null
+        val db = Repo.prefs.volumeBoost
+        if (db <= 0 || sessionId == C.AUDIO_SESSION_ID_UNSET) return
+        try {
+            loudness = LoudnessEnhancer(sessionId).apply {
+                setTargetGain(db * 100)
+                setEnabled(true)
+            }
+        } catch (e: Exception) {
+            // Algunos dispositivos no lo admiten.
+        }
+    }
+
+    // ---------- Velocidad y salto ----------
+
+    val speeds = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f)
+
+    fun nextSpeed() {
+        if (current.live) return
+        val i = speeds.indexOf(speed)
+        speed = speeds[(i + 1) % speeds.size]
+        player.setPlaybackSpeed(speed)
+    }
+
+    /** Milisegundos a saltar; se acelera si se mantiene pulsado. */
+    fun seekStepMs(repeat: Int): Long = Repo.prefs.seekStep * 1000L * (1 + repeat / 5).coerceAtMost(6)
 
     // ---------- Audio y subtítulos ----------
 
@@ -222,6 +307,10 @@ class PlayerCtl(ctx: Context) {
         position = pos
         duration = 0
         val it = current
+        if (it.live && speed != 1f) {
+            speed = 1f
+            player.setPlaybackSpeed(1f)
+        }
         load(it.url, pos, false)
         if (it.live) {
             it.channel?.let { ch -> Repo.prefs.lastLive = ch.key }
@@ -385,6 +474,11 @@ class PlayerCtl(ctx: Context) {
         saveProgress()
         handler.removeCallbacksAndMessages(null)
         scope.cancel()
+        try {
+            loudness?.release()
+        } catch (e: Exception) {
+            // Sin importancia.
+        }
         player.release()
     }
 }

@@ -28,12 +28,14 @@ import com.suso.miiptv.data.Repo
 @Composable
 fun HomeScreen() {
     val dv = Repo.dataVersion
+    val hv = Repo.prefs.hiddenVersion
     val pv = Repo.prefs.version
-    var base by remember { mutableStateOf(if (UiState.homeVer == dv) UiState.homeCache else null) }
+    val ver = "$dv-$hv"
+    var base by remember { mutableStateOf(if (UiState.homeVer == ver) UiState.homeCache else null) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(dv) {
-        if (UiState.homeVer == dv && UiState.homeCache != null) {
+    LaunchedEffect(ver) {
+        if (UiState.homeVer == ver && UiState.homeCache != null) {
             base = UiState.homeCache
             return@LaunchedEffect
         }
@@ -61,24 +63,23 @@ fun HomeScreen() {
                 if (list.isNotEmpty()) rows.add(HomeRow("home_${kind.name}", "$label · ${first.name}", kind, list.take(40)))
             }
             UiState.homeCache = rows
-            UiState.homeVer = dv
+            UiState.homeVer = ver
             base = rows
         } catch (e: Exception) {
             error = e.message ?: "No se pudo cargar la lista"
         }
     }
 
-    val extra = remember(pv) {
+    val extra = remember(pv, hv) {
         buildList<HomeRow> {
             val prog = Repo.prefs.progressList()
             if (prog.isNotEmpty()) add(HomeRow("home_cont", "Continuar viendo", null, emptyList(), prog))
-            val favs = Repo.prefs.favorites()
             listOf(
                 Kind.LIVE to "Canales favoritos",
                 Kind.MOVIE to "Películas favoritas",
                 Kind.SERIES to "Series favoritas",
             ).forEach { (k, t) ->
-                val l = favs.filter { it.kind == k }
+                val l = Repo.favorites(k)
                 if (l.isNotEmpty()) add(HomeRow("home_fav_${k.name}", t, k, l))
             }
         }

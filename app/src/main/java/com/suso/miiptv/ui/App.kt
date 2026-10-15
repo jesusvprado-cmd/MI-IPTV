@@ -5,6 +5,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -19,7 +20,7 @@ fun AppRoot(activity: Activity) {
     AppTheme {
         var configured by remember { mutableStateOf(Repo.source != null) }
         var editing by remember { mutableStateOf(false) }
-        Box(Modifier.fillMaxSize().background(C.bg)) {
+        Box(Modifier.fillMaxSize().background(C.bg).systemBarsPadding()) {
             when {
                 !configured -> SetupScreen(canCancel = false, onDone = { configured = true }, onCancel = {})
                 editing -> SetupScreen(canCancel = true, onDone = { editing = false }, onCancel = { editing = false })
@@ -40,6 +41,7 @@ fun AppRoot(activity: Activity) {
                         is Screen.Movie -> key(top) { MovieDetailScreen(top.item) }
                         is Screen.Series -> key(top) { SeriesDetailScreen(top.item) }
                         Screen.Settings -> SettingsScreen(onChangeList = { editing = true })
+                        Screen.HiddenCats -> HiddenCatsScreen()
                     }
                 }
             }

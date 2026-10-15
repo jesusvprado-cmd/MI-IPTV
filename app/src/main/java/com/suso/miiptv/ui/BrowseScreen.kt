@@ -48,10 +48,11 @@ fun BrowseScreen(kind: Kind) {
     val st = UiState.browseState(kind)
     val dv = Repo.dataVersion
     val pv = Repo.prefs.version
+    val hv = Repo.prefs.hiddenVersion
 
     var cats by remember(kind, dv) { mutableStateOf<List<Category>?>(null) }
     var catErr by remember(kind, dv) { mutableStateOf<String?>(null) }
-    LaunchedEffect(kind, dv) {
+    LaunchedEffect(kind, dv, hv) {
         try {
             cats = Repo.categories(kind)
         } catch (e: Exception) {
@@ -73,7 +74,8 @@ fun BrowseScreen(kind: Kind) {
     val specials = if (kind == Kind.LIVE) listOf(Category(FAV, "Favoritos"))
     else listOf(Category(FAV, "Favoritos"), Category(RECENT, "Últimos añadidos"))
     val allCats = specials + list
-    val sel = st.selected ?: (list.firstOrNull()?.id ?: FAV)
+    val sel = st.selected?.takeIf { s -> s == FAV || s == RECENT || list.any { it.id == s } }
+        ?: (list.firstOrNull()?.id ?: FAV)
 
     // Con el mando, la categoría se elige al pasar por encima (con una pequeña pausa).
     var pending by remember { mutableStateOf<String?>(null) }
@@ -85,7 +87,7 @@ fun BrowseScreen(kind: Kind) {
 
     var content by remember(kind) { mutableStateOf(if (st.loadedSel == sel) st.lastItems else null) }
     var contentErr by remember(kind) { mutableStateOf<String?>(null) }
-    LaunchedEffect(kind, sel, dv, if (sel == FAV) pv else -1) {
+    LaunchedEffect(kind, sel, dv, hv, if (sel == FAV) pv else -1) {
         val changed = st.loadedSel != sel
         if (changed) content = null
         contentErr = null

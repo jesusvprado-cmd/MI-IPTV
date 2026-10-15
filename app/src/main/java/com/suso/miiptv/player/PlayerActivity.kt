@@ -1,5 +1,6 @@
 package com.suso.miiptv.player
 
+import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -28,9 +29,45 @@ class PlayerActivity : ComponentActivity() {
         }
         val c = PlayerCtl(this)
         c.onFinished = { finish() }
+        if (Repo.prefs.afr) c.onVideoFormat = { f -> matchFrameRate(f.frameRate) }
         ctl = c
         c.start()
         setContent { AppTheme { PlayerScreen(c) { finish() } } }
+    }
+
+    private var afrApplied = -1f
+
+    /**
+     * Cambia la frecuencia de la pantalla para que coincida con la del vídeo (24, 25, 50, 60 Hz...),
+     * en las teles y reproductores que lo permiten. Se deshace sola al salir del reproductor.
+     */
+    private fun matchFrameRate(fps: Float) {
+        if (Build.VERSION.SDK_INT < 23 || fps <= 0f || fps == afrApplied) return
+        try {
+            val display = window.decorView.display ?: return
+            val cur = display.mode
+            var best: android.view.Display.Mode? = null
+            var bestMult = Int.MAX_VALUE
+            for (m in display.supportedModes) {
+                if (m.physicalWidth != cur.physicalWidth || m.physicalHeight != cur.physicalHeight) continue
+                val ratio = m.refreshRate / fps
+                val n = Math.round(ratio)
+                if (n < 1 || kotlin.math.abs(ratio - n) > 0.01f * n) continue
+                if (n < bestMult) {
+                    bestMult = n
+                    best = m
+                }
+            }
+            val b = best ?: return
+            afrApplied = fps
+            if (b.modeId != cur.modeId) {
+                val lp = window.attributes
+                lp.preferredDisplayModeId = b.modeId
+                window.attributes = lp
+            }
+        } catch (e: Exception) {
+            // Este dispositivo no permite cambiar la frecuencia.
+        }
     }
 
     override fun onStart() {

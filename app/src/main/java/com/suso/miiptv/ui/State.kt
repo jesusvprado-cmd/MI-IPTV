@@ -15,6 +15,7 @@ sealed interface Screen {
     data class Movie(val item: Item) : Screen
     data class Series(val item: Item) : Screen
     data object Settings : Screen
+    data object HiddenCats : Screen
 }
 
 enum class Tab(val label: String) {
@@ -57,7 +58,7 @@ object UiState {
     fun rowState(key: String): LazyListState = rowStates.getOrPut(key) { LazyListState() }
 
     var homeCache: List<HomeRow>? = null
-    var homeVer = -1
+    var homeVer = ""
     var searchQuery = ""
 
     private val tabRequesters = HashMap<Tab, FocusRequester>()
@@ -81,7 +82,7 @@ object UiState {
         rowStates.clear()
         homeList = LazyListState()
         homeCache = null
-        homeVer = -1
+        homeVer = ""
         searchQuery = ""
         tab = Tab.HOME
         FocusMemory.restore = null

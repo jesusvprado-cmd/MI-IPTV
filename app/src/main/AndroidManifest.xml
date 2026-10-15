@@ -3,6 +3,8 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Solo para leer archivos .conf de la carpeta Download en teles sin selector de archivos. -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
 
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
@@ -15,7 +17,8 @@
         android:theme="@style/AppTheme"
         android:largeHeap="true"
         android:supportsRtl="false"
-        android:usesCleartextTraffic="true">
+        android:usesCleartextTraffic="true"
+        android:requestLegacyExternalStorage="true">
 
         <activity
             android:name=".MainActivity"
@@ -34,5 +37,15 @@
             android:exported="false"
             android:screenOrientation="sensorLandscape"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation" />
+
+        <!-- Servicio de la VPN WireGuard (solo lo usa esta app). -->
+        <service
+            android:name="com.wireguard.android.backend.GoBackend$VpnService"
+            android:exported="false"
+            android:permission="android.permission.BIND_VPN_SERVICE">
+            <intent-filter>
+                <action android:name="android.net.VpnService" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>
