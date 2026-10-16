@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
@@ -41,6 +43,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -83,21 +86,35 @@ private fun RelatedRow(item: Item) {
     LaunchedEffect(item.key) {
         if (item.categoryId.isBlank()) return@LaunchedEffect
         related = try {
-            Repo.items(item.kind, item.categoryId).filter { it.key != item.key }.take(30)
+            Repo.items(item.kind, item.categoryId).filter { it.key != item.key && Repo.visible(it) }.take(30)
         } catch (e: Exception) {
             emptyList()
         }
     }
     if (related.isEmpty()) return
-    Spacer(Modifier.height(36.dp))
-    SectionTitle("Títulos relacionados", Modifier.padding(start = 48.dp, bottom = 10.dp))
-    LazyRow(
-        contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        itemsIndexed(related, key = { i, x -> "$i:${x.key}" }) { _, x ->
-            PosterCard(x.name, x.image, "rel_${x.key}", Modifier.width(118.dp)) { Actions.open(x) }
+    Column(Modifier.fillMaxWidth().fadeInOnChange(related.size)) {
+        Text(
+            "Títulos relacionados", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(start = 48.dp, bottom = 4.dp),
+        )
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            itemsIndexed(related, key = { i, x -> "$i:${x.key}" }) { _, x ->
+                PosterCard(x.name, x.image, "rel_${x.key}", Modifier.width(90.dp)) { Actions.open(x) }
+            }
         }
+    }
+}
+
+/** Sinopsis que ocupa el hueco disponible y se recorta con «…» si no cabe. */
+@Composable
+private fun FittingPlot(text: String, modifier: Modifier, maxLinesCap: Int = 8) {
+    BoxWithConstraints(modifier) {
+        val lh = with(LocalDensity.current) { 21.sp.toDp() }
+        val lines = if (constraints.hasBoundedHeight) (maxHeight / lh).toInt().coerceIn(1, maxLinesCap) else maxLinesCap
+        Text(text, color = Color(0xFFE6E6E6), fontSize = 15.sp, lineHeight = 21.sp, maxLines = lines, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -149,51 +166,63 @@ fun MovieDetailScreen(item: Item) {
         }
     }
 
+    // Todo cabe en la pantalla: el foco en «Reproducir» ya no desplaza la ficha ni corta el título.
     Box(Modifier.fillMaxSize().background(C.bg)) {
         HeroImage(det?.backdrop ?: det?.poster ?: item.image)
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            Column(Modifier.fillMaxWidth(0.62f).padding(start = 48.dp, top = 36.dp, end = 16.dp)) {
-                Text(det?.title ?: item.name, color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Bold, lineHeight = 40.sp)
-                Spacer(Modifier.height(8.dp))
-                val meta = listOfNotNull(det?.year, det?.duration, det?.genre?.replace(",", " /")).joinToString(" · ")
-                if (meta.isNotBlank()) Text(meta, color = C.text2, fontSize = 15.sp)
-                det?.rating?.takeIf { it != "0" && it != "0.0" }?.let {
-                    Spacer(Modifier.height(4.dp))
-                    Text("★ $it", color = C.gold, fontSize = 15.sp)
-                }
-                Spacer(Modifier.height(14.dp))
-                plotLines(det?.plot)?.let {
-                    Text(it, color = Color(0xFFE6E6E6), fontSize = 15.sp, lineHeight = 21.sp, maxLines = 7, overflow = TextOverflow.Ellipsis)
-                }
-                det?.director?.let {
-                    Spacer(Modifier.height(8.dp))
-                    Text("Dirección: $it", color = C.text2, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-                det?.cast?.let {
-                    Text("Reparto: $it", color = C.text2, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-                Spacer(Modifier.height(24.dp))
-                if (det == null) {
-                    SmallLoading()
-                } else {
-                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        TvButton(
-                            if (prog != null) "Continuar ${fmtTime(prog.pos)}" else "Reproducir",
-                            "d_play",
-                            icon = Icons.Filled.PlayArrow,
-                            filled = true,
-                            focusRequester = playFr,
-                        ) { play(prog?.pos ?: 0L) }
-                        if (prog != null) TvButton("Empezar", "d_restart") { play(0L) }
-                        TvButton(null, "d_fav", icon = if (fav) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder) {
-                            Actions.toggleFav(ctx, item)
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val showRelated = maxHeight >= 470.dp
+            Column(Modifier.fillMaxSize()) {
+                Column(
+                    Modifier
+                        .fillMaxWidth(0.62f)
+                        .weight(1f)
+                        .padding(start = 48.dp, top = 28.dp, end = 16.dp, bottom = 6.dp),
+                ) {
+                    Text(
+                        det?.title ?: item.name, color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold,
+                        lineHeight = 36.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    val meta = listOfNotNull(det?.year, det?.duration, det?.genre?.replace(",", " /")).joinToString(" · ")
+                    if (meta.isNotBlank()) Text(meta, color = C.text2, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    det?.rating?.takeIf { it != "0" && it != "0.0" }?.let {
+                        Spacer(Modifier.height(2.dp))
+                        Text("★ $it", color = C.gold, fontSize = 15.sp)
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    plotLines(det?.plot)?.let { FittingPlot(it, Modifier.weight(1f, fill = false)) }
+                    det?.director?.let {
+                        Spacer(Modifier.height(6.dp))
+                        Text("Dirección: $it", color = C.text2, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    det?.cast?.let {
+                        Text("Reparto: $it", color = C.text2, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    if (det == null) {
+                        SmallLoading()
+                    } else {
+                        Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                            TvButton(
+                                if (prog != null) "Continuar ${fmtTime(prog.pos)}" else "Reproducir",
+                                "d_play",
+                                icon = Icons.Filled.PlayArrow,
+                                filled = true,
+                                focusRequester = playFr,
+                            ) { play(prog?.pos ?: 0L) }
+                            if (prog != null) TvButton("Empezar", "d_restart") { play(0L) }
+                            TvButton(null, "d_fav", icon = if (fav) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder) {
+                                Actions.toggleFav(ctx, item)
+                            }
+                            det.trailer?.let { t -> TvButton("Tráiler", "d_trailer") { Actions.openTrailer(ctx, t) } }
                         }
-                        det.trailer?.let { t -> TvButton("Tráiler", "d_trailer") { Actions.openTrailer(ctx, t) } }
                     }
                 }
+                if (showRelated) {
+                    RelatedRow(item)
+                    Spacer(Modifier.height(16.dp))
+                }
             }
-            RelatedRow(item)
-            Spacer(Modifier.height(40.dp))
         }
     }
 }
@@ -261,19 +290,23 @@ fun SeriesDetailScreen(item: Item) {
         Actions.resume(ctx, p)
     }
 
+    // Cabecera fija arriba; solo se desplaza la lista de temporadas y episodios.
     Box(Modifier.fillMaxSize().background(C.bg)) {
         HeroImage(det?.backdrop ?: det?.poster ?: item.image)
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            Column(Modifier.fillMaxWidth(0.62f).padding(start = 48.dp, top = 36.dp, end = 16.dp)) {
-                Text(det?.title ?: item.name, color = C.gold, fontSize = 34.sp, fontWeight = FontWeight.Bold, lineHeight = 40.sp)
-                Spacer(Modifier.height(8.dp))
+        Column(Modifier.fillMaxSize()) {
+            Column(Modifier.fillMaxWidth(0.62f).padding(start = 48.dp, top = 28.dp, end = 16.dp)) {
+                Text(
+                    det?.title ?: item.name, color = C.gold, fontSize = 30.sp, fontWeight = FontWeight.Bold,
+                    lineHeight = 36.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.height(6.dp))
                 val meta = listOfNotNull(det?.year, det?.genre?.replace(",", " /")).joinToString(" · ")
-                if (meta.isNotBlank()) Text(meta, color = C.text2, fontSize = 15.sp)
-                Spacer(Modifier.height(14.dp))
+                if (meta.isNotBlank()) Text(meta, color = C.text2, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.height(10.dp))
                 plotLines(det?.plot)?.let {
-                    Text(it, color = Color(0xFFE6E6E6), fontSize = 15.sp, lineHeight = 21.sp, maxLines = 6, overflow = TextOverflow.Ellipsis)
+                    Text(it, color = Color(0xFFE6E6E6), fontSize = 15.sp, lineHeight = 21.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
                 }
-                Spacer(Modifier.height(22.dp))
+                Spacer(Modifier.height(14.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (lastEp != null && det != null) {
                         TvButton(
@@ -291,30 +324,44 @@ fun SeriesDetailScreen(item: Item) {
                         focusRequester = if (lastEp == null) firstFr else null,
                     ) { Actions.toggleFav(ctx, item) }
                 }
-                Spacer(Modifier.height(24.dp))
+            }
+            Spacer(Modifier.height(12.dp))
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                contentPadding = PaddingValues(bottom = 40.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
                 when {
-                    det == null -> SmallLoading()
-                    det.seasons.isEmpty() -> Text(
-                        if (failed) "No se pudieron cargar los episodios." else "No se han encontrado episodios.",
-                        color = C.text2, fontSize = 15.sp,
-                    )
-                    else -> {
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            for ((season, eps) in det.seasons) {
+                    det == null -> this.item(key = "loading") {
+                        Box(Modifier.padding(start = 48.dp)) { SmallLoading() }
+                    }
+                    det.seasons.isEmpty() -> this.item(key = "empty") {
+                        Text(
+                            if (failed) "No se pudieron cargar los episodios." else "No se han encontrado episodios.",
+                            color = C.text2, fontSize = 15.sp, modifier = Modifier.padding(start = 48.dp),
+                        )
+                    }
+                    else -> det.seasons.forEach { (season, eps) ->
+                        this.item(key = "s$season") {
+                            Box(Modifier.fillMaxWidth(0.62f).padding(start = 48.dp, end = 16.dp)) {
                                 SeasonRow(season, eps.size, open == season) { open = if (open == season) null else season }
-                                if (open == season) {
-                                    eps.forEachIndexed { i, ep ->
-                                        val p = Repo.prefs.progress(epKey(item.id, ep))
-                                        EpisodeRow(ep, p, "ep_${ep.id}") { playEpisodes(eps, i) }
-                                    }
+                            }
+                        }
+                        if (open == season) {
+                            this.itemsIndexed(eps, key = { _, ep -> "e${ep.id}" }) { i, ep ->
+                                val p = Repo.prefs.progress(epKey(item.id, ep))
+                                Box(Modifier.fillMaxWidth(0.62f).padding(start = 48.dp, end = 16.dp)) {
+                                    EpisodeRow(ep, p, "ep_${ep.id}") { playEpisodes(eps, i) }
                                 }
                             }
                         }
                     }
                 }
+                this.item(key = "related") {
+                    Spacer(Modifier.height(24.dp))
+                    RelatedRow(item)
+                }
             }
-            RelatedRow(item)
-            Spacer(Modifier.height(40.dp))
         }
     }
 }

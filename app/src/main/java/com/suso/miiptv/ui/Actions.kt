@@ -22,9 +22,9 @@ object Actions {
         }
     }
 
-    fun playLive(ctx: Context, list: List<Item>, index: Int) {
+    fun playLive(ctx: Context, list: List<Item>, index: Int, fromPreview: Boolean = false) {
         try {
-            PlayQueue.start(ctx, list.map { Repo.playItem(it) }, index, 0)
+            PlayQueue.start(ctx, list.map { Repo.playItem(it) }, index, 0, fromPreview)
         } catch (e: Exception) {
             toast(ctx, e.message ?: "No se puede reproducir")
         }

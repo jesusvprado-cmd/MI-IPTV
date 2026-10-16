@@ -278,6 +278,7 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
                         styleSubtitles(subtitleView)
                     }
                 },
+                onRelease = { v -> v.player = null },
                 update = { v ->
                     v.resizeMode = when (aspect) {
                         "zoom" -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM

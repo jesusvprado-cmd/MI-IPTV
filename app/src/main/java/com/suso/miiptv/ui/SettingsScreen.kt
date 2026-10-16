@@ -367,7 +367,7 @@ fun SettingsScreen(onChangeList: () -> Unit) {
         }
 
         Spacer(Modifier.height(24.dp))
-        Text("Mi IPTV 0.2 · Para usar con tu propia lista", color = C.text2, fontSize = 13.sp)
+        Text("Mi IPTV 0.3 · Para usar con tu propia lista", color = C.text2, fontSize = 13.sp)
     }
 }
 

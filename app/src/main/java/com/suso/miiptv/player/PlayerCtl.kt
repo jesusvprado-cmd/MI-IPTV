@@ -48,12 +48,21 @@ object PlayQueue {
     var startPos = 0L
         private set
 
-    fun start(ctx: Context, list: List<PlayItem>, idx: Int, pos: Long) {
+    /** true si se viene de la previsualización: la emisión continúa sin volver a conectar. */
+    var handoff = false
+        private set
+
+    fun start(ctx: Context, list: List<PlayItem>, idx: Int, pos: Long, fromPreview: Boolean = false) {
         if (list.isEmpty()) return
         items = list
         index = idx.coerceIn(0, list.lastIndex)
         startPos = pos
-        if (Repo.prefs.externalPlayer && openExternal(ctx, list[index])) return
+        handoff = fromPreview
+        if (Repo.prefs.externalPlayer) {
+            // El otro reproductor abre su propia conexión: se corta la previsualización.
+            PlayerHolder.stopPreview()
+            if (openExternal(ctx, list[index])) return
+        }
         val i = Intent(ctx, PlayerActivity::class.java)
         if (ctx !is android.app.Activity) i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         ctx.startActivity(i)
@@ -119,67 +128,55 @@ class PlayerCtl(ctx: Context) {
 
     val player: ExoPlayer
 
+    private val listener = object : Player.Listener {
+        override fun onIsPlayingChanged(playing: Boolean) {
+            isPlaying = playing
+        }
+
+        override fun onPlaybackStateChanged(state: Int) {
+            buffering = state == Player.STATE_BUFFERING
+            if (state == Player.STATE_READY) {
+                error = null
+                retries = 0
+                duration = player.duration.coerceAtLeast(0)
+            }
+            if (state == Player.STATE_ENDED) onEnded()
+        }
+
+        override fun onPlayerError(e: PlaybackException) {
+            handleError(e)
+        }
+
+        override fun onTracksChanged(tracks: Tracks) {
+            tracksVersion++
+            for (g in tracks.groups) {
+                if (g.type != C.TRACK_TYPE_VIDEO) continue
+                for (i in 0 until g.length) {
+                    if (g.isTrackSelected(i)) onVideoFormat?.invoke(g.getTrackFormat(i))
+                }
+            }
+        }
+
+        override fun onAudioSessionIdChanged(audioSessionId: Int) {
+            applyBoost(audioSessionId)
+        }
+    }
+
+
     init {
         val prefs = Repo.prefs
-        val http = OkHttpDataSource.Factory(Http.client).setUserAgent(Http.userAgent)
-        // El decodificador de audio de la app (FFmpeg) se usa como respaldo, o siempre si así se ha elegido.
-        val renderers = DefaultRenderersFactory(ctx)
-            .setEnableDecoderFallback(true)
-            .setExtensionRendererMode(
-                if (prefs.audioDecode) DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
-                else DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON
-            )
-        val load = when (prefs.bufferMode) {
-            "low" -> DefaultLoadControl.Builder().setBufferDurationsMs(6_000, 20_000, 1_000, 2_000)
-            "high" -> DefaultLoadControl.Builder().setBufferDurationsMs(30_000, 120_000, 3_000, 6_000)
-            else -> DefaultLoadControl.Builder().setBufferDurationsMs(15_000, 50_000, 2_000, 4_000)
-        }.build()
-        player = ExoPlayer.Builder(ctx, renderers)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(http))
-            .setLoadControl(load)
-            .build()
+        player = PlayerHolder.get(ctx)
         player.playWhenReady = true
-        player.addListener(object : Player.Listener {
-            override fun onIsPlayingChanged(playing: Boolean) {
-                isPlaying = playing
-            }
-
-            override fun onPlaybackStateChanged(state: Int) {
-                buffering = state == Player.STATE_BUFFERING
-                if (state == Player.STATE_READY) {
-                    error = null
-                    retries = 0
-                    duration = player.duration.coerceAtLeast(0)
-                }
-                if (state == Player.STATE_ENDED) onEnded()
-            }
-
-            override fun onPlayerError(e: PlaybackException) {
-                handleError(e)
-            }
-
-            override fun onTracksChanged(tracks: Tracks) {
-                tracksVersion++
-                for (g in tracks.groups) {
-                    if (g.type != C.TRACK_TYPE_VIDEO) continue
-                    for (i in 0 until g.length) {
-                        if (g.isTrackSelected(i)) onVideoFormat?.invoke(g.getTrackFormat(i))
-                    }
-                }
-            }
-
-            override fun onAudioSessionIdChanged(audioSessionId: Int) {
-                applyBoost(audioSessionId)
-            }
-        })
+        player.volume = 1f
+        player.addListener(listener)
 
         // Idiomas preferidos: los de Ajustes o el último que eligió el usuario (español por defecto).
-        val tb = player.trackSelectionParameters.buildUpon()
+        val tb = player.trackSelectionParameters.buildUpon().clearOverrides()
         val al = prefs.audioLang ?: "es"
         if (al != "orig") tb.setPreferredAudioLanguage(al)
         val sub = prefs.subLang
         if (!sub.isNullOrEmpty()) tb.setPreferredTextLanguage(sub)
-        if (sub == "") tb.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+        tb.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, sub == "")
         player.trackSelectionParameters = tb.build()
         applyBoost(player.audioSessionId)
     }
@@ -293,8 +290,23 @@ class PlayerCtl(ctx: Context) {
 
     fun start() {
         if (items.isEmpty()) return
+        val it = items[PlayQueue.index]
+        // Viene de la previsualización y ya se está viendo ese canal: se sigue sin cortar.
+        if (PlayQueue.handoff && it.live && PlayerHolder.currentUrl() == it.url && player.playbackState != Player.STATE_IDLE) {
+            index = PlayQueue.index
+            error = null
+            buffering = player.playbackState == Player.STATE_BUFFERING
+            isPlaying = player.isPlaying
+            if (!player.isPlaying) player.play()
+            it.channel?.let { ch -> Repo.prefs.lastLive = ch.key }
+            loadEpg()
+            return
+        }
         play(PlayQueue.index, PlayQueue.startPos)
     }
+
+    /** Al salir de la pantalla completa a la lista de canales, la emisión sigue en la previsualización. */
+    private fun keepForPreview(finishing: Boolean): Boolean = finishing && PlayQueue.handoff && current.live
 
     fun play(i: Int, pos: Long) {
         if (i !in items.indices) return
@@ -464,8 +476,9 @@ class PlayerCtl(ctx: Context) {
         if (current.live) load(current.url, 0, triedHls) else player.play()
     }
 
-    fun onStop() {
+    fun onStop(finishing: Boolean) {
         saveProgress()
+        if (keepForPreview(finishing)) return
         // En directo cortamos la conexión: muchas cuentas solo permiten una a la vez.
         if (current.live) player.stop() else player.pause()
     }
@@ -479,6 +492,12 @@ class PlayerCtl(ctx: Context) {
         } catch (e: Exception) {
             // Sin importancia.
         }
-        player.release()
+        player.removeListener(listener)
+        if (speed != 1f) player.setPlaybackSpeed(1f)
+        // El reproductor es compartido: no se destruye, solo se para (salvo si sigue en la previsualización).
+        if (!keepForPreview(true)) {
+            player.stop()
+            player.clearMediaItems()
+        }
     }
 }

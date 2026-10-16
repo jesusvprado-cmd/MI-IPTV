@@ -27,6 +27,7 @@ class PlayerActivity : ComponentActivity() {
             hide(WindowInsetsCompat.Type.systemBars())
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
+        PlayerHolder.fullscreen = true
         val c = PlayerCtl(this)
         c.onFinished = { finish() }
         if (Repo.prefs.afr) c.onVideoFormat = { f -> matchFrameRate(f.frameRate) }
@@ -76,13 +77,14 @@ class PlayerActivity : ComponentActivity() {
     }
 
     override fun onStop() {
-        ctl?.onStop()
+        ctl?.onStop(isFinishing)
         super.onStop()
     }
 
     override fun onDestroy() {
         ctl?.release()
         ctl = null
+        PlayerHolder.fullscreen = false
         super.onDestroy()
     }
 }

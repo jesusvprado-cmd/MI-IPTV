@@ -2,6 +2,9 @@ package com.suso.miiptv.ui
 
 import android.app.Activity
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,9 +18,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.suso.miiptv.data.Repo
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun AppRoot(activity: Activity) {
     AppTheme {
+      CompositionLocalProvider(LocalBringIntoViewSpec provides TvBringIntoView) {
         var configured by remember { mutableStateOf(Repo.source != null) }
         var editing by remember { mutableStateOf(false) }
         Box(Modifier.fillMaxSize().background(C.bg).systemBarsPadding()) {
@@ -46,5 +51,6 @@ fun AppRoot(activity: Activity) {
                 }
             }
         }
+      }
     }
 }

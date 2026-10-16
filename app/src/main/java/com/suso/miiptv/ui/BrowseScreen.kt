@@ -128,7 +128,7 @@ fun BrowseScreen(kind: Kind) {
                 }
             }
             Column(Modifier.weight(1f).fillMaxHeight()) {
-                if (kind == Kind.LIVE && !narrow) LiveInfoBar(st.focused)
+                if (kind == Kind.LIVE && !narrow) LiveHeader(st.focused)
                 val its = content
                 val ie = contentErr
                 when {
@@ -141,7 +141,7 @@ fun BrowseScreen(kind: Kind) {
                     else -> LazyVerticalGrid(
                         columns = GridCells.Adaptive(if (kind == Kind.LIVE) 150.dp else 128.dp),
                         state = st.grid,
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxSize().fadeInOnChange(its),
                         contentPadding = PaddingValues(start = 14.dp, end = 30.dp, top = 14.dp, bottom = 40.dp),
                         horizontalArrangement = Arrangement.spacedBy(18.dp),
                         verticalArrangement = Arrangement.spacedBy(20.dp),
@@ -153,7 +153,7 @@ fun BrowseScreen(kind: Kind) {
                                     x.name, x.image, fk,
                                     onFocus = { f -> if (f) st.focused = x },
                                     onLong = { Actions.toggleFav(ctx, x) },
-                                ) { Actions.playLive(ctx, its, i) }
+                                ) { Actions.playLive(ctx, its, i, fromPreview = !narrow) }
                             } else {
                                 PosterCard(
                                     x.name, x.image, fk,
@@ -164,34 +164,6 @@ fun BrowseScreen(kind: Kind) {
                     }
                 }
             }
-        }
-    }
-}
-
-/** Franja superior en TV en directo: canal enfocado y qué echan ahora y después. */
-@Composable
-private fun LiveInfoBar(item: Item?) {
-    var epg by remember { mutableStateOf<List<EpgEntry>>(emptyList()) }
-    LaunchedEffect(item?.key) {
-        epg = emptyList()
-        if (item == null) return@LaunchedEffect
-        delay(350)
-        epg = Repo.epg(item)
-    }
-    Column(Modifier.fillMaxWidth().height(62.dp).padding(start = 14.dp, end = 30.dp, top = 10.dp)) {
-        if (item == null) {
-            Text("Elige un canal", color = C.text2, fontSize = 15.sp)
-        } else {
-            val now = System.currentTimeMillis()
-            val cur = epg.firstOrNull { it.start <= now && it.end > now }
-            val next = epg.firstOrNull { it.start >= (cur?.end ?: now) }
-            Text(item.name, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            val line = buildString {
-                if (cur != null) append("Ahora  ${hm(cur.start)}  ${cur.title}")
-                if (next != null) append("     ·     Después  ${hm(next.start)}  ${next.title}")
-                if (isEmpty()) append("Sin guía de programación")
-            }
-            Text(line, color = C.text2, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }

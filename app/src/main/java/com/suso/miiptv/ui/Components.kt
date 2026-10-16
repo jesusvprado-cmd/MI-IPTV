@@ -1,5 +1,6 @@
 package com.suso.miiptv.ui
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -74,9 +75,11 @@ fun TabChip(
     focusRequester: FocusRequester? = null,
     requestInitial: Boolean = false,
     icon: ImageVector? = null,
+    onFocusChange: ((Boolean) -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
+    val bgColor by animateColorAsState(if (focused) Color.White else Color.Transparent, Motion.focusSpec(), label = "tabbg")
     val fr = focusRequester ?: remember { FocusRequester() }
     LaunchedEffect(Unit) {
         if (requestInitial) {
@@ -88,10 +91,13 @@ fun TabChip(
     Box(
         Modifier
             .focusRequester(fr)
-            .memFocus(focusKey) { focused = it }
+            .memFocus(focusKey) {
+                focused = it
+                onFocusChange?.invoke(it)
+            }
             .tvClick(onClick = onClick)
             .clip(shape)
-            .background(if (focused) Color.White else Color.Transparent)
+            .background(bgColor)
             .then(if (selected && !focused) Modifier.border(1.5.dp, Color.White, shape) else Modifier)
             .padding(horizontal = if (icon != null) 10.dp else 16.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center,
@@ -130,7 +136,7 @@ fun TvButton(
         else -> Color.Transparent
     }
     val fg = if (focused || filled) Color.Black else Color.White
-    val scale by animateFloatAsState(if (focused) 1.05f else 1f, label = "btn")
+    val scale by animateFloatAsState(if (focused) 1.05f else 1f, Motion.focusSpec(), label = "btn")
     Row(
         modifier
             .graphicsLayer { scaleX = scale; scaleY = scale }
@@ -164,7 +170,8 @@ fun PosterCard(
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(if (focused) 1.07f else 1f, label = "poster")
+    val scale by animateFloatAsState(if (focused) 1.08f else 1f, Motion.focusSpec(), label = "poster")
+    val borderColor by animateColorAsState(if (focused) Color.White else Color.Transparent, Motion.focusSpec(), label = "pb")
     val shape = RoundedCornerShape(8.dp)
     Column(modifier) {
         Box(
@@ -179,7 +186,7 @@ fun PosterCard(
                 .tvClick(onLong, onClick)
                 .clip(shape)
                 .background(C.card)
-                .then(if (focused) Modifier.border(2.dp, Color.White, shape) else Modifier)
+                .border(2.dp, borderColor, shape)
         ) {
             if (image != null) {
                 AsyncImage(
@@ -239,7 +246,8 @@ fun ChannelCard(
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(if (focused) 1.07f else 1f, label = "chan")
+    val scale by animateFloatAsState(if (focused) 1.08f else 1f, Motion.focusSpec(), label = "chan")
+    val borderColor by animateColorAsState(if (focused) Color.White else Color.Transparent, Motion.focusSpec(), label = "cb")
     val shape = RoundedCornerShape(8.dp)
     Column(modifier) {
         Box(
@@ -254,7 +262,7 @@ fun ChannelCard(
                 .tvClick(onLong, onClick)
                 .clip(shape)
                 .background(C.card)
-                .then(if (focused) Modifier.border(2.dp, Color.White, shape) else Modifier),
+                .border(2.dp, borderColor, shape),
             contentAlignment = Alignment.Center,
         ) {
             if (image != null) {
@@ -285,6 +293,15 @@ fun ChannelCard(
 @Composable
 fun CategoryRow(name: String, selected: Boolean, focusKey: String, onFocused: () -> Unit, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
+    val rowBg by animateColorAsState(
+        when {
+            focused -> Color.White
+            selected -> C.sel
+            else -> Color.Transparent
+        },
+        Motion.focusSpec(),
+        label = "catbg",
+    )
     val shape = RoundedCornerShape(8.dp)
     Box(
         Modifier
@@ -296,13 +313,7 @@ fun CategoryRow(name: String, selected: Boolean, focusKey: String, onFocused: ()
             }
             .tvClick(onClick = onClick)
             .clip(shape)
-            .background(
-                when {
-                    focused -> Color.White
-                    selected -> C.sel
-                    else -> Color.Transparent
-                }
-            )
+            .background(rowBg)
             .padding(horizontal = 16.dp, vertical = 13.dp)
     ) {
         Text(
