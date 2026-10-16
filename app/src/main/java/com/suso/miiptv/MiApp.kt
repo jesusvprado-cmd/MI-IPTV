@@ -6,6 +6,7 @@ import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import com.suso.miiptv.data.Http
+import com.suso.miiptv.data.Logos
 import com.suso.miiptv.data.Repo
 import com.suso.miiptv.vpn.VpnManager
 
@@ -15,6 +16,7 @@ class MiApp : Application(), ImageLoaderFactory {
         Repo.init(this)
         VpnManager.init(this)
         VpnManager.autoStart()
+        Logos.init(this)
     }
 
     /** Carátulas y logos con caché en disco para que la Mi Box no los descargue cada vez. */

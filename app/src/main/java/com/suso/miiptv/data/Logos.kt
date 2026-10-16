@@ -1,0 +1,344 @@
+package com.suso.miiptv.data
+
+import android.content.Context
+import android.util.JsonReader
+import android.util.JsonToken
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.InputStreamReader
+import java.text.Normalizer
+
+/**
+ * Logos de canales en alta calidad sacados de bancos abiertos:
+ *  - tv-logo/tv-logos (PNG de 512 px pensados para fondo oscuro), fuente principal.
+ *  - iptv-org (miles de canales con sus nombres alternativos), de respaldo.
+ * Solo se cambia la imagen; el nombre del canal se muestra siempre tal cual viene en la lista.
+ * Solo se usa un logo nuevo si el nombre coincide de forma exacta (tras limpiarlo).
+ */
+object Logos {
+    private const val TV_LOGOS_RAW = "https://raw.githubusercontent.com/tv-logo/tv-logos/main/"
+    private const val TV_LOGOS_TREE = "https://api.github.com/repos/tv-logo/tv-logos/git/trees/main?recursive=1"
+    private const val TV_LOGOS_JSDELIVR = "https://data.jsdelivr.com/v1/packages/gh/tv-logo/tv-logos@main?structure=flat"
+    private const val IPTV_CHANNELS = "https://iptv-org.github.io/api/channels.json"
+    private const val IPTV_LOGOS = "https://iptv-org.github.io/api/logos.json"
+    private const val MAX_AGE = 7L * 24 * 3600 * 1000
+
+    /** Países de iptv-org que se guardan (los habituales en listas españolas). */
+    private val IPTV_COUNTRIES = setOf("ES", "AD", "PT", "GB", "UK", "US", "FR", "IT", "DE", "MX", "AR", "INT")
+
+    /** Prefijo de país en el nombre del canal → carpeta preferida en tv-logos. */
+    private val PREFIX_FOLDER = mapOf(
+        "es" to "spain", "esp" to "spain", "spa" to "spain",
+        "uk" to "united-kingdom", "gb" to "united-kingdom",
+        "us" to "united-states", "usa" to "united-states",
+        "pt" to "portugal", "por" to "portugal",
+        "fr" to "france", "it" to "italy", "de" to "germany",
+        "mx" to "mexico", "ar" to "argentina",
+    )
+
+    /** Cambia cuando el índice de logos está listo (las pantallas se vuelven a dibujar). */
+    var version by mutableIntStateOf(0)
+        private set
+
+    /** clave → lista de (carpeta, url) del banco tv-logos. */
+    @Volatile
+    private var tvLogos: Map<String, List<Pair<String, String>>> = emptyMap()
+
+    /** clave → url del banco iptv-org. */
+    @Volatile
+    private var iptvOrg: Map<String, String> = emptyMap()
+
+    private val cache = HashMap<String, String>()
+    private var loading = false
+    private lateinit var dir: File
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    fun init(ctx: Context) {
+        dir = ctx.applicationContext.filesDir
+        if (Repo.prefs.hqLogos) ensureLoaded()
+    }
+
+    fun ensureLoaded() {
+        if (loading || !::dir.isInitialized || tvLogos.isNotEmpty()) return
+        loading = true
+        scope.launch {
+            try {
+                withContext(Dispatchers.IO) { load() }
+                synchronized(cache) { cache.clear() }
+                version++
+            } catch (e: Exception) {
+                // Sin conexión o bancos caídos: se usan los logos de la lista.
+            } finally {
+                loading = false
+            }
+        }
+    }
+
+    /** Logo a mostrar para un canal: el de alta calidad si se encuentra, si no el de la lista. */
+    fun url(name: String, original: String?): String? {
+        if (!Repo.prefs.hqLogos) return original
+        if (tvLogos.isEmpty() && iptvOrg.isEmpty()) return original
+        val ck = name
+        synchronized(cache) { cache[ck] }?.let { return it.ifEmpty { original } }
+        val found = find(name)
+        synchronized(cache) { cache[ck] = found ?: "" }
+        return found ?: original
+    }
+
+    private fun find(name: String): String? {
+        val (prefix, key) = clean(name)
+        if (key.length < 2) return null
+        val folder = prefix?.let { PREFIX_FOLDER[it] } ?: "spain"
+        tvLogos[key]?.let { list ->
+            return (list.firstOrNull { it.first == folder } ?: list.firstOrNull { it.first == "spain" } ?: list.first()).second
+        }
+        return iptvOrg[key]
+    }
+
+    // ---------------- Limpieza de nombres ----------------
+
+    private val PREFIX = Regex("^\\W*([a-z]{2,3})\\s*[|:\\]\\)▎•·»\\-]+\\s*")
+    private val BRACKETS = Regex("[\\[(][^\\])]*[\\])]")
+    private val QUALITY = Regex(
+        "\\b(uhd|fhd|hd|sd|hq|lq|4k|8k|hevc|h265|h264|1080p?|720p?|2160p?|50fps|60fps|25fps|tdt|multi|vip|backup|bk|alt|raw|ott|plus|hdr|dolby|live|directo|ppv)\\b"
+    )
+
+    private fun norm(s: String): String =
+        Normalizer.normalize(s.lowercase(), Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "")
+
+    /** Devuelve (prefijo de país o null, clave compacta). «ES| LA 1 FHD» → ("es", "la1"). */
+    fun clean(name: String): Pair<String?, String> {
+        var s = norm(name)
+        var prefix: String? = null
+        PREFIX.find(s)?.let { m ->
+            prefix = m.groupValues[1]
+            s = s.substring(m.range.last + 1)
+        }
+        s = s.replace(BRACKETS, " ")
+            .replace("+", " plus ")
+            .replace(Regex("[^a-z0-9 ]"), " ")
+        s = s.replace(QUALITY, " ")
+        return prefix to s.replace(Regex("\\s+"), "")
+    }
+
+    /** Clave de un archivo de tv-logos: «la-1-es.png» → «la1». */
+    private fun fileKey(file: String): String {
+        var stem = file.substringAfterLast('/').substringBeforeLast('.')
+        stem = stem.replace(Regex("-[a-z]{2}$"), "")
+        return clean(stem.replace('-', ' ')).second
+    }
+
+    // ---------------- Carga de los índices ----------------
+
+    private fun load() {
+        val cacheFile = File(dir, "logos_index.tsv")
+        if (cacheFile.exists() && System.currentTimeMillis() - cacheFile.lastModified() < MAX_AGE) {
+            readCache(cacheFile)
+            if (tvLogos.isNotEmpty() || iptvOrg.isNotEmpty()) return
+        }
+        val tv = HashMap<String, MutableList<Pair<String, String>>>()
+        val paths = try {
+            githubTree()
+        } catch (e: Exception) {
+            try {
+                jsdelivrList()
+            } catch (e2: Exception) {
+                emptyList()
+            }
+        }
+        for (p in paths) {
+            if (!p.endsWith(".png", true)) continue
+            val parts = p.split('/')
+            val folder = if (parts.size >= 2) parts[parts.size - 2] else ""
+            val key = fileKey(p)
+            if (key.length < 2) continue
+            tv.getOrPut(key) { mutableListOf() }.add(folder to TV_LOGOS_RAW + p)
+        }
+        val org = try {
+            iptvOrgIndex()
+        } catch (e: Exception) {
+            emptyMap()
+        }
+        if (tv.isEmpty() && org.isEmpty()) throw IllegalStateException("sin índice")
+        tvLogos = tv
+        iptvOrg = org
+        writeCache(cacheFile)
+    }
+
+    private fun githubTree(): List<String> {
+        val out = ArrayList<String>()
+        Http.open(TV_LOGOS_TREE).use { r ->
+            JsonReader(InputStreamReader(r.body!!.byteStream(), Charsets.UTF_8)).use { j ->
+                j.beginObject()
+                while (j.hasNext()) {
+                    if (j.nextName() != "tree") {
+                        j.skipValue()
+                        continue
+                    }
+                    j.beginArray()
+                    while (j.hasNext()) {
+                        var path: String? = null
+                        var type: String? = null
+                        j.beginObject()
+                        while (j.hasNext()) {
+                            when (j.nextName()) {
+                                "path" -> path = j.nextString()
+                                "type" -> type = j.nextString()
+                                else -> j.skipValue()
+                            }
+                        }
+                        j.endObject()
+                        if (type == "blob" && path != null) out.add(path)
+                    }
+                    j.endArray()
+                }
+                j.endObject()
+            }
+        }
+        return out
+    }
+
+    private fun jsdelivrList(): List<String> {
+        val out = ArrayList<String>()
+        Http.open(TV_LOGOS_JSDELIVR).use { r ->
+            JsonReader(InputStreamReader(r.body!!.byteStream(), Charsets.UTF_8)).use { j ->
+                j.beginObject()
+                while (j.hasNext()) {
+                    if (j.nextName() != "files") {
+                        j.skipValue()
+                        continue
+                    }
+                    j.beginArray()
+                    while (j.hasNext()) {
+                        j.beginObject()
+                        while (j.hasNext()) {
+                            if (j.nextName() == "name") out.add(j.nextString().trimStart('/')) else j.skipValue()
+                        }
+                        j.endObject()
+                    }
+                    j.endArray()
+                }
+                j.endObject()
+            }
+        }
+        return out
+    }
+
+    /** Lee iptv-org: canales (nombres) y logos (el de mayor tamaño de cada canal). */
+    private fun iptvOrgIndex(): Map<String, String> {
+        // 1) Logos por id de canal, quedándonos con el más grande.
+        val best = HashMap<String, Pair<Int, String>>()
+        Http.open(IPTV_LOGOS).use { r ->
+            JsonReader(InputStreamReader(r.body!!.byteStream(), Charsets.UTF_8)).use { j ->
+                j.beginArray()
+                while (j.hasNext()) {
+                    var ch: String? = null
+                    var url: String? = null
+                    var w = 0
+                    var fmt: String? = null
+                    j.beginObject()
+                    while (j.hasNext()) {
+                        when (j.nextName()) {
+                            "channel" -> ch = j.nextStringOrNull()
+                            "url" -> url = j.nextStringOrNull()
+                            "width" -> w = if (j.peek() == JsonToken.NUMBER) j.nextInt() else { j.skipValue(); 0 }
+                            "format" -> fmt = j.nextStringOrNull()
+                            else -> j.skipValue()
+                        }
+                    }
+                    j.endObject()
+                    if (ch == null || url == null || w < 200) continue
+                    if (fmt != null && fmt.equals("SVG", true)) continue
+                    val cur = best[ch]
+                    if (cur == null || w > cur.first) best[ch] = w to url
+                }
+                j.endArray()
+            }
+        }
+        // 2) Nombres y nombres alternativos de cada canal → logo.
+        val out = HashMap<String, String>()
+        Http.open(IPTV_CHANNELS).use { r ->
+            JsonReader(InputStreamReader(r.body!!.byteStream(), Charsets.UTF_8)).use { j ->
+                j.beginArray()
+                while (j.hasNext()) {
+                    var id: String? = null
+                    var name: String? = null
+                    var country: String? = null
+                    val alts = ArrayList<String>()
+                    j.beginObject()
+                    while (j.hasNext()) {
+                        when (j.nextName()) {
+                            "id" -> id = j.nextStringOrNull()
+                            "name" -> name = j.nextStringOrNull()
+                            "country" -> country = j.nextStringOrNull()
+                            "alt_names" -> {
+                                if (j.peek() == JsonToken.BEGIN_ARRAY) {
+                                    j.beginArray()
+                                    while (j.hasNext()) j.nextStringOrNull()?.let { alts.add(it) }
+                                    j.endArray()
+                                } else {
+                                    j.skipValue()
+                                }
+                            }
+                            else -> j.skipValue()
+                        }
+                    }
+                    j.endObject()
+                    if (id == null || country == null || country !in IPTV_COUNTRIES) continue
+                    val logo = best[id]?.second ?: continue
+                    (listOfNotNull(name) + alts).forEach { n ->
+                        val k = clean(n).second
+                        if (k.length >= 2 && !out.containsKey(k)) out[k] = logo
+                    }
+                }
+                j.endArray()
+            }
+        }
+        return out
+    }
+
+    private fun JsonReader.nextStringOrNull(): String? =
+        if (peek() == JsonToken.NULL) {
+            nextNull()
+            null
+        } else {
+            nextString()
+        }
+
+    // ---------------- Caché en disco ----------------
+
+    private fun writeCache(f: File) {
+        try {
+            f.bufferedWriter().use { w ->
+                for ((k, list) in tvLogos) for ((folder, url) in list) w.write("t\t$k\t$folder\t$url\n")
+                for ((k, url) in iptvOrg) w.write("o\t$k\t\t$url\n")
+            }
+        } catch (e: Exception) {
+            // No pasa nada: se volverá a descargar.
+        }
+    }
+
+    private fun readCache(f: File) {
+        val tv = HashMap<String, MutableList<Pair<String, String>>>()
+        val org = HashMap<String, String>()
+        try {
+            f.forEachLine { line ->
+                val p = line.split('\t')
+                if (p.size < 4) return@forEachLine
+                if (p[0] == "t") tv.getOrPut(p[1]) { mutableListOf() }.add(p[2] to p[3])
+                else if (p[0] == "o") org[p[1]] = p[3]
+            }
+        } catch (e: Exception) {
+            return
+        }
+        tvLogos = tv
+        iptvOrg = org
+    }
+}

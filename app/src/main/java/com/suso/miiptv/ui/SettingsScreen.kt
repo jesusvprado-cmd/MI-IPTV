@@ -555,6 +555,13 @@ private fun ContentSection() {
             subtitle = "Las de adultos se ocultan solas. Puedes proteger esta opción con un PIN.",
             value = if (p.pin.isNotEmpty()) "Con PIN" else null,
         ) { UiState.push(Screen.HiddenCats) }
+        ToggleRow(
+            "Logos de canales en alta calidad", "set_logos", p.hqLogos,
+            subtitle = "Usa logos de bancos abiertos en lugar de los de tu lista. El nombre del canal no cambia.",
+        ) { v ->
+            p.hqLogos = v
+            if (v) com.suso.miiptv.data.Logos.ensureLoaded()
+        }
         SettingRow("Borrar «Continuar viendo»", "set_clear", subtitle = "Quita el historial de películas y series empezadas", chevron = false) {
             p.clearProgress()
             Actions.toast(ctx, "Historial borrado")

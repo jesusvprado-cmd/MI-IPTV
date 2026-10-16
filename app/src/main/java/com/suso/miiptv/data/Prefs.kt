@@ -107,6 +107,11 @@ class Prefs(ctx: Context) {
         get() = str("subBg", "none")
         set(v) = putStr("subBg", v)
 
+    /** Logos de canales en alta calidad (bancos abiertos) en vez de los de la lista. */
+    var hqLogos: Boolean
+        get() = sp.getBoolean("hqLogos", true)
+        set(v) = putBool("hqLogos", v)
+
     /** Ajustar la frecuencia de la pantalla al vídeo (teles que lo admitan). */
     var afr: Boolean
         get() = sp.getBoolean("afr", false)

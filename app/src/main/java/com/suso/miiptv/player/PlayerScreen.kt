@@ -79,6 +79,7 @@ import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
 import androidx.media3.ui.SubtitleView
 import coil.compose.AsyncImage
+import com.suso.miiptv.data.Logos
 import com.suso.miiptv.data.PlayItem
 import com.suso.miiptv.data.Repo
 import com.suso.miiptv.ui.C
@@ -404,8 +405,9 @@ private fun LiveOverlay(ctl: PlayerCtl, item: PlayItem, fav: Boolean, onFav: () 
                 Modifier.width(120.dp).height(76.dp).clip(RoundedCornerShape(8.dp)).background(Color(0x33FFFFFF)),
                 contentAlignment = Alignment.Center,
             ) {
-                if (item.image != null) {
-                    AsyncImage(model = item.image, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().padding(8.dp))
+                val logo = remember(item.key, Logos.version) { Logos.url(item.title, item.image) }
+                if (logo != null) {
+                    AsyncImage(model = logo, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().padding(8.dp))
                 }
             }
             Spacer(Modifier.width(20.dp))
@@ -581,8 +583,9 @@ private fun ChannelListPanel(ctl: PlayerCtl, onPick: (Int) -> Unit, onClose: () 
                     val n = p.channel?.num?.takeIf { it > 0 } ?: (i + 1)
                     Text("$n", color = if (focused) Color.Black else C.gold, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(48.dp))
                     Box(Modifier.width(44.dp).height(28.dp), contentAlignment = Alignment.Center) {
-                        if (p.image != null) {
-                            AsyncImage(model = p.image, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
+                        val logo = remember(p.key, Logos.version) { Logos.url(p.title, p.image) }
+                        if (logo != null) {
+                            AsyncImage(model = logo, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
                         }
                     }
                     Spacer(Modifier.width(10.dp))

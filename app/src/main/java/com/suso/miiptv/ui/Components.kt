@@ -49,6 +49,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.suso.miiptv.data.Logos
+import com.suso.miiptv.data.Repo
 import kotlinx.coroutines.delay
 
 @Composable
@@ -249,6 +251,10 @@ fun ChannelCard(
     val scale by animateFloatAsState(if (focused) 1.08f else 1f, Motion.focusSpec(), label = "chan")
     val borderColor by animateColorAsState(if (focused) Color.White else Color.Transparent, Motion.focusSpec(), label = "cb")
     val shape = RoundedCornerShape(8.dp)
+    // Logo en alta calidad si se encuentra; el nombre de debajo se deja tal cual.
+    val sv = Repo.prefs.settingsVersion
+    val lv = Logos.version
+    val logo = remember(title, image, sv, lv) { Logos.url(title, image) }
     Column(modifier) {
         Box(
             Modifier
@@ -265,9 +271,9 @@ fun ChannelCard(
                 .border(2.dp, borderColor, shape),
             contentAlignment = Alignment.Center,
         ) {
-            if (image != null) {
+            if (logo != null) {
                 AsyncImage(
-                    model = image,
+                    model = logo,
                     contentDescription = null,
                     contentScale = ContentScale.Fit,
                     modifier = Modifier.fillMaxSize().padding(14.dp),
