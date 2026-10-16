@@ -107,7 +107,7 @@ object Logos {
     private val PREFIX = Regex("^\\W*([a-z]{2,3})\\s*[|:\\]\\)▎•·»\\-]+\\s*")
     private val BRACKETS = Regex("[\\[(][^\\])]*[\\])]")
     private val QUALITY = Regex(
-        "\\b(uhd|fhd|hd|sd|hq|lq|4k|8k|hevc|h265|h264|1080p?|720p?|2160p?|50fps|60fps|25fps|tdt|multi|vip|backup|bk|alt|raw|ott|plus|hdr|dolby|live|directo|ppv)\\b"
+        "\\b(uhd|fhd|hd|sd|hq|lq|4k|8k|hevc|h265|h264|1080p?|720p?|2160p?|50fps|60fps|25fps|tdt|multi|vip|backup|bk|alt|raw|ott|hdr|dolby|directo|ppv)\\b"
     )
 
     private fun norm(s: String): String =
