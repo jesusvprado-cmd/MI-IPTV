@@ -1,11 +1,20 @@
 package com.suso.miiptv.ui
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -17,6 +26,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -34,13 +44,22 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -51,6 +70,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.suso.miiptv.data.Episode
 import com.suso.miiptv.data.Item
+import com.suso.miiptv.data.Kind
 import com.suso.miiptv.data.MovieDetail
 import com.suso.miiptv.data.PlayItem
 import com.suso.miiptv.data.Prefs
@@ -58,15 +78,63 @@ import com.suso.miiptv.data.Repo
 import com.suso.miiptv.data.SeriesDetail
 import com.suso.miiptv.player.PlayQueue
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 // ---------------- Piezas comunes ----------------
 
-/** Imagen grande a la derecha que se funde con el negro, como en las capturas. */
+/** Lo que se muestra en la cabecera de una ficha (la película o serie, o un título relacionado). */
+private data class HeaderInfo(
+    val key: String,
+    val title: String,
+    val meta: String,
+    val rating: String?,
+    val plot: String?,
+    val director: String?,
+    val cast: String?,
+    val image: String?,
+)
+
+private fun plotLines(text: String?): String? = text?.replace("\\n", "\n")
+
+private fun MovieDetail.header() = HeaderInfo(
+    key = item.key,
+    title = title,
+    meta = listOfNotNull(year, duration, genre?.replace(",", " /")).joinToString(" · "),
+    rating = rating?.takeIf { it != "0" && it != "0.0" },
+    plot = plotLines(plot),
+    director = director,
+    cast = cast,
+    image = backdrop ?: poster ?: item.image,
+)
+
+private fun SeriesDetail.header() = HeaderInfo(
+    key = item.key,
+    title = title,
+    meta = listOfNotNull(year, genre?.replace(",", " /")).joinToString(" · "),
+    rating = rating?.takeIf { it != "0" && it != "0.0" },
+    plot = plotLines(plot),
+    director = null,
+    cast = cast,
+    image = backdrop ?: poster ?: item.image,
+)
+
+private fun basicHeader(item: Item) = HeaderInfo(item.key, item.name, "", item.rating, null, null, null, item.image)
+
+private suspend fun loadHeader(item: Item): HeaderInfo = try {
+    if (item.kind == Kind.SERIES) Repo.seriesDetail(item).header() else Repo.movieDetail(item).header()
+} catch (e: Exception) {
+    basicHeader(item)
+}
+
+/** Imagen grande a la derecha que se funde con el negro; cambia con un fundido. */
 @Composable
 private fun BoxScope.HeroImage(url: String?) {
-    if (url == null) return
     Box(Modifier.align(Alignment.TopEnd).fillMaxWidth(0.5f).fillMaxHeight(0.82f)) {
-        AsyncImage(model = url, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        Crossfade(targetState = url, animationSpec = tween(400), label = "hero") { u ->
+            if (u != null) {
+                AsyncImage(model = u, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            }
+        }
         Box(
             Modifier.fillMaxSize().background(
                 Brush.horizontalGradient(listOf(C.bg, C.bg.copy(alpha = 0.55f), Color.Transparent, Color.Transparent))
@@ -80,8 +148,12 @@ private fun BoxScope.HeroImage(url: String?) {
     }
 }
 
+/**
+ * Fila de títulos relacionados. Al pasar por encima de uno se avisa con [onPreview]
+ * para que la cabecera muestre sus datos sin pulsar OK.
+ */
 @Composable
-private fun RelatedRow(item: Item) {
+private fun RelatedRow(item: Item, onPreview: (Item) -> Unit) {
     var related by remember(item.key) { mutableStateOf<List<Item>>(emptyList()) }
     LaunchedEffect(item.key) {
         if (item.categoryId.isBlank()) return@LaunchedEffect
@@ -102,7 +174,53 @@ private fun RelatedRow(item: Item) {
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             itemsIndexed(related, key = { i, x -> "$i:${x.key}" }) { _, x ->
-                PosterCard(x.name, x.image, "rel_${x.key}", Modifier.width(90.dp)) { Actions.open(x) }
+                PosterCard(
+                    x.name, x.image, "rel_${x.key}", Modifier.width(90.dp),
+                    onFocus = { f -> if (f) onPreview(x) },
+                ) { Actions.open(x) }
+            }
+        }
+    }
+}
+
+/**
+ * Cabecera con título, datos y sinopsis. Cambia con un fundido cuando se pasa por un
+ * título relacionado. [onPlotOverflow] avisa si la sinopsis no cabe entera.
+ */
+@Composable
+private fun HeaderText(
+    info: HeaderInfo,
+    titleColor: Color,
+    maxPlotLines: Int,
+    modifier: Modifier,
+    onPlotOverflow: (String, Boolean) -> Unit,
+) {
+    AnimatedContent(
+        targetState = info,
+        transitionSpec = { fadeIn(tween(Motion.FADE_MS)) togetherWith fadeOut(tween(Motion.FADE_MS / 2)) },
+        contentKey = { it.key },
+        label = "header",
+        modifier = modifier,
+    ) { h ->
+        Column(Modifier.fillMaxWidth()) {
+            Text(
+                h.title, color = titleColor, fontSize = 30.sp, fontWeight = FontWeight.Bold,
+                lineHeight = 36.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(6.dp))
+            if (h.meta.isNotBlank()) Text(h.meta, color = C.text2, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            h.rating?.let {
+                Spacer(Modifier.height(2.dp))
+                Text("★ $it", color = C.gold, fontSize = 15.sp)
+            }
+            Spacer(Modifier.height(10.dp))
+            h.plot?.let { p -> FittingPlot(p, Modifier.weight(1f, fill = false), maxPlotLines) { o -> onPlotOverflow(h.key, o) } }
+            h.director?.let {
+                Spacer(Modifier.height(6.dp))
+                Text("Dirección: $it", color = C.text2, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            h.cast?.let {
+                Text("Reparto: $it", color = C.text2, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -110,20 +228,127 @@ private fun RelatedRow(item: Item) {
 
 /** Sinopsis que ocupa el hueco disponible y se recorta con «…» si no cabe. */
 @Composable
-private fun FittingPlot(text: String, modifier: Modifier, maxLinesCap: Int = 8) {
+private fun FittingPlot(text: String, modifier: Modifier, maxLinesCap: Int, onOverflow: (Boolean) -> Unit) {
     BoxWithConstraints(modifier) {
         val lh = with(LocalDensity.current) { 21.sp.toDp() }
         val lines = if (constraints.hasBoundedHeight) (maxHeight / lh).toInt().coerceIn(1, maxLinesCap) else maxLinesCap
-        Text(text, color = Color(0xFFE6E6E6), fontSize = 15.sp, lineHeight = 21.sp, maxLines = lines, overflow = TextOverflow.Ellipsis)
+        Text(
+            text, color = Color(0xFFE6E6E6), fontSize = 15.sp, lineHeight = 21.sp,
+            maxLines = lines, overflow = TextOverflow.Ellipsis,
+            onTextLayout = { r -> onOverflow(r.hasVisualOverflow) },
+        )
     }
+}
+
+/** Panel con la sinopsis completa, el reparto y la dirección. Se cierra con Atrás. */
+@Composable
+private fun FullPlotPanel(info: HeaderInfo, onClose: () -> Unit) {
+    BackHandler { onClose() }
+    val scroll = rememberScrollState()
+    val scope = rememberCoroutineScope()
+    val fr = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        delay(60)
+        runCatching { fr.requestFocus() }
+    }
+    Box(
+        Modifier.fillMaxSize().background(Color(0xF2000000)).fadeInOnChange(info.key),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            Modifier
+                .widthIn(max = 760.dp)
+                .fillMaxWidth()
+                .padding(horizontal = 48.dp, vertical = 32.dp)
+                .focusRequester(fr)
+                .onPreviewKeyEvent { e ->
+                    if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                    when (e.key) {
+                        Key.DirectionDown -> {
+                            scope.launch { scroll.animateScrollBy(180f) }
+                            true
+                        }
+                        Key.DirectionUp -> {
+                            scope.launch { scroll.animateScrollBy(-180f) }
+                            true
+                        }
+                        Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
+                            onClose()
+                            true
+                        }
+                        // Izquierda/derecha no salen del panel.
+                        Key.DirectionLeft, Key.DirectionRight -> true
+                        else -> false
+                    }
+                }
+                .focusable()
+                .verticalScroll(scroll),
+        ) {
+            Text(info.title, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold, lineHeight = 34.sp)
+            if (info.meta.isNotBlank()) {
+                Spacer(Modifier.height(6.dp))
+                Text(info.meta, color = C.text2, fontSize = 15.sp)
+            }
+            Spacer(Modifier.height(16.dp))
+            Text(info.plot ?: "", color = Color(0xFFEDEDED), fontSize = 17.sp, lineHeight = 25.sp)
+            info.director?.let {
+                Spacer(Modifier.height(14.dp))
+                Text("Dirección: $it", color = C.text2, fontSize = 15.sp)
+            }
+            info.cast?.let {
+                Spacer(Modifier.height(6.dp))
+                Text("Reparto: $it", color = C.text2, fontSize = 15.sp, lineHeight = 21.sp)
+            }
+            Spacer(Modifier.height(20.dp))
+            Text("▲▼ desplazar · OK o Atrás para cerrar", color = C.gold, fontSize = 13.sp)
+        }
+    }
+}
+
+/**
+ * Lógica común: qué cabecera se ve (la propia o la de un relacionado enfocado)
+ * y si la sinopsis propia se ha recortado.
+ */
+private class HeaderState {
+    var previewItem by mutableStateOf<Item?>(null)
+    var previewInfo by mutableStateOf<HeaderInfo?>(null)
+    var overflow by mutableStateOf(false)
+    var fullOpen by mutableStateOf(false)
+    val cache = HashMap<String, HeaderInfo>()
+    val moreFr = FocusRequester()
+}
+
+@Composable
+private fun rememberHeaderState(key: String): HeaderState {
+    val st = remember(key) { HeaderState() }
+    // Al cerrar el panel de la sinopsis, el foco vuelve a «Leer más».
+    var wasOpen by remember(key) { mutableStateOf(false) }
+    LaunchedEffect(st.fullOpen) {
+        if (st.fullOpen) {
+            wasOpen = true
+        } else if (wasOpen) {
+            wasOpen = false
+            delay(60)
+            runCatching { st.moreFr.requestFocus() }
+        }
+    }
+    LaunchedEffect(st.previewItem?.key) {
+        val p = st.previewItem
+        if (p == null) {
+            st.previewInfo = null
+            return@LaunchedEffect
+        }
+        delay(350)
+        val h = st.cache[p.key] ?: loadHeader(p).also { st.cache[p.key] = it }
+        if (st.previewItem?.key == p.key) st.previewInfo = h
+    }
+    return st
 }
 
 @Composable
 private fun SmallLoading() {
     CircularProgressIndicator(color = C.gold, modifier = Modifier.size(32.dp))
 }
-
-private fun plotLines(text: String?): String? = text?.replace("\\n", "\n")
 
 // ---------------- Ficha de película ----------------
 
@@ -150,6 +375,10 @@ fun MovieDetailScreen(item: Item) {
             runCatching { playFr.requestFocus() }
         }
     }
+    val hs = rememberHeaderState(item.key)
+    val own = det?.header() ?: basicHeader(item)
+    val shown = hs.previewInfo ?: own
+    val previewing = hs.previewInfo != null
 
     fun play(from: Long) {
         val m = d ?: return
@@ -166,9 +395,9 @@ fun MovieDetailScreen(item: Item) {
         }
     }
 
-    // Todo cabe en la pantalla: el foco en «Reproducir» ya no desplaza la ficha ni corta el título.
+    // Todo cabe en la pantalla: el foco en «Reproducir» no desplaza la ficha ni corta el título.
     Box(Modifier.fillMaxSize().background(C.bg)) {
-        HeroImage(det?.backdrop ?: det?.poster ?: item.image)
+        HeroImage(shown.image)
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val showRelated = maxHeight >= 470.dp
             Column(Modifier.fillMaxSize()) {
@@ -178,31 +407,20 @@ fun MovieDetailScreen(item: Item) {
                         .weight(1f)
                         .padding(start = 48.dp, top = 28.dp, end = 16.dp, bottom = 6.dp),
                 ) {
-                    Text(
-                        det?.title ?: item.name, color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold,
-                        lineHeight = 36.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    val meta = listOfNotNull(det?.year, det?.duration, det?.genre?.replace(",", " /")).joinToString(" · ")
-                    if (meta.isNotBlank()) Text(meta, color = C.text2, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    det?.rating?.takeIf { it != "0" && it != "0.0" }?.let {
-                        Spacer(Modifier.height(2.dp))
-                        Text("★ $it", color = C.gold, fontSize = 15.sp)
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    plotLines(det?.plot)?.let { FittingPlot(it, Modifier.weight(1f, fill = false)) }
-                    det?.director?.let {
-                        Spacer(Modifier.height(6.dp))
-                        Text("Dirección: $it", color = C.text2, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                    det?.cast?.let {
-                        Text("Reparto: $it", color = C.text2, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    HeaderText(shown, Color.White, 8, Modifier.weight(1f, fill = false)) { k, o ->
+                        if (k == own.key) hs.overflow = o
                     }
                     Spacer(Modifier.height(16.dp))
                     if (det == null) {
                         SmallLoading()
                     } else {
-                        Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            Modifier
+                                .graphicsLayer { alpha = if (previewing) 0.35f else 1f }
+                                .onFocusChanged { if (it.hasFocus) hs.previewItem = null },
+                            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
                             TvButton(
                                 if (prog != null) "Continuar ${fmtTime(prog.pos)}" else "Reproducir",
                                 "d_play",
@@ -211,6 +429,7 @@ fun MovieDetailScreen(item: Item) {
                                 focusRequester = playFr,
                             ) { play(prog?.pos ?: 0L) }
                             if (prog != null) TvButton("Empezar", "d_restart") { play(0L) }
+                            if (hs.overflow) TvButton("Leer más", "d_more", focusRequester = hs.moreFr) { hs.fullOpen = true }
                             TvButton(null, "d_fav", icon = if (fav) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder) {
                                 Actions.toggleFav(ctx, item)
                             }
@@ -219,11 +438,12 @@ fun MovieDetailScreen(item: Item) {
                     }
                 }
                 if (showRelated) {
-                    RelatedRow(item)
+                    RelatedRow(item) { x -> hs.previewItem = x }
                     Spacer(Modifier.height(16.dp))
                 }
             }
         }
+        if (hs.fullOpen) FullPlotPanel(own) { hs.fullOpen = false }
     }
 }
 
@@ -244,11 +464,9 @@ fun SeriesDetailScreen(item: Item) {
             SeriesDetail(item, item.name, null, null, null, item.image, null, null, null, emptyList())
         }
     }
+    // Todas las temporadas empiezan plegadas; se despliegan con OK.
     var open by remember(item.key) { mutableStateOf<Int?>(null) }
     val det = d
-    LaunchedEffect(det) {
-        if (det != null && open == null && det.seasons.isNotEmpty()) open = det.seasons[0].first
-    }
     val pv = Repo.prefs.version
     val fav = remember(pv) { Repo.prefs.isFavorite(item.key) }
     val lastEp: Prefs.Progress? = remember(pv) { Repo.prefs.progressList().firstOrNull { it.play.key.startsWith("EP|${item.id}|") } }
@@ -260,6 +478,11 @@ fun SeriesDetailScreen(item: Item) {
             runCatching { firstFr.requestFocus() }
         }
     }
+    val hs = rememberHeaderState(item.key)
+    val own = det?.header() ?: basicHeader(item)
+    val shown = hs.previewInfo ?: own
+    val previewing = hs.previewInfo != null
+    val clearPreview = Modifier.onFocusChanged { if (it.hasFocus) hs.previewItem = null }
 
     fun playEpisodes(eps: List<Episode>, index: Int) {
         val m = d ?: return
@@ -292,22 +515,20 @@ fun SeriesDetailScreen(item: Item) {
 
     // Cabecera fija arriba; solo se desplaza la lista de temporadas y episodios.
     Box(Modifier.fillMaxSize().background(C.bg)) {
-        HeroImage(det?.backdrop ?: det?.poster ?: item.image)
+        HeroImage(shown.image)
         Column(Modifier.fillMaxSize()) {
             Column(Modifier.fillMaxWidth(0.62f).padding(start = 48.dp, top = 28.dp, end = 16.dp)) {
-                Text(
-                    det?.title ?: item.name, color = C.gold, fontSize = 30.sp, fontWeight = FontWeight.Bold,
-                    lineHeight = 36.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(Modifier.height(6.dp))
-                val meta = listOfNotNull(det?.year, det?.genre?.replace(",", " /")).joinToString(" · ")
-                if (meta.isNotBlank()) Text(meta, color = C.text2, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Spacer(Modifier.height(10.dp))
-                plotLines(det?.plot)?.let {
-                    Text(it, color = Color(0xFFE6E6E6), fontSize = 15.sp, lineHeight = 21.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                HeaderText(shown, C.gold, 3, Modifier.fillMaxWidth()) { k, o ->
+                    if (k == own.key) hs.overflow = o
                 }
                 Spacer(Modifier.height(14.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    Modifier
+                        .graphicsLayer { alpha = if (previewing) 0.35f else 1f }
+                        .then(clearPreview),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     if (lastEp != null && det != null) {
                         TvButton(
                             "Continuar " + (lastEp.play.subtitle?.substringBefore(" - ") ?: ""),
@@ -317,6 +538,7 @@ fun SeriesDetailScreen(item: Item) {
                             focusRequester = firstFr,
                         ) { continueLast() }
                     }
+                    if (hs.overflow) TvButton("Leer más", "s_more", focusRequester = hs.moreFr) { hs.fullOpen = true }
                     TvButton(
                         null,
                         "s_fav",
@@ -343,14 +565,14 @@ fun SeriesDetailScreen(item: Item) {
                     }
                     else -> det.seasons.forEach { (season, eps) ->
                         this.item(key = "s$season") {
-                            Box(Modifier.fillMaxWidth(0.62f).padding(start = 48.dp, end = 16.dp)) {
+                            Box(Modifier.fillMaxWidth(0.62f).padding(start = 48.dp, end = 16.dp).then(clearPreview)) {
                                 SeasonRow(season, eps.size, open == season) { open = if (open == season) null else season }
                             }
                         }
                         if (open == season) {
                             this.itemsIndexed(eps, key = { _, ep -> "e${ep.id}" }) { i, ep ->
                                 val p = Repo.prefs.progress(epKey(item.id, ep))
-                                Box(Modifier.fillMaxWidth(0.62f).padding(start = 48.dp, end = 16.dp)) {
+                                Box(Modifier.fillMaxWidth(0.62f).padding(start = 48.dp, end = 16.dp).then(clearPreview)) {
                                     EpisodeRow(ep, p, "ep_${ep.id}") { playEpisodes(eps, i) }
                                 }
                             }
@@ -358,11 +580,14 @@ fun SeriesDetailScreen(item: Item) {
                     }
                 }
                 this.item(key = "related") {
-                    Spacer(Modifier.height(24.dp))
-                    RelatedRow(item)
+                    Column(Modifier.fillMaxWidth()) {
+                        Spacer(Modifier.height(24.dp))
+                        RelatedRow(item) { x -> hs.previewItem = x }
+                    }
                 }
             }
         }
+        if (hs.fullOpen) FullPlotPanel(own) { hs.fullOpen = false }
     }
 }
 
