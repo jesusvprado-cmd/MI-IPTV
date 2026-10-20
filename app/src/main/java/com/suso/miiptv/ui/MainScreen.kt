@@ -84,7 +84,6 @@ fun MainScreen() {
 private fun TopBar(restoring: Boolean) {
     // La sección cambia sola al ponerse encima (con una pausa corta para poder pasar de largo).
     var hovered by remember { mutableStateOf<Tab?>(null) }
-    val tabPos = remember { mutableStateMapOf<Tab, Pair<Float, Float>>() }
     LaunchedEffect(hovered) {
         val h = hovered ?: return@LaunchedEffect
         delay(260)
@@ -115,7 +114,6 @@ private fun TopBar(restoring: Boolean) {
                                     focusKey = "tab_${t.name}",
                                     focusRequester = UiState.tabRequester(t),
                                     requestInitial = !restoring && UiState.tab == t,
-                                    onPlaced = { x, w -> tabPos[t] = x to w },
                                     onFocusChange = { f ->
                                         if (f) hovered = t else if (hovered == t) hovered = null
                                     },
@@ -124,22 +122,6 @@ private fun TopBar(restoring: Boolean) {
                                     if (UiState.tab != t) UiState.tab = t
                                 }
                             }
-                        }
-                        // Rayita dorada bajo la sección activa, que se desliza al cambiar.
-                        val pos = tabPos[UiState.tab]
-                        if (pos != null) {
-                            val density = LocalDensity.current
-                            val lineW = with(density) { (pos.second * 0.5f).toDp() }
-                            val x by animateFloatAsState(pos.first + pos.second * 0.25f, tween(320, easing = FastOutSlowInEasing), label = "tabx")
-                            Box(
-                                Modifier
-                                    .align(Alignment.BottomStart)
-                                    .offset { IntOffset(x.roundToInt(), 0) }
-                                    .width(lineW)
-                                    .height(3.dp)
-                                    .clip(RoundedCornerShape(2.dp))
-                                    .background(GoldBrush)
-                            )
                         }
                     }
                 }
@@ -180,7 +162,6 @@ private fun TopTab(
     focusKey: String,
     focusRequester: FocusRequester,
     requestInitial: Boolean,
-    onPlaced: (Float, Float) -> Unit,
     onFocusChange: (Boolean) -> Unit,
     onClick: () -> Unit,
 ) {
@@ -203,7 +184,6 @@ private fun TopTab(
     )
     Box(
         Modifier
-            .onGloballyPositioned { c -> onPlaced(c.positionInParent().x, c.size.width.toFloat()) }
             .focusRequester(focusRequester)
             .memFocus(focusKey) {
                 focused = it
