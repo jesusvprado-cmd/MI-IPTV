@@ -117,6 +117,7 @@ object Logos {
     private fun find(name: String): String? {
         movistarLaLiga(name)?.let { return it }
         movistarChampions(name)?.let { return it }
+        special(name)?.let { return it }
         // La 1 UHD tiene su propio logo.
         clean(name).let { c -> if ((ALIAS[c.key] ?: c.key) == "tve1" && UHD_WORD.containsMatchIn(name)) return LA1_UHD }
         findOne(clean(name))?.let { return it }
@@ -167,9 +168,22 @@ object Logos {
         }
     }
 
+    // ---------------- Casos especiales pedidos ----------------
+
+    private val NBA_WORD = Regex("(?i)\\bnba\\b")
+    private val DAZN_LALIGA = Regex("(?i)\\bdazn\\b.*\\bla\\s*liga\\b")
+
+    /** Todos los canales NBA con el logo de la NBA; todos los DAZN LaLiga (2, 3, script...) con el de DAZN LaLiga. */
+    private fun special(name: String): String? {
+        val n = Normalizer.normalize(name, Normalizer.Form.NFKD).replace(Regex("\\p{Mn}+"), "")
+        if (NBA_WORD.containsMatchIn(n)) return LOGOPEDIA + "4/4c/NBA_2017.svg/revision/latest/scale-to-width-down/600"
+        if (DAZN_LALIGA.containsMatchIn(n)) tvLogos["daznlaliga"]?.let { return pick(it, "spain") }
+        return null
+    }
+
     // ---------------- Liga de Campeones por Movistar Plus+ (logo actual, 2023) ----------------
 
-    private val LDC_MAIN = LOGOPEDIA + "c/c9/Liga_de_Campeones_por_Movistar_Plus%2B_2023.svg/revision/latest/scale-to-width-down/700"
+    private val LDC_MAIN = LOGOPEDIA + "c/c9/Liga_de_Campeones_por_Movistar_Plus%2B_2023.svg/revision/latest/scale-to-width-down/1000"
 
     /**
      * Canales de Liga de Campeones de Movistar Plus+. Los logos numerados del banco son diminutos (unos 200 px),
