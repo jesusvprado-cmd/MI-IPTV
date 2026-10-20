@@ -104,7 +104,7 @@ fun HomeScreen() {
             if (rows.isEmpty()) {
                 EmptyText("La lista no tiene contenido")
             } else {
-                CompositionLocalProvider(LocalBringIntoViewSpec provides HomeBringIntoView) {
+                CompositionLocalProvider(LocalBringIntoViewSpec provides RevealBringIntoView) {
                 LazyColumn(
                     state = UiState.homeList,
                     modifier = Modifier.fillMaxSize(),

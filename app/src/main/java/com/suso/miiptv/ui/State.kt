@@ -43,7 +43,9 @@ class BrowseState {
     var loadedSel: String? = null
     var lastItems: List<Item>? = null
     /** Última tarjeta de la cuadrícula que tuvo el foco (para volver a ella con ▶ desde las categorías). */
-    var lastIdx by mutableStateOf(-1)
+    var lastIdx = -1
+    /** Tarjetas de la cuadrícula que están en pantalla, por posición. */
+    val reqs = HashMap<Int, androidx.compose.ui.focus.FocusRequester>()
 }
 
 /** Estado de navegación que sobrevive al ir y volver de las fichas y del reproductor. */

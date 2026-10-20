@@ -21,7 +21,10 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,7 +51,7 @@ const val FAV = "__fav"
 const val RECENT = "__recent"
 
 /** Pantallas "TV en directo", "Películas" y "Series": categorías a la izquierda y cuadrícula a la derecha. */
-@OptIn(ExperimentalComposeUiApi::class)
+@OptIn(ExperimentalComposeUiApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun BrowseScreen(kind: Kind) {
     val ctx = LocalContext.current
@@ -118,14 +121,13 @@ fun BrowseScreen(kind: Kind) {
     }
 
     // ▶ desde una categoría lleva siempre a la cuadrícula: a la última tarjeta usada si se ve, o a la primera visible.
-    val gridFr = remember(kind) { FocusRequester() }
+    // (Se calcula solo al pulsar ▶, sin redibujar la pantalla en cada movimiento.)
     val ready = content?.isNotEmpty() == true
-    val grid = st.grid
-    val targetIdx by remember(grid) {
-        derivedStateOf {
-            val visible = grid.layoutInfo.visibleItemsInfo.map { it.index }
-            if (st.lastIdx in visible) st.lastIdx else (visible.firstOrNull() ?: 0)
-        }
+    fun gridTarget(): FocusRequester {
+        if (!ready) return FocusRequester.Cancel
+        val visible = st.grid.layoutInfo.visibleItemsInfo.map { it.index }
+        val i = if (st.lastIdx in visible) st.lastIdx else visible.firstOrNull()
+        return i?.let { st.reqs[it] } ?: FocusRequester.Default
     }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -137,7 +139,7 @@ fun BrowseScreen(kind: Kind) {
                 contentPadding = PaddingValues(start = if (narrow) 6.dp else 22.dp, end = 6.dp, top = 14.dp, bottom = 24.dp),
             ) {
                 itemsIndexed(allCats, key = { i, c -> "$i:${c.id}" }) { _, c ->
-                    Box(Modifier.focusProperties { right = if (ready) gridFr else FocusRequester.Cancel }) {
+                    Box(Modifier.focusProperties { right = gridTarget() }) {
                     CategoryRow(
                         name = c.name,
                         selected = c.id == sel,
@@ -161,7 +163,8 @@ fun BrowseScreen(kind: Kind) {
                         if (sel == FAV) "Aún no tienes favoritos aquí.\nAñádelos con el botón ♥ de la ficha o manteniendo pulsado OK."
                         else "No hay contenido en esta categoría"
                     )
-                    else -> LazyVerticalGrid(
+                    else -> CompositionLocalProvider(LocalBringIntoViewSpec provides RevealBringIntoView) {
+                    LazyVerticalGrid(
                         columns = GridCells.Adaptive(if (kind == Kind.LIVE) 150.dp else 128.dp),
                         state = st.grid,
                         modifier = Modifier.fillMaxSize().fadeInOnChange(its),
@@ -171,7 +174,12 @@ fun BrowseScreen(kind: Kind) {
                     ) {
                         itemsIndexed(its, key = { i, x -> "$i:${x.key}" }) { i, x ->
                             val fk = "g_${kind.name}_${sel}_${x.key}"
-                            val m = if (i == targetIdx) Modifier.focusRequester(gridFr) else Modifier
+                            val fr = remember { FocusRequester() }
+                            DisposableEffect(i, fr) {
+                                st.reqs[i] = fr
+                                onDispose { if (st.reqs[i] === fr) st.reqs.remove(i) }
+                            }
+                            val m = Modifier.focusRequester(fr)
                             if (kind == Kind.LIVE) {
                                 ChannelCard(
                                     x.name, x.image, fk, m,
@@ -187,6 +195,7 @@ fun BrowseScreen(kind: Kind) {
                                 ) { Actions.open(x) }
                             }
                         }
+                    }
                     }
                 }
             }

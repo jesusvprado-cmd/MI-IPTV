@@ -68,3 +68,21 @@ val HomeBringIntoView = object : BringIntoViewSpec {
         return TvBringIntoView.calculateScrollDistance(offset, size, containerSize)
     }
 }
+
+/**
+ * Cuadrículas (Películas, Series, canales): mientras la tarjeta se ve entera no se mueve nada;
+ * al llegar al borde se desplaza solo lo justo, con un margen, y con la curva suave.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+val RevealBringIntoView = object : BringIntoViewSpec {
+    override val scrollAnimationSpec: AnimationSpec<Float> = TvBringIntoView.scrollAnimationSpec
+
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
+        val margin = (containerSize * 0.14f).coerceAtMost(containerSize - size).coerceAtLeast(0f)
+        return when {
+            offset < margin -> offset - margin
+            offset + size > containerSize - margin -> offset + size - (containerSize - margin)
+            else -> 0f
+        }
+    }
+}

@@ -141,7 +141,8 @@ fun AmbientBackground(enabled: Boolean) {
     val target = if (enabled) Ambient.image else null
     var shown by remember { mutableStateOf(target) }
     LaunchedEffect(target) {
-        delay(350)
+        // Espera a que dejes de moverte para cambiar el fondo (así el desplazamiento va fluido).
+        delay(650)
         shown = target
     }
     val ctx = LocalContext.current
