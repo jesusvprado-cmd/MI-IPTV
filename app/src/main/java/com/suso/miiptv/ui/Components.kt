@@ -48,24 +48,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.Brush
 import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
+import com.suso.miiptv.data.Item
 import com.suso.miiptv.data.Logos
 import com.suso.miiptv.data.Repo
 import kotlinx.coroutines.delay
 
 @Composable
 fun Logo(dp: Dp) {
-    Canvas(Modifier.size(dp)) {
-        drawCircle(C.gold)
-        val w = size.width
-        val p = Path().apply {
-            moveTo(w * 0.40f, w * 0.29f)
-            lineTo(w * 0.73f, w * 0.50f)
-            lineTo(w * 0.40f, w * 0.71f)
-            close()
-        }
-        drawPath(p, Color.Black)
-    }
+    BrandMark(dp)
 }
 
 /** Pestaña del menú superior: con borde si está elegida, blanca si tiene el foco. */
@@ -167,11 +160,13 @@ fun PosterCard(
     modifier: Modifier = Modifier,
     progress: Float? = null,
     subtitle: String? = null,
+    item: Item? = null,
     onFocus: ((Boolean) -> Unit)? = null,
     onLong: (() -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
+    var loaded by remember(image) { mutableStateOf(false) }
     val scale by animateFloatAsState(if (focused) 1.08f else 1f, Motion.focusSpec(), label = "poster")
     val borderColor by animateColorAsState(if (focused) Color.White else Color.Transparent, Motion.focusSpec(), label = "pb")
     val shape = RoundedCornerShape(8.dp)
@@ -183,6 +178,7 @@ fun PosterCard(
                 .graphicsLayer { scaleX = scale; scaleY = scale }
                 .memFocus(focusKey) {
                     focused = it
+                    if (it && image != null) Ambient.image = image
                     onFocus?.invoke(it)
                 }
                 .tvClick(onLong, onClick)
@@ -191,11 +187,18 @@ fun PosterCard(
                 .border(2.dp, borderColor, shape)
         ) {
             if (image != null) {
+                if (!loaded) Box(Modifier.fillMaxSize().shimmer(RoundedCornerShape(0.dp)))
                 AsyncImage(
                     model = image,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
+                    onState = { st -> loaded = st !is AsyncImagePainter.State.Loading && st !is AsyncImagePainter.State.Empty },
+                )
+                // Degradado inferior para que las insignias se lean sobre cualquier carátula.
+                Box(
+                    Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.3f)
+                        .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0x99000000))))
                 )
             } else {
                 Text(
@@ -207,6 +210,7 @@ fun PosterCard(
                     modifier = Modifier.align(Alignment.Center).padding(8.dp),
                 )
             }
+            PosterBadges(item)
             if (progress != null) {
                 Box(
                     Modifier
@@ -255,6 +259,9 @@ fun ChannelCard(
     val sv = Repo.prefs.settingsVersion
     val lv = Logos.version
     val logo = remember(title, image, sv, lv) { Logos.url(title, image) }
+    // Los logos oscuros (Telecinco, La 1...) van sobre un fondo claro para que se vean bien.
+    val darkLogo = LogoTone.isDark(logo)
+    val cardBg by animateColorAsState(if (darkLogo) LogoTone.light else C.card, Motion.focusSpec(), label = "cbg")
     Column(modifier) {
         Box(
             Modifier
@@ -267,17 +274,12 @@ fun ChannelCard(
                 }
                 .tvClick(onLong, onClick)
                 .clip(shape)
-                .background(C.card)
-                .border(2.dp, borderColor, shape),
+                .background(cardBg)
+                .border(2.dp, if (darkLogo && focused) C.gold else borderColor, shape),
             contentAlignment = Alignment.Center,
         ) {
             if (logo != null) {
-                AsyncImage(
-                    model = logo,
-                    contentDescription = null,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxSize().padding(14.dp),
-                )
+                ChannelLogoImage(logo, Modifier.fillMaxSize().padding(14.dp))
             } else {
                 Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Color(0xFF4A4A4A), modifier = Modifier.size(40.dp))
             }

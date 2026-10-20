@@ -27,6 +27,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.suso.miiptv.data.Kind
 import kotlinx.coroutines.delay
 
@@ -34,7 +35,10 @@ import kotlinx.coroutines.delay
 fun MainScreen() {
     // Si volvemos de una ficha, el foco lo recupera la tarjeta; si no, va a la pestaña.
     val restoring = remember { FocusMemory.restore != null }
-    Column(Modifier.fillMaxSize().background(C.bg)) {
+    Box(Modifier.fillMaxSize().background(C.bg)) {
+    // Fondo que toma el color de la carátula con el foco (Inicio, Películas y Series).
+    AmbientBackground(enabled = UiState.tab == Tab.HOME || UiState.tab == Tab.MOVIES || UiState.tab == Tab.SERIES)
+    Column(Modifier.fillMaxSize()) {
         TopBar(restoring)
         Box(Modifier.fillMaxWidth().weight(1f).fadeInOnChange(UiState.tab)) {
             when (UiState.tab) {
@@ -45,6 +49,7 @@ fun MainScreen() {
                 Tab.SEARCH -> SearchScreen()
             }
         }
+    }
     }
 }
 
@@ -93,10 +98,28 @@ private fun TopBar(restoring: Boolean) {
                 }
             }
             Spacer(Modifier.width(12.dp))
+            Clock()
+            Spacer(Modifier.width(14.dp))
             TabChip(text = "Ajustes", selected = false, focusKey = "tab_settings", icon = Icons.Filled.Settings) {
                 UiState.push(Screen.Settings)
             }
         }
         Box(Modifier.fillMaxWidth().height(1.dp).background(C.divider))
     }
+}
+
+/** Hora en la esquina, como en las apps de TV. */
+@Composable
+fun Clock(fontSize: Int = 18) {
+    var now by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            now = System.currentTimeMillis()
+            delay(60_000 - now % 60_000 + 50)
+        }
+    }
+    androidx.compose.material3.Text(
+        hm(now), color = androidx.compose.ui.graphics.Color.White, fontSize = fontSize.sp,
+        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+    )
 }

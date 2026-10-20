@@ -1,0 +1,70 @@
+package com.suso.miiptv.ui
+
+import android.graphics.Bitmap
+import android.graphics.drawable.BitmapDrawable
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import kotlin.math.pow
+
+/**
+ * Detecta los logos oscuros (p. ej. Telecinco o La 1, azul marino) que casi no se ven sobre el fondo negro,
+ * para ponerles detrás un fondo claro.
+ */
+object LogoTone {
+    /** Fondo claro para los logos oscuros. */
+    val light = Color(0xFFECECEF)
+
+    private val dark = mutableStateMapOf<String, Boolean>()
+
+    fun isDark(url: String?): Boolean = url != null && dark[url] == true
+
+    private fun lin(c: Int): Double {
+        val v = c / 255.0
+        return if (v <= 0.04045) v / 12.92 else ((v + 0.055) / 1.055).pow(2.4)
+    }
+
+    fun analyze(url: String, bmp: Bitmap) {
+        if (dark.containsKey(url)) return
+        val result = try {
+            val small = Bitmap.createScaledBitmap(bmp, 32, 32, true)
+            val bg = lin(0x1C)
+            var opaque = 0
+            var visible = 0
+            for (y in 0 until small.height) for (x in 0 until small.width) {
+                val p = small.getPixel(x, y)
+                if ((p ushr 24) < 110) continue
+                opaque++
+                val l = 0.2126 * lin((p shr 16) and 0xFF) + 0.7152 * lin((p shr 8) and 0xFF) + 0.0722 * lin(p and 0xFF)
+                if ((l + 0.05) / (bg + 0.05) >= 3.0) visible++
+            }
+            if (small !== bmp) small.recycle()
+            // Si menos de un tercio del logo destaca sobre el fondo oscuro, se considera oscuro.
+            opaque > 20 && visible.toDouble() / opaque < 0.35
+        } catch (e: Exception) {
+            false
+        }
+        dark[url] = result
+    }
+}
+
+/** Imagen de logo de canal que avisa a [LogoTone] para saber si es oscuro. */
+@Composable
+fun ChannelLogoImage(url: String, modifier: Modifier = Modifier) {
+    val ctx = LocalContext.current
+    AsyncImage(
+        model = ImageRequest.Builder(ctx).data(url).allowHardware(false).build(),
+        contentDescription = null,
+        contentScale = ContentScale.Fit,
+        modifier = modifier,
+        onSuccess = { s ->
+            val d = s.result.drawable
+            if (d is BitmapDrawable) d.bitmap?.let { LogoTone.analyze(url, it) }
+        },
+    )
+}

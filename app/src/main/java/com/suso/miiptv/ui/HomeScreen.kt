@@ -89,17 +89,19 @@ fun HomeScreen() {
     val b = base
     when {
         err != null -> ErrorBox(err) { Repo.reload() }
-        b == null -> Loading("Cargando tu lista…")
+        b == null -> SkeletonHome()
         else -> {
             val rows = extra + b
+            val hero = remember(b) { heroCandidates(b) }
             if (rows.isEmpty()) {
                 EmptyText("La lista no tiene contenido")
             } else {
                 LazyColumn(
                     state = UiState.homeList,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(top = 18.dp, bottom = 40.dp),
+                    contentPadding = PaddingValues(top = 6.dp, bottom = 40.dp),
                 ) {
+                    if (hero.isNotEmpty()) item(key = "hero") { HeroCarousel(hero) }
                     items(rows, key = { it.key }) { row -> HomeRowView(row) }
                 }
             }
@@ -138,7 +140,7 @@ fun HomeRowView(row: HomeRow) {
                             Actions.playLive(ctx, row.items, i)
                         }
                     } else {
-                        PosterCard(x.name, x.image, fk, Modifier.width(130.dp), onLong = { Actions.toggleFav(ctx, x) }) {
+                        PosterCard(x.name, x.image, fk, Modifier.width(130.dp), item = x, onLong = { Actions.toggleFav(ctx, x) }) {
                             Actions.open(x)
                         }
                     }

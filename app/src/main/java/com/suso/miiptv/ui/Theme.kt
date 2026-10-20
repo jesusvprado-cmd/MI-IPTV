@@ -1,6 +1,12 @@
 package com.suso.miiptv.ui
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import com.suso.miiptv.R
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
@@ -21,6 +27,29 @@ object C {
     val error = Color(0xFFFF6B6B)
 }
 
+/** Tipografía Manrope en toda la app. */
+val Manrope = FontFamily(
+    Font(R.font.manrope_regular, FontWeight.Normal),
+    Font(R.font.manrope_medium, FontWeight.Medium),
+    Font(R.font.manrope_semibold, FontWeight.SemiBold),
+    Font(R.font.manrope_bold, FontWeight.Bold),
+    Font(R.font.manrope_extrabold, FontWeight.ExtraBold),
+    Font(R.font.manrope_extrabold, FontWeight.Black),
+    Font(R.font.manrope_regular, FontWeight.Light),
+)
+
+private fun TextStyle.m() = copy(fontFamily = Manrope)
+
+private val AppTypography = Typography().let { t ->
+    Typography(
+        displayLarge = t.displayLarge.m(), displayMedium = t.displayMedium.m(), displaySmall = t.displaySmall.m(),
+        headlineLarge = t.headlineLarge.m(), headlineMedium = t.headlineMedium.m(), headlineSmall = t.headlineSmall.m(),
+        titleLarge = t.titleLarge.m(), titleMedium = t.titleMedium.m(), titleSmall = t.titleSmall.m(),
+        bodyLarge = t.bodyLarge.m(), bodyMedium = t.bodyMedium.m(), bodySmall = t.bodySmall.m(),
+        labelLarge = t.labelLarge.m(), labelMedium = t.labelMedium.m(), labelSmall = t.labelSmall.m(),
+    )
+}
+
 @Composable
 fun AppTheme(content: @Composable () -> Unit) {
     MaterialTheme(
@@ -36,6 +65,7 @@ fun AppTheme(content: @Composable () -> Unit) {
             onSurfaceVariant = C.text2,
             outline = Color(0xFF777777),
         ),
+        typography = AppTypography,
         content = content,
     )
 }

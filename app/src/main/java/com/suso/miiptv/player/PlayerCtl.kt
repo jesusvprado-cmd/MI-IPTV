@@ -118,6 +118,10 @@ class PlayerCtl(ctx: Context) {
     var speed by mutableFloatStateOf(1f)
         private set
 
+    /** Calidad real de la emisión (resolución, HDR, sonido), para las insignias del reproductor. */
+    var streamBadges by mutableStateOf<List<String>>(emptyList())
+        private set
+
     private var loudness: LoudnessEnhancer? = null
 
     private var triedHls = false
@@ -149,11 +153,24 @@ class PlayerCtl(ctx: Context) {
 
         override fun onTracksChanged(tracks: Tracks) {
             tracksVersion++
+            var video: Format? = null
+            var audio: Format? = null
             for (g in tracks.groups) {
-                if (g.type != C.TRACK_TYPE_VIDEO) continue
                 for (i in 0 until g.length) {
-                    if (g.isTrackSelected(i)) onVideoFormat?.invoke(g.getTrackFormat(i))
+                    if (!g.isTrackSelected(i)) continue
+                    if (g.type == C.TRACK_TYPE_VIDEO && video == null) video = g.getTrackFormat(i)
+                    if (g.type == C.TRACK_TYPE_AUDIO && audio == null) audio = g.getTrackFormat(i)
                 }
+            }
+            video?.let { onVideoFormat?.invoke(it) }
+            streamBadges = badgesOf(video, audio)
+        }
+
+        override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
+            if (videoSize.width <= 0) return
+            val q = qualityLabel(videoSize.width, videoSize.height)
+            if (q != null && streamBadges.firstOrNull() != q) {
+                streamBadges = listOf(q) + streamBadges.filter { it !in QUALITY_LABELS }
             }
         }
 
@@ -500,4 +517,39 @@ class PlayerCtl(ctx: Context) {
             player.clearMediaItems()
         }
     }
+}
+
+private val QUALITY_LABELS = setOf("4K", "QHD", "FHD", "HD", "SD")
+
+private fun qualityLabel(w: Int, h: Int): String? = when {
+    w <= 0 || h <= 0 -> null
+    w >= 3200 || h >= 2000 -> "4K"
+    w >= 2400 || h >= 1400 -> "QHD"
+    w >= 1800 || h >= 1000 -> "FHD"
+    w >= 1200 || h >= 700 -> "HD"
+    else -> "SD"
+}
+
+/** Insignias a partir de las pistas elegidas: «FHD», «HDR», «50 fps», «5.1», «Dolby»… */
+private fun badgesOf(video: Format?, audio: Format?): List<String> {
+    val out = ArrayList<String>()
+    if (video != null) {
+        qualityLabel(video.width, video.height)?.let { out += it }
+        val tr = video.colorInfo?.colorTransfer
+        if (tr == C.COLOR_TRANSFER_ST2084 || tr == C.COLOR_TRANSFER_HLG) out += "HDR"
+        val fps = video.frameRate
+        if (fps >= 47f) out += "${Math.round(fps)} fps"
+    }
+    if (audio != null) {
+        when {
+            audio.channelCount >= 8 -> out += "7.1"
+            audio.channelCount >= 6 -> out += "5.1"
+        }
+        val m = audio.sampleMimeType ?: ""
+        when {
+            m.contains("eac3", true) || m.contains("ac3", true) || m.contains("ac4", true) -> out += "Dolby"
+            m.contains("dts", true) -> out += "DTS"
+        }
+    }
+    return out
 }

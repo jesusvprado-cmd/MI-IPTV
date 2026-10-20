@@ -47,9 +47,13 @@ object Logos {
     var version by mutableIntStateOf(0)
         private set
 
-    /** clave → lista de (carpeta, url) del banco tv-logos. */
+    /** clave → lista de (carpeta, url) del banco tv-logos (las versiones sin «HD» primero). */
     @Volatile
     private var tvLogos: Map<String, List<Pair<String, String>>> = emptyMap()
+
+    /** Igual que [tvLogos] pero con claves sin la palabra «tv» (respaldo: «Be Mad» ↔ «Be Mad TV»). */
+    @Volatile
+    private var tvLoose: Map<String, List<Pair<String, String>>> = emptyMap()
 
     /** clave → url del banco iptv-org. */
     @Volatile
@@ -85,65 +89,157 @@ object Logos {
     fun url(name: String, original: String?): String? {
         if (!Repo.prefs.hqLogos) return original
         if (tvLogos.isEmpty() && iptvOrg.isEmpty()) return original
-        val ck = name
-        synchronized(cache) { cache[ck] }?.let { return it.ifEmpty { original } }
+        synchronized(cache) { cache[name] }?.let { return it.ifEmpty { original } }
         val found = find(name)
-        synchronized(cache) { cache[ck] = found ?: "" }
+        synchronized(cache) { cache[name] = found ?: "" }
         return found ?: original
     }
 
+    private fun pick(list: List<Pair<String, String>>, folder: String): String =
+        (list.firstOrNull { it.first == folder } ?: list.firstOrNull { it.first == "spain" } ?: list.first()).second
+
     private fun find(name: String): String? {
-        val (prefix, key) = clean(name)
-        if (key.length < 2) return null
-        val folder = prefix?.let { PREFIX_FOLDER[it] } ?: "spain"
-        tvLogos[key]?.let { list ->
-            return (list.firstOrNull { it.first == folder } ?: list.firstOrNull { it.first == "spain" } ?: list.first()).second
+        val c = clean(name)
+        val folder = c.prefix?.let { PREFIX_FOLDER[it] } ?: "spain"
+        val key = ALIAS[c.key] ?: c.key
+        if (key.length >= 2) {
+            tvLogos[key]?.let { return pick(it, folder) }
+            iptvOrg[key]?.let { return it }
+            iptvOrg[c.key]?.let { return it }
         }
-        return iptvOrg[key]
+        val loose = ALIAS[c.loose] ?: c.loose
+        if (loose.length >= 3) {
+            tvLogos[loose]?.let { return pick(it, folder) }
+            tvLoose[loose]?.let { return pick(it, folder) }
+            iptvOrg[loose]?.let { return it }
+        }
+        return null
     }
 
     // ---------------- Limpieza de nombres ----------------
 
-    private val PREFIX = Regex("^\\W*([a-z]{2,3})\\s*[|:\\]\\)▎•·»\\-]+\\s*")
-    private val BRACKETS = Regex("[\\[(][^\\])]*[\\])]")
-    private val QUALITY = Regex(
-        "\\b(uhd|fhd|hd|sd|hq|lq|4k|8k|hevc|h265|h264|1080p?|720p?|2160p?|50fps|60fps|25fps|tdt|multi|vip|backup|bk|alt|raw|ott|hdr|dolby|directo|ppv)\\b"
+    /** Nombres habituales en las listas españolas → nombre del archivo en tv-logos. */
+    private val ALIAS: Map<String, String> = buildMap {
+        fun a(target: String, vararg names: String) = names.forEach { put(it, target) }
+        a("tve1", "la1", "tvela1", "la1tve", "launo", "tvelauno", "rtvela1", "la1rtve", "tve")
+        a("tve2", "la2", "tvela2", "la2tve", "lados", "rtvela2", "la2rtve")
+        a("antena3", "a3", "antena3tv", "antenatres")
+        a("telecinco", "t5", "tele5", "telecincotv")
+        a("lasexta", "la6", "sexta", "la6sexta", "lasextatv")
+        a("cuatro", "cuatrotv", "canalcuatro")
+        a("24h", "canal24horas", "24horas", "tve24h", "canal24h", "24htve", "el24horas", "tve24horas")
+        a("tdp", "teledeporte", "tvetdp", "tdptve", "teledeportetve")
+        a("clan", "clantve", "tveclan")
+        a("fdf", "factoriadeficcion", "fdftelecinco", "factoria")
+        a("trece", "13tv", "trecetv", "13")
+        a("realmadridtv", "realmadrid", "rmtv")
+        a("barcatv", "barca", "barcelonatv")
+        a("galicia", "tvg", "tvgeuropa", "galiciatv", "tvgalicia", "tvg1", "tvgamerica", "galiciatvamerica")
+        a("galicia2", "tvg2", "galicia2tv")
+        a("tv3cat", "tv3", "tv3cat")
+        a("cero", "0", "movistar0", "mplus0", "movistarplus0", "m0")
+        a("movistarplus", "movistar", "mplus", "movistarplusplus")
+        a("eurosport1", "eurosport")
+        a("nationalgeographic", "natgeo", "nationalgeo")
+        a("nationalgeographicwild", "natgeowild", "nationalgeowild")
+        a("discoverychannel", "discovery")
+        a("disneyjr", "disneyjunior")
+        a("disneychannel", "disney")
+        a("nickelodeon", "nick")
+        a("canalhollywood", "hollywood")
+        a("canalcocina", "cocina")
+        a("paramountnetwork", "paramount", "paramountchannel")
+        a("telemadrid", "telemadridtv")
+        a("andaluciatv", "canalsurandalucia")
+        a("bemadtv", "bemad")
+        a("comedycentral", "comedy")
+        a("dazn", "dazn1es")
+    }
+
+    /** Prefijos de país que se quitan del principio del nombre. */
+    private val COUNTRY = setOf(
+        "es", "esp", "spa", "spain", "uk", "gb", "us", "usa", "pt", "por", "fr", "it", "de",
+        "mx", "ar", "lat", "latam", "latino", "int",
     )
 
-    private fun norm(s: String): String =
-        Normalizer.normalize(s.lowercase(), Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "")
+    private val PREFIX = Regex("^[^a-z0-9]*([a-z]{2,6})\\s*([^a-z0-9\\s]+|\\s)\\s*")
+    private val BRACKETS = Regex("[\\[({][^\\])}]*[\\])}]")
+    private val QUALITY_PLUS = Regex("\\b(uhd|fhd|hd|sd|4k|hq)\\s*\\+")
+    private val QUALITY = setOf(
+        "uhd", "fhd", "hd", "sd", "hq", "lq", "4k", "8k", "hevc", "h265", "h264", "x265", "1080", "1080p", "720", "720p",
+        "2160", "2160p", "1080i", "50fps", "60fps", "25fps", "fps", "tdt", "multi", "multiaudio", "vip", "backup", "bk",
+        "alt", "raw", "ott", "hdr", "hdr10", "dolby", "atmos", "directo", "ppv", "dual", "vose", "orig", "original",
+    )
+    private val TRAILING_COUNTRY = setOf("es", "esp", "spain", "espana")
 
-    /** Devuelve (prefijo de país o null, clave compacta). «ES| LA 1 FHD» → ("es", "la1"). */
-    fun clean(name: String): Pair<String?, String> {
+    class Cleaned(val prefix: String?, val key: String, val loose: String)
+
+    private fun norm(s: String): String =
+        Normalizer.normalize(s, Normalizer.Form.NFKD).lowercase()
+            .replace(Regex("\\p{Mn}+"), "")
+            .replace(Regex("[^\\x00-\\x7F]"), " ")
+
+    /**
+     * Limpia un nombre de canal para buscar su logo (solo por dentro; en pantalla se ve el original).
+     * «ES| LA 1 FHD» → clave «la1». «ES ➤ ANTENA 3 ᴴᴰ» → «antena3». «M+ LaLiga TV» → «mpluslaligatv».
+     */
+    fun clean(name: String): Cleaned {
         var s = norm(name)
         var prefix: String? = null
         PREFIX.find(s)?.let { m ->
-            prefix = m.groupValues[1]
-            s = s.substring(m.range.last + 1)
+            val p = m.groupValues[1]
+            val sep = m.groupValues[2]
+            if (p in COUNTRY && (sep.isNotBlank() || p == "es" || p == "esp")) {
+                prefix = p
+                s = s.substring(m.range.last + 1)
+            }
         }
         s = s.replace(BRACKETS, " ")
+            .replace(QUALITY_PLUS, " ")
             .replace("+", " plus ")
             .replace(Regex("[^a-z0-9 ]"), " ")
-        s = s.replace(QUALITY, " ")
-        return prefix to s.replace(Regex("\\s+"), "")
+        val tokens = s.split(' ').filter { it.isNotBlank() && it !in QUALITY }.toMutableList()
+        while (tokens.size > 1 && tokens.last() in TRAILING_COUNTRY) tokens.removeAt(tokens.size - 1)
+        return Cleaned(prefix, tokens.joinToString(""), tokens.filter { it != "tv" }.joinToString(""))
     }
 
-    /** Clave de un archivo de tv-logos: «la-1-es.png» → «la1». */
-    private fun fileKey(file: String): String {
+    /** Claves de un archivo de tv-logos: «la-1-es.png» → «la1»; los de Movistar+ también como «M+ …». */
+    private fun fileKeys(file: String): List<Cleaned> {
         var stem = file.substringAfterLast('/').substringBeforeLast('.')
         stem = stem.replace(Regex("-[a-z]{2}$"), "")
-        return clean(stem.replace('-', ' ')).second
+        val text = stem.replace('-', ' ')
+        val out = mutableListOf(clean(text))
+        val mv = Regex("\\s*por movistar plus$")
+        if (mv.containsMatchIn(text)) {
+            val b = text.replace(mv, "").trim()
+            if (b.isNotEmpty()) {
+                listOf("m plus", "movistar plus", "movistar", "m").forEach { out += clean("$it $b") }
+                val plain = clean(b)
+                if (plain.key.length >= 5 && plain.key !in GENERIC) out += plain
+            }
+        }
+        return out
     }
+
+    private val GENERIC = setOf(
+        "deportes", "cine", "series", "musica", "drama", "comedia", "clasicos", "indie", "originales",
+        "suspense", "accion", "documentales", "cineespanol",
+    )
+
+    private fun hasQualityWord(file: String): Boolean =
+        file.substringAfterLast('/').substringBeforeLast('.').split('-').any { it in QUALITY }
 
     // ---------------- Carga de los índices ----------------
 
     private fun load() {
-        val cacheFile = File(dir, "logos_index.tsv")
+        val cacheFile = File(dir, "logos_index2.tsv")
+        File(dir, "logos_index.tsv").delete()
         if (cacheFile.exists() && System.currentTimeMillis() - cacheFile.lastModified() < MAX_AGE) {
             readCache(cacheFile)
             if (tvLogos.isNotEmpty() || iptvOrg.isNotEmpty()) return
         }
-        val tv = HashMap<String, MutableList<Pair<String, String>>>()
+        val tv = LinkedHashMap<String, MutableList<Pair<String, String>>>()
+        val loose = LinkedHashMap<String, MutableList<Pair<String, String>>>()
         val paths = try {
             githubTree()
         } catch (e: Exception) {
@@ -153,13 +249,16 @@ object Logos {
                 emptyList()
             }
         }
-        for (p in paths) {
-            if (!p.endsWith(".png", true)) continue
+        // Primero los archivos sin «hd», «uhd»...: así se prefiere el logo normal del canal.
+        val sorted = paths.filter { it.endsWith(".png", true) }.sortedBy { if (hasQualityWord(it)) 1 else 0 }
+        for (p in sorted) {
             val parts = p.split('/')
             val folder = if (parts.size >= 2) parts[parts.size - 2] else ""
-            val key = fileKey(p)
-            if (key.length < 2) continue
-            tv.getOrPut(key) { mutableListOf() }.add(folder to TV_LOGOS_RAW + p)
+            val entry = folder to TV_LOGOS_RAW + p
+            for (c in fileKeys(p)) {
+                if (c.key.length >= 2) tv.getOrPut(c.key) { mutableListOf() }.add(entry)
+                if (c.loose.length >= 3 && c.loose != c.key) loose.getOrPut(c.loose) { mutableListOf() }.add(entry)
+            }
         }
         val org = try {
             iptvOrgIndex()
@@ -168,6 +267,7 @@ object Logos {
         }
         if (tv.isEmpty() && org.isEmpty()) throw IllegalStateException("sin índice")
         tvLogos = tv
+        tvLoose = loose
         iptvOrg = org
         writeCache(cacheFile)
     }
@@ -294,7 +394,7 @@ object Logos {
                     if (id == null || country == null || country !in IPTV_COUNTRIES) continue
                     val logo = best[id]?.second ?: continue
                     (listOfNotNull(name) + alts).forEach { n ->
-                        val k = clean(n).second
+                        val k = clean(n).key
                         if (k.length >= 2 && !out.containsKey(k)) out[k] = logo
                     }
                 }
@@ -318,6 +418,7 @@ object Logos {
         try {
             f.bufferedWriter().use { w ->
                 for ((k, list) in tvLogos) for ((folder, url) in list) w.write("t\t$k\t$folder\t$url\n")
+                for ((k, list) in tvLoose) for ((folder, url) in list) w.write("l\t$k\t$folder\t$url\n")
                 for ((k, url) in iptvOrg) w.write("o\t$k\t\t$url\n")
             }
         } catch (e: Exception) {
@@ -326,19 +427,22 @@ object Logos {
     }
 
     private fun readCache(f: File) {
-        val tv = HashMap<String, MutableList<Pair<String, String>>>()
+        val tv = LinkedHashMap<String, MutableList<Pair<String, String>>>()
         val org = HashMap<String, String>()
+        val loose = LinkedHashMap<String, MutableList<Pair<String, String>>>()
         try {
             f.forEachLine { line ->
                 val p = line.split('\t')
                 if (p.size < 4) return@forEachLine
                 if (p[0] == "t") tv.getOrPut(p[1]) { mutableListOf() }.add(p[2] to p[3])
+                else if (p[0] == "l") loose.getOrPut(p[1]) { mutableListOf() }.add(p[2] to p[3])
                 else if (p[0] == "o") org[p[1]] = p[3]
             }
         } catch (e: Exception) {
             return
         }
         tvLogos = tv
+        tvLoose = loose
         iptvOrg = org
     }
 }

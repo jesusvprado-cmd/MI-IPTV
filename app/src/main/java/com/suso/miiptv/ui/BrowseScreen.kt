@@ -67,7 +67,7 @@ fun BrowseScreen(kind: Kind) {
     }
     val list = cats
     if (list == null) {
-        Loading()
+        if (kind == Kind.LIVE) Loading() else SkeletonGrid(kind)
         return
     }
 
@@ -132,7 +132,7 @@ fun BrowseScreen(kind: Kind) {
                 val its = content
                 val ie = contentErr
                 when {
-                    its == null -> Loading()
+                    its == null -> SkeletonGrid(kind)
                     ie != null && its.isEmpty() -> ErrorBox(ie) { Repo.reload() }
                     its.isEmpty() -> EmptyText(
                         if (sel == FAV) "Aún no tienes favoritos aquí.\nAñádelos con el botón ♥ de la ficha o manteniendo pulsado OK."
@@ -157,6 +157,7 @@ fun BrowseScreen(kind: Kind) {
                             } else {
                                 PosterCard(
                                     x.name, x.image, fk,
+                                    item = x,
                                     onLong = { Actions.toggleFav(ctx, x) },
                                 ) { Actions.open(x) }
                             }

@@ -83,7 +83,7 @@ import kotlinx.coroutines.launch
 // ---------------- Piezas comunes ----------------
 
 /** Lo que se muestra en la cabecera de una ficha (la película o serie, o un título relacionado). */
-private data class HeaderInfo(
+internal data class HeaderInfo(
     val key: String,
     val title: String,
     val meta: String,
@@ -120,7 +120,7 @@ private fun SeriesDetail.header() = HeaderInfo(
 
 private fun basicHeader(item: Item) = HeaderInfo(item.key, item.name, "", item.rating, null, null, null, item.image)
 
-private suspend fun loadHeader(item: Item): HeaderInfo = try {
+internal suspend fun loadHeader(item: Item): HeaderInfo = try {
     if (item.kind == Kind.SERIES) Repo.seriesDetail(item).header() else Repo.movieDetail(item).header()
 } catch (e: Exception) {
     basicHeader(item)

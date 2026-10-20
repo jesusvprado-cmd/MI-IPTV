@@ -80,6 +80,9 @@ import androidx.media3.ui.PlayerView
 import androidx.media3.ui.SubtitleView
 import coil.compose.AsyncImage
 import com.suso.miiptv.data.Logos
+import com.suso.miiptv.ui.ChannelLogoImage
+import com.suso.miiptv.ui.Clock
+import com.suso.miiptv.ui.LogoTone
 import com.suso.miiptv.data.PlayItem
 import com.suso.miiptv.data.Repo
 import com.suso.miiptv.ui.C
@@ -393,21 +396,23 @@ private fun LiveOverlay(ctl: PlayerCtl, item: PlayItem, fav: Boolean, onFav: () 
     val next = ctl.epg.firstOrNull { it.start >= (cur?.end ?: now) }
     val number = item.channel?.num?.takeIf { it > 0 } ?: (ctl.index + 1)
     Box(Modifier.fillMaxSize()) {
+        TopInfo(ctl)
         Box(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(240.dp)
-                .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xEE000000))))
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(280.dp)
+                .background(Brush.verticalGradient(0f to Color.Transparent, 0.35f to Color(0x99000000), 1f to Color(0xF2000000)))
         )
         Row(
             Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(horizontal = 40.dp, vertical = 28.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
-                Modifier.width(120.dp).height(76.dp).clip(RoundedCornerShape(8.dp)).background(Color(0x33FFFFFF)),
+                Modifier.width(120.dp).height(76.dp).clip(RoundedCornerShape(8.dp))
+                    .background(if (LogoTone.isDark(Logos.url(item.title, item.image))) LogoTone.light else Color(0x33FFFFFF)),
                 contentAlignment = Alignment.Center,
             ) {
                 val logo = remember(item.key, Logos.version) { Logos.url(item.title, item.image) }
                 if (logo != null) {
-                    AsyncImage(model = logo, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().padding(8.dp))
+                    ChannelLogoImage(logo, Modifier.fillMaxSize().padding(8.dp))
                 }
             }
             Spacer(Modifier.width(20.dp))
@@ -426,13 +431,18 @@ private fun LiveOverlay(ctl: PlayerCtl, item: PlayItem, fav: Boolean, onFav: () 
                 }
                 Spacer(Modifier.height(6.dp))
                 if (cur != null) {
-                    Text("${hm(cur.start)} - ${hm(cur.end)}   ${cur.title}", color = Color.White, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Spacer(Modifier.height(6.dp))
+                    Text("${hm(cur.start)} - ${hm(cur.end)}   ${cur.title}", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Spacer(Modifier.height(8.dp))
                     val frac = ((now - cur.start).toFloat() / (cur.end - cur.start).coerceAtLeast(1)).coerceIn(0f, 1f)
-                    Box(Modifier.fillMaxWidth(0.6f).height(3.dp).background(Color(0x55FFFFFF))) {
-                        Box(Modifier.fillMaxWidth(frac).fillMaxHeight().background(C.gold))
+                    val left = ((cur.end - now) / 60_000).coerceAtLeast(0)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.fillMaxWidth(0.55f).height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color(0x40FFFFFF))) {
+                            Box(Modifier.fillMaxWidth(frac).fillMaxHeight().clip(RoundedCornerShape(2.dp)).background(C.gold))
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Text(if (left > 0) "Quedan $left min" else "Terminando", color = C.text2, fontSize = 13.sp)
                     }
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(8.dp))
                 } else {
                     Text("Sin guía de programación", color = C.text2, fontSize = 16.sp)
                 }
@@ -455,9 +465,10 @@ private fun LiveOverlay(ctl: PlayerCtl, item: PlayItem, fav: Boolean, onFav: () 
 @Composable
 private fun VodOverlay(ctl: PlayerCtl, item: PlayItem) {
     Box(Modifier.fillMaxSize()) {
+        TopInfo(ctl)
         Box(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(280.dp)
-                .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xEE000000))))
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(320.dp)
+                .background(Brush.verticalGradient(0f to Color.Transparent, 0.35f to Color(0x99000000), 1f to Color(0xF2000000)))
         )
         Row(
             Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(horizontal = 40.dp, vertical = 30.dp),
@@ -476,6 +487,10 @@ private fun VodOverlay(ctl: PlayerCtl, item: PlayItem) {
                 Text(item.title, color = C.gold, fontSize = 26.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 item.subtitle?.let {
                     Text(it, color = Color(0xFFDDDDDD), fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                if (ctl.duration > 0) {
+                    val rest = ((ctl.duration - ctl.position).coerceAtLeast(0) / ctl.speed.coerceAtLeast(0.25f)).toLong()
+                    Text("Termina a las ${hm(System.currentTimeMillis() + rest)}", color = C.text2, fontSize = 14.sp)
                 }
                 Text("▼  Opciones     ◀ ▶  Retroceder / avanzar     OK  Pausa", color = C.text2, fontSize = 13.sp, maxLines = 1)
                 Spacer(Modifier.height(16.dp))
@@ -582,10 +597,14 @@ private fun ChannelListPanel(ctl: PlayerCtl, onPick: (Int) -> Unit, onClose: () 
                 ) {
                     val n = p.channel?.num?.takeIf { it > 0 } ?: (i + 1)
                     Text("$n", color = if (focused) Color.Black else C.gold, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(48.dp))
-                    Box(Modifier.width(44.dp).height(28.dp), contentAlignment = Alignment.Center) {
-                        val logo = remember(p.key, Logos.version) { Logos.url(p.title, p.image) }
+                    val logo = remember(p.key, Logos.version) { Logos.url(p.title, p.image) }
+                    Box(
+                        Modifier.width(44.dp).height(28.dp).clip(RoundedCornerShape(4.dp))
+                            .background(if (LogoTone.isDark(logo)) LogoTone.light else Color.Transparent),
+                        contentAlignment = Alignment.Center,
+                    ) {
                         if (logo != null) {
-                            AsyncImage(model = logo, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
+                            ChannelLogoImage(logo, Modifier.fillMaxSize().padding(2.dp))
                         }
                     }
                     Spacer(Modifier.width(10.dp))
@@ -749,5 +768,29 @@ private fun TrackRow(label: String, selected: Boolean, requestFocus: Boolean, on
             modifier = Modifier.width(26.dp),
         )
         Text(label, color = if (focused) Color.Black else Color.White, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+/** Parte de arriba del reproductor: calidad real de la emisión y la hora. */
+@Composable
+private fun TopInfo(ctl: PlayerCtl) {
+    Box(Modifier.fillMaxWidth().height(120.dp).background(Brush.verticalGradient(listOf(Color(0xAA000000), Color.Transparent))))
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 40.dp, vertical = 24.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.End,
+    ) {
+        ctl.streamBadges.forEach { b ->
+            val gold = b == "4K" || b == "HDR" || b == "Dolby"
+            Box(
+                Modifier.padding(end = 8.dp).clip(RoundedCornerShape(5.dp))
+                    .background(if (gold) C.gold else Color(0x33FFFFFF))
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
+            ) {
+                Text(b, color = if (gold) Color.Black else Color.White, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+            }
+        }
+        Spacer(Modifier.width(10.dp))
+        Clock(26)
     }
 }
