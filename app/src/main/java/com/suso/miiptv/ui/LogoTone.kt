@@ -79,7 +79,11 @@ fun ChannelLogoImage(url: String, modifier: Modifier = Modifier, fallback: Strin
     val ctx = LocalContext.current
     // «…#b=2» indica un número (o «UHD») que la app dibuja sobre el logo principal.
     val badge = remember(url) {
-        url.substringAfter("#b=", "").takeIf { it.isNotEmpty() }?.let { java.net.URLDecoder.decode(it, "UTF-8") }
+        url.substringAfter("#b=", "").substringBefore("&c=").takeIf { it.isNotEmpty() }?.let { java.net.URLDecoder.decode(it, "UTF-8") }
+    }
+    // «&c=RRGGBB»: el número va en ese color, sin recuadro (como en el propio logo).
+    val badgeColor = remember(url) {
+        url.substringAfter("&c=", "").takeIf { it.length == 6 }?.toLongOrNull(16)?.let { Color(0xFF000000 or it) }
     }
     val clean = remember(url) { url.substringBefore("#b=") }
     var model by remember(url) { mutableStateOf(clean) }
@@ -99,9 +103,15 @@ fun ChannelLogoImage(url: String, modifier: Modifier = Modifier, fallback: Strin
             },
         )
         if (badge != null && model == clean) {
-            BoxWithConstraints(Modifier.align(Alignment.BottomEnd)) {
+            if (badgeColor != null) {
+                Text(
+                    badge, color = badgeColor, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold,
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(end = 2.dp),
+                )
+            } else {
                 Box(
                     Modifier
+                        .align(Alignment.BottomEnd)
                         .clip(RoundedCornerShape(5.dp))
                         .background(Color(0xFF0B1E4D))
                         .border(1.dp, Color.White.copy(alpha = 0.8f), RoundedCornerShape(5.dp))

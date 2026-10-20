@@ -149,7 +149,9 @@ object Logos {
      */
     private fun movistarLaLiga(name: String): String? {
         val n = Normalizer.normalize(name, Normalizer.Form.NFKD).lowercase()
-            .replace(Regex("\\p{Mn}+"), "").replace(Regex("[^a-z0-9+ ]"), " ").replace(Regex("\\s+"), " ").trim()
+            .replace(Regex("\\p{Mn}+"), "").replace(Regex("[^a-z0-9+ ]"), " ")
+            // «LALIGA2» → «LALIGA 2»
+            .replace(Regex("([a-z])(\\d)"), "$1 $2").replace(Regex("\\s+"), " ").trim()
         val m = Regex("\\bla\\s*liga\\b").find(n) ?: return null
         if (NOT_MOVISTAR_LALIGA.containsMatchIn(n)) return null
         // Lo de delante solo puede ser el país o la marca Movistar / M+.
@@ -171,7 +173,7 @@ object Logos {
     // ---------------- Casos especiales pedidos ----------------
 
     private val NBA_WORD = Regex("(?i)\\bnba\\b")
-    private val DAZN_LALIGA = Regex("(?i)\\bdazn\\b.*\\bla\\s*liga\\b")
+    private val DAZN_LALIGA = Regex("(?i)\\bdazn\\b.*\\bla\\s*liga(?:\\b|\\d)")
 
     /** Todos los canales NBA con el logo de la NBA; todos los DAZN LaLiga (2, 3, script...) con el de DAZN LaLiga. */
     private fun special(name: String): String? {
@@ -191,7 +193,9 @@ object Logos {
      */
     private fun movistarChampions(name: String): String? {
         val n = Normalizer.normalize(name, Normalizer.Form.NFKD).lowercase()
-            .replace(Regex("\\p{Mn}+"), "").replace(Regex("[^a-z0-9+ ]"), " ").replace(Regex("\\s+"), " ").trim()
+            .replace(Regex("\\p{Mn}+"), "").replace(Regex("[^a-z0-9+ ]"), " ")
+            // «LALIGA2» → «LALIGA 2»
+            .replace(Regex("([a-z])(\\d)"), "$1 $2").replace(Regex("\\s+"), " ").trim()
         val m = Regex("\\b(liga de campeones|champions league|champions)\\b").find(n) ?: return null
         if (Regex("\\b(dazn|tnt|bein|sky|rtl|tf1|canal\\s*plus|femenina|youth)\\b").containsMatchIn(n)) return null
         val before = n.substring(0, m.range.first).trim().split(' ').filter { it.isNotBlank() }
@@ -202,7 +206,8 @@ object Logos {
         if (after.any { it.toIntOrNull() == null }) return null
         val num = after.firstNotNullOfOrNull { it.toIntOrNull() }?.takeIf { it > 1 }
         val badge = listOfNotNull(num?.toString(), if (uhd) "UHD" else null).joinToString(" ")
-        return if (badge.isEmpty()) LDC_MAIN else "$LDC_MAIN#b=${java.net.URLEncoder.encode(badge, "UTF-8")}"
+        // El número va en el mismo verde del logo.
+        return if (badge.isEmpty()) LDC_MAIN else "$LDC_MAIN#b=${java.net.URLEncoder.encode(badge, "UTF-8")}&c=1AC93A"
     }
 
     /** Logos elegidos a mano para canales cuyo logo del banco está anticuado. */
