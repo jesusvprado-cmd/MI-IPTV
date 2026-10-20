@@ -25,6 +25,32 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import kotlin.math.roundToInt
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.clip
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.material3.Text
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.offset
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -58,6 +84,7 @@ fun MainScreen() {
 private fun TopBar(restoring: Boolean) {
     // La sección cambia sola al ponerse encima (con una pausa corta para poder pasar de largo).
     var hovered by remember { mutableStateOf<Tab?>(null) }
+    val tabPos = remember { mutableStateMapOf<Tab, Pair<Float, Float>>() }
     LaunchedEffect(hovered) {
         val h = hovered ?: return@LaunchedEffect
         delay(260)
@@ -77,22 +104,42 @@ private fun TopBar(restoring: Boolean) {
                         .focusProperties { enter = { UiState.tabRequester(UiState.tab) } }
                         .focusGroup()
                         .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Tab.values().forEach { t ->
-                        TabChip(
-                            text = t.label,
-                            selected = UiState.tab == t,
-                            focusKey = "tab_${t.name}",
-                            focusRequester = UiState.tabRequester(t),
-                            requestInitial = !restoring && UiState.tab == t,
-                            onFocusChange = { f ->
-                                if (f) hovered = t else if (hovered == t) hovered = null
-                            },
-                        ) {
-                            hovered = null
-                            if (UiState.tab != t) UiState.tab = t
+                    Box {
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Tab.values().forEach { t ->
+                                TopTab(
+                                    text = t.label,
+                                    selected = UiState.tab == t,
+                                    focusKey = "tab_${t.name}",
+                                    focusRequester = UiState.tabRequester(t),
+                                    requestInitial = !restoring && UiState.tab == t,
+                                    onPlaced = { x, w -> tabPos[t] = x to w },
+                                    onFocusChange = { f ->
+                                        if (f) hovered = t else if (hovered == t) hovered = null
+                                    },
+                                ) {
+                                    hovered = null
+                                    if (UiState.tab != t) UiState.tab = t
+                                }
+                            }
+                        }
+                        // Rayita dorada bajo la sección activa, que se desliza al cambiar.
+                        val pos = tabPos[UiState.tab]
+                        if (pos != null) {
+                            val density = LocalDensity.current
+                            val lineW = with(density) { (pos.second * 0.5f).toDp() }
+                            val x by animateFloatAsState(pos.first + pos.second * 0.25f, tween(320, easing = FastOutSlowInEasing), label = "tabx")
+                            Box(
+                                Modifier
+                                    .align(Alignment.BottomStart)
+                                    .offset { IntOffset(x.roundToInt(), 0) }
+                                    .width(lineW)
+                                    .height(3.dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(GoldBrush)
+                            )
                         }
                     }
                 }
@@ -100,9 +147,7 @@ private fun TopBar(restoring: Boolean) {
             Spacer(Modifier.width(12.dp))
             Clock()
             Spacer(Modifier.width(14.dp))
-            TabChip(text = "Ajustes", selected = false, focusKey = "tab_settings", icon = Icons.Filled.Settings) {
-                UiState.push(Screen.Settings)
-            }
+            TopIcon(Icons.Filled.Settings, "Ajustes", "tab_settings") { UiState.push(Screen.Settings) }
         }
         Box(Modifier.fillMaxWidth().height(1.dp).background(C.divider))
     }
@@ -122,4 +167,87 @@ fun Clock(fontSize: Int = 18) {
         hm(now), color = androidx.compose.ui.graphics.Color.White, fontSize = fontSize.sp,
         fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
     )
+}
+
+/**
+ * Sección del menú superior: la activa en dorado y negrita; la que tiene el cursor del mando
+ * se agranda un poco con un brillo suave detrás (sin recuadro blanco).
+ */
+@Composable
+private fun TopTab(
+    text: String,
+    selected: Boolean,
+    focusKey: String,
+    focusRequester: FocusRequester,
+    requestInitial: Boolean,
+    onPlaced: (Float, Float) -> Unit,
+    onFocusChange: (Boolean) -> Unit,
+    onClick: () -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (requestInitial) {
+            delay(80)
+            runCatching { focusRequester.requestFocus() }
+        }
+    }
+    val scale by animateFloatAsState(if (focused) 1.12f else 1f, Motion.focusSpec(), label = "tts")
+    val glow by animateFloatAsState(if (focused) 1f else 0f, Motion.focusSpec(), label = "ttg")
+    val color by animateColorAsState(
+        when {
+            selected -> C.gold
+            focused -> Color.White
+            else -> Color(0xFFB4B4B4)
+        },
+        Motion.focusSpec(), label = "ttc",
+    )
+    Box(
+        Modifier
+            .onGloballyPositioned { c -> onPlaced(c.positionInParent().x, c.size.width.toFloat()) }
+            .focusRequester(focusRequester)
+            .memFocus(focusKey) {
+                focused = it
+                onFocusChange(it)
+            }
+            .tvClick(onClick = onClick)
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .drawBehind {
+                if (glow > 0f) {
+                    drawRoundRect(
+                        Brush.radialGradient(
+                            listOf(Color.White.copy(alpha = 0.16f * glow), Color.Transparent),
+                            center = center, radius = size.width * 0.7f,
+                        ),
+                        cornerRadius = CornerRadius(size.height / 2),
+                    )
+                }
+            }
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text, color = color, fontSize = 17.sp, maxLines = 1,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+        )
+    }
+}
+
+/** Icono del menú superior (Ajustes) con el mismo estilo que las secciones. */
+@Composable
+private fun TopIcon(icon: ImageVector, label: String, focusKey: String, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(if (focused) 1.15f else 1f, Motion.focusSpec(), label = "tis")
+    val color by animateColorAsState(if (focused) C.gold else Color(0xFFB4B4B4), Motion.focusSpec(), label = "tic")
+    Box(
+        Modifier
+            .memFocus(focusKey) { focused = it }
+            .tvClick(onClick = onClick)
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .clip(CircleShape)
+            .background(Color.White.copy(alpha = if (focused) 0.14f else 0f))
+            .padding(9.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, contentDescription = label, tint = color, modifier = Modifier.size(26.dp))
+    }
 }
