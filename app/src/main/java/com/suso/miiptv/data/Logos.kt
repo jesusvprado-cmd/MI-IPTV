@@ -151,11 +151,11 @@ object Logos {
         // Lo de delante solo puede ser el país o la marca Movistar / M+.
         val before = n.substring(0, m.range.first).trim().split(' ').filter { it.isNotBlank() }
         if (before.any { it !in setOf("es", "esp", "spain", "m", "m+", "movistar", "movistar+", "plus", "por", "+") }) return null
-        val after = n.substring(m.range.last + 1).trim().split(' ').filter { it.isNotBlank() }
-            .filter { it !in setOf("tv", "por", "movistar", "movistar+", "plus", "m+", "fhd", "hd", "sd", "1080", "1080p", "720", "50fps", "hevc", "es", "+") }
-        val hdr = after.any { it == "hdr" || it == "uhd" || it == "4k" }
+        val words = n.substring(m.range.last + 1).trim().split(' ').filter { it.isNotBlank() }
+        val hdr = words.any { it == "hdr" || it == "uhd" || it == "4k" || it == "2160" || it == "2160p" }
+        val after = words.filter { it !in setOf("tv", "por", "movistar", "movistar+", "plus", "m+", "es", "+") && it !in QUALITY && it !in FEED }
         val num = after.firstNotNullOfOrNull { it.toIntOrNull() }
-        if (after.any { it.toIntOrNull() == null && it != "hdr" && it != "uhd" && it != "4k" }) return null
+        if (after.any { it.toIntOrNull() == null }) return null
         return when {
             num == 2 && hdr -> LALIGA_2_HDR
             hdr -> LALIGA_HDR
@@ -266,6 +266,9 @@ object Logos {
     )
     private val TRAILING_COUNTRY = setOf("es", "esp", "spain", "espana")
 
+    /** Variantes de emisión que no cambian el canal (satélite, «script», calidad baja...). */
+    private val FEED = setOf("sat", "satelite", "script", "low", "lq", "lite", "mobile", "movil", "opc", "bkp", "copia", "ref")
+
     class Cleaned(val prefix: String?, val key: String, val loose: String)
 
     private fun norm(s: String): String =
@@ -292,7 +295,7 @@ object Logos {
             .replace(QUALITY_PLUS, " ")
             .replace("+", " plus ")
             .replace(Regex("[^a-z0-9 ]"), " ")
-        val tokens = s.split(' ').filter { it.isNotBlank() && it !in QUALITY }.toMutableList()
+        val tokens = s.split(' ').filter { it.isNotBlank() && it !in QUALITY && it !in FEED }.toMutableList()
         while (tokens.size > 1 && tokens.last() in TRAILING_COUNTRY) tokens.removeAt(tokens.size - 1)
         return Cleaned(prefix, tokens.joinToString(""), tokens.filter { it != "tv" }.joinToString(""))
     }

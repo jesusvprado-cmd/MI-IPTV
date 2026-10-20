@@ -36,7 +36,7 @@ object ChannelNames {
 
     private val QUALITY = setOf(
         "uhd", "fhd", "hd", "sd", "4k", "hevc", "h265", "1080", "1080p", "720", "720p", "hdr", "tdt",
-        "multi", "multiaudio", "backup", "alt", "50fps", "60fps", "vip",
+        "multi", "multiaudio", "backup", "alt", "50fps", "60fps", "vip", "sat", "satelite", "script", "low", "lq",
     )
 
     /** (familia, número o null). «ES: LIGA DE CAMPEONES 4 FHD» → ("es liga de campeones", 4). */
