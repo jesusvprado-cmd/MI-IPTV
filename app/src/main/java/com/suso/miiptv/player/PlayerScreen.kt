@@ -288,9 +288,21 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
                         setShutterBackgroundColor(android.graphics.Color.BLACK)
                         keepScreenOn = true
                         styleSubtitles(subtitleView)
+                        // Se escucha después que el propio PlayerView, así que nuestros subtítulos (abajo) son los que quedan.
+                        val sv = subtitleView
+                        val l = object : androidx.media3.common.Player.Listener {
+                            override fun onCues(cueGroup: androidx.media3.common.text.CueGroup) {
+                                sv?.setCues(bottomCues(cueGroup.cues))
+                            }
+                        }
+                        ctl.player.addListener(l)
+                        tag = l
                     }
                 },
-                onRelease = { v -> v.player = null },
+                onRelease = { v ->
+                    (v.tag as? androidx.media3.common.Player.Listener)?.let { ctl.player.removeListener(it) }
+                    v.player = null
+                },
                 update = { v ->
                     v.resizeMode = when (aspect) {
                         "zoom" -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
@@ -692,10 +704,12 @@ fun styleSubtitles(v: SubtitleView?) {
     v ?: return
     val p = Repo.prefs
     val fg = if (p.subColor == "yellow") android.graphics.Color.rgb(255, 230, 80) else android.graphics.Color.WHITE
+    // Letra limpia y sombra suave, como en Netflix.
+    val font = runCatching { androidx.core.content.res.ResourcesCompat.getFont(v.context, com.suso.miiptv.R.font.manrope_semibold) }.getOrNull()
     val style = if (p.subBg == "band") {
-        CaptionStyleCompat(fg, android.graphics.Color.argb(170, 0, 0, 0), android.graphics.Color.TRANSPARENT, CaptionStyleCompat.EDGE_TYPE_NONE, android.graphics.Color.BLACK, null)
+        CaptionStyleCompat(fg, android.graphics.Color.argb(170, 0, 0, 0), android.graphics.Color.TRANSPARENT, CaptionStyleCompat.EDGE_TYPE_NONE, android.graphics.Color.BLACK, font)
     } else {
-        CaptionStyleCompat(fg, android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT, CaptionStyleCompat.EDGE_TYPE_OUTLINE, android.graphics.Color.BLACK, null)
+        CaptionStyleCompat(fg, android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT, CaptionStyleCompat.EDGE_TYPE_DROP_SHADOW, android.graphics.Color.argb(230, 0, 0, 0), font)
     }
     val scale = when (p.subSize) {
         "s" -> 0.85f
@@ -707,6 +721,25 @@ fun styleSubtitles(v: SubtitleView?) {
     v.setApplyEmbeddedFontSizes(false)
     v.setStyle(style)
     v.setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * scale)
+    // Lo más abajo posible (Netflix deja un margen pequeño).
+    v.setBottomPaddingFraction(0.045f)
+}
+
+/**
+ * Quita la posición que traen algunos subtítulos (que los subía a media pantalla) para que salgan siempre abajo.
+ * Los subtítulos de imagen (PGS) se dejan como vienen.
+ */
+fun bottomCues(cues: List<androidx.media3.common.text.Cue>): List<androidx.media3.common.text.Cue> = cues.map { c ->
+    if (c.bitmap != null || c.text == null) c
+    else c.buildUpon()
+        .setLine(androidx.media3.common.text.Cue.DIMEN_UNSET, androidx.media3.common.text.Cue.TYPE_UNSET)
+        .setLineAnchor(androidx.media3.common.text.Cue.TYPE_UNSET)
+        .setPosition(androidx.media3.common.text.Cue.DIMEN_UNSET)
+        .setPositionAnchor(androidx.media3.common.text.Cue.TYPE_UNSET)
+        .setSize(androidx.media3.common.text.Cue.DIMEN_UNSET)
+        .setTextAlignment(android.text.Layout.Alignment.ALIGN_CENTER)
+        .setVerticalType(androidx.media3.common.text.Cue.TYPE_UNSET)
+        .build()
 }
 
 /** Panel lateral derecho: audio, subtítulos, imagen, velocidad, VPN y reproductor externo. */
