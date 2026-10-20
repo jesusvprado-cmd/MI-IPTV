@@ -112,9 +112,15 @@ object Logos {
         return null
     }
 
+    /** Logos elegidos a mano para canales cuyo logo del banco está anticuado. */
+    private val OVERRIDE = mapOf(
+        "telecinco" to "https://upload.wikimedia.org/wikipedia/commons/thumb/1/13/Telecinco_2024_Logo.svg/960px-Telecinco_2024_Logo.svg.png",
+    )
+
     private fun findOne(c: Cleaned): String? {
         val folder = c.prefix?.let { PREFIX_FOLDER[it] } ?: "spain"
         val key = ALIAS[c.key] ?: c.key
+        OVERRIDE[key]?.let { return it }
         if (key.length >= 2) {
             tvLogos[key]?.let { return pick(it, folder) }
             iptvOrg[key]?.let { return it }

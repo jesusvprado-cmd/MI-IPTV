@@ -12,12 +12,19 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.suso.miiptv.data.Category
@@ -25,6 +32,7 @@ import com.suso.miiptv.data.Item
 import com.suso.miiptv.data.Kind
 import com.suso.miiptv.data.Repo
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen() {
     val dv = Repo.dataVersion
@@ -96,25 +104,54 @@ fun HomeScreen() {
             if (rows.isEmpty()) {
                 EmptyText("La lista no tiene contenido")
             } else {
+                CompositionLocalProvider(LocalBringIntoViewSpec provides HomeBringIntoView) {
                 LazyColumn(
                     state = UiState.homeList,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(top = 6.dp, bottom = 40.dp),
                 ) {
                     if (hero.isNotEmpty()) item(key = "hero") { HeroCarousel(hero) }
-                    items(rows, key = { it.key }) { row -> HomeRowView(row) }
+                    items(rows, key = { it.key }) { row ->
+                        // Las filas horizontales mantienen el desplazamiento normal de TV.
+                        CompositionLocalProvider(LocalBringIntoViewSpec provides TvBringIntoView) { HomeRowView(row) }
+                    }
+                }
                 }
             }
         }
     }
 }
 
+/** Qué fila de Inicio tiene el foco (para atenuar las demás). */
+object HomeFocus {
+    var row by mutableStateOf<String?>(null)
+}
+
 /** Fila horizontal con título, como en la pantalla de Inicio de las capturas. */
 @Composable
 fun HomeRowView(row: HomeRow) {
     val ctx = LocalContext.current
-    Column(Modifier.fillMaxWidth().padding(bottom = 22.dp)) {
-        SectionTitle(row.title, Modifier.padding(start = 40.dp, bottom = 10.dp))
+    // La fila con el foco se ve entera; las demás se atenúan un poco, con transición suave.
+    val active = HomeFocus.row
+    val dim = active != null && active != row.key
+    val alpha by animateFloatAsState(if (dim) 0.55f else 1f, tween(420), label = "rowa")
+    val shift by animateFloatAsState(if (active == row.key) 1f else 0f, tween(420), label = "rows")
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(bottom = 22.dp)
+            .onFocusChanged { s ->
+                if (s.hasFocus) HomeFocus.row = row.key
+                else if (HomeFocus.row == row.key) HomeFocus.row = null
+            }
+            .graphicsLayer { this.alpha = alpha },
+    ) {
+        SectionTitle(
+            row.title,
+            Modifier
+                .padding(start = 40.dp, bottom = 10.dp)
+                .graphicsLayer { translationX = shift * 6.dp.toPx() },
+        )
         LazyRow(
             state = UiState.rowState(row.key),
             contentPadding = PaddingValues(horizontal = 40.dp, vertical = 8.dp),

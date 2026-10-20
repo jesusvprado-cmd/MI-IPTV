@@ -2,6 +2,7 @@ package com.suso.miiptv.ui
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -17,7 +18,7 @@ import androidx.compose.ui.unit.dp
 /** Duraciones comunes de las animaciones de la interfaz. */
 object Motion {
     const val FOCUS_MS = 220
-    const val SCROLL_MS = 380
+    const val SCROLL_MS = 520
     const val FADE_MS = 260
 
     fun <T> focusSpec(): AnimationSpec<T> = tween(FOCUS_MS, easing = FastOutSlowInEasing)
@@ -29,7 +30,8 @@ object Motion {
  */
 @OptIn(ExperimentalFoundationApi::class)
 val TvBringIntoView = object : BringIntoViewSpec {
-    override val scrollAnimationSpec: AnimationSpec<Float> = tween(Motion.SCROLL_MS, easing = FastOutSlowInEasing)
+    // Curva suave (arranca y frena con delicadeza) para que los desplazamientos no se noten bruscos.
+    override val scrollAnimationSpec: AnimationSpec<Float> = tween(Motion.SCROLL_MS, easing = CubicBezierEasing(0.22f, 0.61f, 0.36f, 1f))
 
     override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
         val target = containerSize * 0.3f
@@ -50,5 +52,19 @@ fun Modifier.fadeInOnChange(key: Any?): Modifier {
     return this.graphicsLayer {
         alpha = a.value
         translationY = (1f - a.value) * shift
+    }
+}
+
+/**
+ * Desplazamiento de Inicio: solo se mueve si la tarjeta con el foco no se ve entera,
+ * y entonces la coloca a un 30 % del borde. Así los cambios de fila son suaves y no hay saltos innecesarios.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+val HomeBringIntoView = object : BringIntoViewSpec {
+    override val scrollAnimationSpec: AnimationSpec<Float> = TvBringIntoView.scrollAnimationSpec
+
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
+        if (offset >= 0f && offset + size <= containerSize) return 0f
+        return TvBringIntoView.calculateScrollDistance(offset, size, containerSize)
     }
 }

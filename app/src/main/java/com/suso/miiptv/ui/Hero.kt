@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -118,11 +119,22 @@ fun HeroCarousel(items: List<Item>) {
     val h = HeroState.headers[item.key]
     val image = h?.image ?: item.image
     LaunchedEffect(image, focused) { if (focused && image != null) Ambient.image = image }
+    // Con el foco en la portada, se ve entera (el título no queda cortado por arriba).
+    LaunchedEffect(focused) {
+        if (focused) {
+            delay(40)
+            runCatching { UiState.homeList.animateScrollToItem(0) }
+        }
+    }
 
+    val heroAlpha by androidx.compose.animation.core.animateFloatAsState(
+        if (HomeFocus.row != null) 0.5f else 1f, tween(420), label = "heroa",
+    )
     Box(
         Modifier
             .fillMaxWidth()
-            .height(300.dp)
+            .heightIn(min = 300.dp)
+            .graphicsLayer { alpha = heroAlpha }
             .onPreviewKeyEvent { e ->
                 if (!focused || e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 when {
@@ -139,6 +151,7 @@ fun HeroCarousel(items: List<Item>) {
             },
     ) {
         // Imagen de fondo a la derecha, que se funde con lo que hay detrás (sin bordes duros).
+        Box(Modifier.matchParentSize()) {
         Crossfade(
             targetState = image,
             animationSpec = tween(700),
@@ -164,11 +177,12 @@ fun HeroCarousel(items: List<Item>) {
                 AsyncImage(model = u, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             }
         }
+        }
 
         Column(
             Modifier
-                .align(Alignment.CenterStart)
-                .padding(start = 40.dp, end = 40.dp)
+                .align(Alignment.TopStart)
+                .padding(start = 40.dp, end = 40.dp, top = 14.dp, bottom = 8.dp)
                 .fillMaxWidth(0.52f),
         ) {
             AnimatedContent(
@@ -187,8 +201,8 @@ fun HeroCarousel(items: List<Item>) {
                     Spacer(Modifier.height(10.dp))
                     Text(
                         hh?.title ?: it2.name,
-                        color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.ExtraBold,
-                        lineHeight = 39.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold,
+                        lineHeight = 35.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
                     )
                     Spacer(Modifier.height(6.dp))
                     val rating = ratingOf(it2) ?: hh?.rating?.replace(',', '.')?.toFloatOrNull()?.takeIf { it > 0 }
@@ -197,7 +211,7 @@ fun HeroCarousel(items: List<Item>) {
                     if (meta.isNotBlank()) Text(meta, color = C.gold, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     hh?.plot?.let {
                         Spacer(Modifier.height(8.dp))
-                        Text(it, color = Color(0xFFDADADA), fontSize = 14.sp, lineHeight = 20.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                        Text(it, color = Color(0xFFDADADA), fontSize = 14.sp, lineHeight = 20.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
