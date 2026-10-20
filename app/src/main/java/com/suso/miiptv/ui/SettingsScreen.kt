@@ -42,6 +42,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.focusGroup
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -101,6 +104,7 @@ private val SUB_BG = listOf("Sin fondo (contorno)" to "none", "Franja oscura" to
 private val VPN_MODE = listOf("Desactivada" to "off", "WARP de Cloudflare" to "warp", "Mi WireGuard (.conf)" to "wg")
 private val LIVE_FMT = listOf("TS (recomendado)" to "ts", "HLS (m3u8)" to "m3u8")
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun SettingsScreen(onChangeList: () -> Unit) {
     val ctx = LocalContext.current
@@ -128,8 +132,23 @@ fun SettingsScreen(onChangeList: () -> Unit) {
     var inPane by remember { mutableStateOf(false) }
     var choice by remember { mutableStateOf<Choice<*>?>(null) }
 
+    // Fila desde la que se abrió la ventana de elección: al cerrarla, el foco vuelve a ella.
+    var askedFrom by remember { mutableStateOf<String?>(null) }
     fun <T> ask(title: String, options: List<Pair<String, T>>, selected: T, onPick: (T) -> Unit) {
+        askedFrom = FocusMemory.last
         choice = Choice(title, options, selected, onPick)
+    }
+    // Justo al cerrar la ventana, Android puede poner el foco un instante en «Cuenta»: eso no cambia de sección.
+    var ignoreSideUntil by remember { mutableStateOf(0L) }
+    fun closeChoice() {
+        ignoreSideUntil = System.currentTimeMillis() + 500
+        val k = askedFrom
+        FocusMemory.focus(k)
+        choice = null
+        scope.launch {
+            delay(40)
+            if (!FocusMemory.focus(k)) runCatching { sideFrs.getValue(sec).requestFocus() }
+        }
     }
 
     // ---- VPN: permiso de Android y carga de archivos .conf ----
@@ -272,7 +291,7 @@ fun SettingsScreen(onChangeList: () -> Unit) {
                         selected = sec == s,
                         focusKey = "set_side_${s.name}",
                         requester = sideFrs.getValue(s),
-                        onFocused = { pending = s },
+                        onFocused = { if (System.currentTimeMillis() > ignoreSideUntil) pending = s },
                     )
                 }
                 Spacer(Modifier.weight(1f))
@@ -280,7 +299,15 @@ fun SettingsScreen(onChangeList: () -> Unit) {
             }
 
             // ---------------- Opciones de la sección ----------------
-            Box(Modifier.weight(1f).fillMaxHeight().onFocusChanged { inPane = it.hasFocus }) {
+            Box(
+                Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .onFocusChanged { inPane = it.hasFocus }
+                    // ◀ desde las opciones vuelve a la sección en la que estabas, no a la que quede a la misma altura.
+                    .focusProperties { exit = { d -> if (d == FocusDirection.Left) sideFrs.getValue(sec) else FocusRequester.Default } }
+                    .focusGroup(),
+            ) {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().fadeInOnChange(sec),
                     contentPadding = PaddingValues(start = 40.dp, end = 48.dp, top = 30.dp, bottom = 48.dp),
@@ -319,9 +346,9 @@ fun SettingsScreen(onChangeList: () -> Unit) {
         val c = choice as Choice<Any?>?
         if (c != null) {
             ChoiceDialog(c.title, c.options, c.selected, onPick = { v ->
-                choice = null
+                closeChoice()
                 c.onPick(v)
-            }, onClose = { choice = null })
+            }, onClose = { closeChoice() })
         }
     }
 }

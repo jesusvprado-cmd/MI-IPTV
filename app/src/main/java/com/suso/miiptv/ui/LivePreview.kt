@@ -30,6 +30,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -79,31 +81,38 @@ private fun LiveInfo(item: Item?) {
             Text("Elige un canal", color = C.text2, fontSize = 16.sp)
             return@Column
         }
-        Text(item.name, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Spacer(Modifier.height(8.dp))
+        Text(item.name, color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.height(6.dp))
         val now = System.currentTimeMillis()
         val cur = epg.firstOrNull { it.start <= now && it.end > now }
         val next = epg.firstOrNull { it.start >= (cur?.end ?: now) }
         if (cur == null) {
-            Text("Sin guía de programación", color = C.text2, fontSize = 15.sp)
+            Text("Sin guía de programación", color = C.text2, fontSize = 15.sp, maxLines = 1)
         } else {
-            Text("${hm(cur.start)} - ${hm(cur.end)}   ${cur.title}", color = Color.White, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.height(6.dp))
+            Text("${hm(cur.start)} - ${hm(cur.end)}   ${cur.title}", color = Color.White, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(5.dp))
             val frac = ((now - cur.start).toFloat() / (cur.end - cur.start).coerceAtLeast(1)).coerceIn(0f, 1f)
             Box(Modifier.fillMaxWidth(0.7f).height(3.dp).background(Color(0x44FFFFFF))) {
                 Box(Modifier.fillMaxWidth(frac).fillMaxHeight().background(C.gold))
             }
-            cur.desc?.takeIf { it.isNotBlank() }?.let {
-                Spacer(Modifier.height(6.dp))
-                Text(it, color = C.text2, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 17.sp)
-            }
         }
         if (next != null) {
-            Spacer(Modifier.height(6.dp))
-            Text("Después  ${hm(next.start)}   ${next.title}", color = C.text2, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(5.dp))
+            Text("Después  ${hm(next.start)}   ${next.title}", color = C.text2, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        Spacer(Modifier.height(6.dp))
-        Text("OK  pantalla completa", color = C.gold, fontSize = 12.sp)
+        // La descripción usa solo el hueco que sobra; «OK pantalla completa» siempre cabe abajo.
+        val desc = cur?.desc?.takeIf { it.isNotBlank() }
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+            val lh = with(LocalDensity.current) { 17.sp.toDp() }
+            val lines = ((maxHeight - 5.dp) / lh).toInt().coerceIn(0, 2)
+            if (desc != null && lines > 0) {
+                Text(
+                    desc, color = C.text2, fontSize = 13.sp, lineHeight = 17.sp, maxLines = lines,
+                    overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 5.dp),
+                )
+            }
+        }
+        Text("OK  pantalla completa", color = C.gold, fontSize = 12.sp, maxLines = 1)
     }
 }
 

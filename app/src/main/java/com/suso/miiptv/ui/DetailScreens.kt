@@ -49,6 +49,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -450,6 +453,7 @@ fun MovieDetailScreen(item: Item) {
 
 private fun epKey(seriesId: String, ep: Episode) = "EP|$seriesId|${ep.id}"
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SeriesDetailScreen(item: Item) {
     val ctx = LocalContext.current
@@ -561,6 +565,8 @@ fun SeriesDetailScreen(item: Item) {
                 }
             }
             Spacer(Modifier.height(12.dp))
+            // Solo se desplaza cuando lo que tiene el foco no se ve entero: los relacionados no bailan.
+            CompositionLocalProvider(LocalBringIntoViewSpec provides RevealBringIntoView) {
             LazyColumn(
                 state = seasonList,
                 modifier = Modifier.fillMaxWidth().weight(1f),
@@ -600,9 +606,12 @@ fun SeriesDetailScreen(item: Item) {
                 this.item(key = "related") {
                     Column(Modifier.fillMaxWidth()) {
                         Spacer(Modifier.height(24.dp))
-                        RelatedRow(item) { x -> hs.previewItem = x }
+                        CompositionLocalProvider(LocalBringIntoViewSpec provides TvBringIntoView) {
+                            RelatedRow(item) { x -> hs.previewItem = x }
+                        }
                     }
                 }
+            }
             }
         }
         }
