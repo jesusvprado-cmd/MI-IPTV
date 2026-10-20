@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -464,6 +465,17 @@ fun SeriesDetailScreen(item: Item) {
     }
     // Todas las temporadas empiezan plegadas; se despliegan con OK.
     var open by remember(item.key) { mutableStateOf<Int?>(null) }
+    val seasonList = rememberLazyListState()
+    val seasonFrs = remember(item.key) { HashMap<Int, FocusRequester>() }
+    // Al abrir una temporada: se cierran las demás, la temporada sube arriba de la lista y conserva el foco.
+    LaunchedEffect(open) {
+        val o = open ?: return@LaunchedEffect
+        val idx = d?.seasons?.indexOfFirst { it.first == o } ?: -1
+        if (idx < 0) return@LaunchedEffect
+        delay(30)
+        runCatching { seasonList.animateScrollToItem(idx) }
+        runCatching { seasonFrs[o]?.requestFocus() }
+    }
     val det = d
     val pv = Repo.prefs.version
     val fav = remember(pv) { Repo.prefs.isFavorite(item.key) }
@@ -547,6 +559,7 @@ fun SeriesDetailScreen(item: Item) {
             }
             Spacer(Modifier.height(12.dp))
             LazyColumn(
+                state = seasonList,
                 modifier = Modifier.fillMaxWidth().weight(1f),
                 contentPadding = PaddingValues(bottom = 40.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -563,14 +576,18 @@ fun SeriesDetailScreen(item: Item) {
                     }
                     else -> det.seasons.forEach { (season, eps) ->
                         this.item(key = "s$season") {
-                            Box(Modifier.fillMaxWidth(0.62f).padding(start = 48.dp, end = 16.dp).then(clearPreview)) {
+                            val sfr = seasonFrs.getOrPut(season) { FocusRequester() }
+                            Box(
+                                Modifier.animateItem().fillMaxWidth(0.62f).padding(start = 48.dp, end = 16.dp)
+                                    .focusRequester(sfr).then(clearPreview)
+                            ) {
                                 SeasonRow(season, eps.size, open == season) { open = if (open == season) null else season }
                             }
                         }
                         if (open == season) {
                             this.itemsIndexed(eps, key = { _, ep -> "e${ep.id}" }) { i, ep ->
                                 val p = Repo.prefs.progress(epKey(item.id, ep))
-                                Box(Modifier.fillMaxWidth(0.62f).padding(start = 48.dp, end = 16.dp).then(clearPreview)) {
+                                Box(Modifier.animateItem().fillMaxWidth(0.62f).padding(start = 48.dp, end = 16.dp).then(clearPreview)) {
                                     EpisodeRow(ep, p, "ep_${ep.id}") { playEpisodes(eps, i) }
                                 }
                             }
@@ -599,12 +616,20 @@ private fun SeasonRow(season: Int, count: Int, expanded: Boolean, onClick: () ->
             .memFocus("season_$season") { focused = it }
             .tvClick(onClick = onClick)
             .clip(RoundedCornerShape(6.dp))
-            .background(if (focused) C.gold else Color.Transparent)
+            .background(
+                when {
+                    focused -> C.gold
+                    expanded -> Color(0xFF2A2416)
+                    else -> Color.Transparent
+                }
+            )
+            .then(if (expanded && !focused) Modifier.border(1.dp, C.gold.copy(alpha = 0.6f), RoundedCornerShape(6.dp)) else Modifier)
             .padding(horizontal = 12.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(if (expanded) "▾" else "▸", color = fg, fontSize = 16.sp, modifier = Modifier.width(22.dp))
-        Text("Temporada $season", color = fg, fontSize = 19.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+        val tc = if (expanded && !focused) C.gold else fg
+        Text(if (expanded) "▾" else "▸", color = tc, fontSize = 16.sp, modifier = Modifier.width(22.dp))
+        Text("Temporada $season", color = tc, fontSize = 19.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
         Text("$count episodios", color = if (focused) Color.Black else C.text2, fontSize = 13.sp)
     }
 }
