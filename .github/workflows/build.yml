@@ -31,7 +31,12 @@ jobs:
       - name: Compilar
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease --stacktrace --no-daemon
+          set -o pipefail
+          if ! ./gradlew assembleRelease --stacktrace --no-daemon 2>&1 | tee build.log; then
+            # Muestra los errores de compilación como avisos visibles en GitHub.
+            grep -E "^e: |error:|ERROR:|What went wrong" -A3 build.log | head -60 | while IFS= read -r l; do echo "::error::$l"; done
+            exit 1
+          fi
 
       - name: Renombrar APK
         run: cp app/build/outputs/apk/release/app-release.apk MiIPTV.apk
