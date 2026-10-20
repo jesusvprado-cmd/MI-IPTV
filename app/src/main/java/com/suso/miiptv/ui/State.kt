@@ -16,6 +16,7 @@ sealed interface Screen {
     data class Series(val item: Item) : Screen
     data object Settings : Screen
     data object HiddenCats : Screen
+    data object MissingLogos : Screen
 }
 
 enum class Tab(val label: String) {

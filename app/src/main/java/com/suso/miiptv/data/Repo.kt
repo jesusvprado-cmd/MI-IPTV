@@ -102,7 +102,9 @@ object Repo {
         val k = "${kind.name}|${cat ?: "*"}"
         itemCache[k]?.let { return it }
         val everything = itemCache["${kind.name}|*"]
-        val l = if (cat != null && everything != null) everything.filter { it.categoryId == cat } else src().items(kind, cat)
+        val raw = if (cat != null && everything != null) everything.filter { it.categoryId == cat } else src().items(kind, cat)
+        // Canales: nombre sin «Movistar» delante de los autonómicos y familias numeradas en orden (1, 2, 3...).
+        val l = if (kind == Kind.LIVE) withContext(Dispatchers.Default) { ChannelNames.tidy(raw, sortGroups = cat != null) } else raw
         itemCache[k] = l
         return l
     }
@@ -120,6 +122,7 @@ object Repo {
     }
 
     fun favorites(kind: Kind): List<Item> = prefs.favorites().filter { it.kind == kind && visible(it) }
+        .map { if (it.kind == Kind.LIVE) it.copy(name = ChannelNames.display(it.name)) else it }
 
     suspend fun movieDetail(item: Item): MovieDetail = src().movieDetail(item)
 

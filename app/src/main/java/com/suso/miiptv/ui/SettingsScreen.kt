@@ -563,6 +563,12 @@ private fun ContentSection() {
             p.hqLogos = v
             if (v) com.suso.miiptv.data.Logos.ensureLoaded()
         }
+        if (p.hqLogos) {
+            SettingRow(
+                "Canales sin logo de calidad", "set_nologo",
+                subtitle = "Lista de los canales para los que no se ha encontrado logo",
+            ) { UiState.push(Screen.MissingLogos) }
+        }
         SettingRow("Borrar «Continuar viendo»", "set_clear", subtitle = "Quita el historial de películas y series empezadas", chevron = false) {
             p.clearProgress()
             Actions.toast(ctx, "Historial borrado")

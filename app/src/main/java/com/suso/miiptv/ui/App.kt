@@ -47,6 +47,7 @@ fun AppRoot(activity: Activity) {
                         is Screen.Series -> key(top) { SeriesDetailScreen(top.item) }
                         Screen.Settings -> SettingsScreen(onChangeList = { editing = true })
                         Screen.HiddenCats -> HiddenCatsScreen()
+                        Screen.MissingLogos -> MissingLogosScreen()
                     }
                 }
             }

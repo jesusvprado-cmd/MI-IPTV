@@ -95,11 +95,24 @@ object Logos {
         return found ?: original
     }
 
+    /** ¿Está cargado el índice de logos? */
+    fun ready(): Boolean = tvLogos.isNotEmpty() || iptvOrg.isNotEmpty()
+
+    /** ¿Hay logo de alta calidad para este canal? */
+    fun has(name: String): Boolean = ready() && find(name) != null
+
     private fun pick(list: List<Pair<String, String>>, folder: String): String =
         (list.firstOrNull { it.first == folder } ?: list.firstOrNull { it.first == "spain" } ?: list.first()).second
 
     private fun find(name: String): String? {
-        val c = clean(name)
+        findOne(clean(name))?.let { return it }
+        // «Movistar TVG», «M+ Telemadrid»...: se prueba también sin la marca delante.
+        val n = ChannelNames.display(name)
+        if (n != name) findOne(clean(n))?.let { return it }
+        return null
+    }
+
+    private fun findOne(c: Cleaned): String? {
         val folder = c.prefix?.let { PREFIX_FOLDER[it] } ?: "spain"
         val key = ALIAS[c.key] ?: c.key
         if (key.length >= 2) {
@@ -154,6 +167,23 @@ object Logos {
         a("bemadtv", "bemad")
         a("comedycentral", "comedy")
         a("dazn", "dazn1es")
+        // Autonómicos
+        a("castillademancha", "cmm", "cmmtv", "castillalamancha", "castillalamanchatv", "cmmtelevision", "castillalamanchamedia")
+        a("tpa7", "tpa", "rtpa", "tpaasturias", "asturiastv")
+        a("televisioncanaria", "canarias", "tvcanaria", "canariastv", "televisioncanarias", "tvcanarias", "rtvc")
+        a("canalextremadura", "extremadura", "canalextremaduratv", "extremaduratv")
+        a("7televisionregiondemurcia", "7rm", "7regiondemurcia", "la7murcia", "7murcia", "7tvmurcia")
+        a("navarratelevision", "navarratv", "natv", "navarra")
+        a("aragontv", "aragon", "aragontelevision", "cartvaragon")
+        a("tv3cat", "3cat", "tv3hd", "tv3catalunya")
+        a("324", "3 24", "canal324")
+        a("ib3", "ib3televisio", "ib3global", "ib3tv")
+        a("apunt", "apuntmedia", "punt", "apunttv", "apuntvalencia")
+        a("la7", "la7cyl", "la7castillayleon", "cyl7", "cyltv")
+        a("la8", "la8cyl", "cyl8")
+        a("etb1", "etb", "eitb", "etb1hd")
+        a("canalsurandalucia", "canalsurhd")
+        a("galicia", "televisiondegalicia", "agalega", "tvgalega")
     }
 
     /** Prefijos de país que se quitan del principio del nombre. */
@@ -232,8 +262,9 @@ object Logos {
     // ---------------- Carga de los índices ----------------
 
     private fun load() {
-        val cacheFile = File(dir, "logos_index2.tsv")
+        val cacheFile = File(dir, "logos_index3.tsv")
         File(dir, "logos_index.tsv").delete()
+        File(dir, "logos_index2.tsv").delete()
         if (cacheFile.exists() && System.currentTimeMillis() - cacheFile.lastModified() < MAX_AGE) {
             readCache(cacheFile)
             if (tvLogos.isNotEmpty() || iptvOrg.isNotEmpty()) return
@@ -354,7 +385,7 @@ object Logos {
                         }
                     }
                     j.endObject()
-                    if (ch == null || url == null || w < 200) continue
+                    if (ch == null || url == null || w < 100) continue
                     if (fmt != null && fmt.equals("SVG", true)) continue
                     val cur = best[ch]
                     if (cur == null || w > cur.first) best[ch] = w to url
