@@ -25,6 +25,12 @@ fun AppRoot(activity: Activity) {
       CompositionLocalProvider(LocalBringIntoViewSpec provides TvBringIntoView) {
         var configured by remember { mutableStateOf(Repo.source != null) }
         var editing by remember { mutableStateOf(false) }
+        // Al abrir la app mira si hay versión nueva (como mucho cada 6 horas).
+        val ctx = androidx.compose.ui.platform.LocalContext.current
+        androidx.compose.runtime.LaunchedEffect(Unit) {
+            kotlinx.coroutines.delay(5000)
+            runCatching { com.suso.miiptv.data.Updater.check(ctx) }
+        }
         Box(Modifier.fillMaxSize().background(C.bg).systemBarsPadding()) {
             when {
                 !configured -> SetupScreen(canCancel = false, onDone = { configured = true }, onCancel = {})
@@ -51,6 +57,7 @@ fun AppRoot(activity: Activity) {
                     }
                 }
             }
+            if (configured && !editing) UpdateDialog()
             SplashOverlay()
         }
       }

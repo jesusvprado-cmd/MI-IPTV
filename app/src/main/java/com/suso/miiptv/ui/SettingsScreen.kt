@@ -309,7 +309,7 @@ fun SettingsScreen(onChangeList: () -> Unit) {
                         Sec.AUDIO -> item(key = "audio") { AudioSection { t, o, s, f -> ask(t, o, s, f) } }
                         Sec.SUBS -> item(key = "subs") { SubsSection { t, o, s, f -> ask(t, o, s, f) } }
                         Sec.CONTENT -> item(key = "content") { ContentSection() }
-                        Sec.ABOUT -> item(key = "about") { AboutSection() }
+                        Sec.ABOUT -> item(key = "about") { Column { AboutSection() } }
                     }
                 }
             }
@@ -603,6 +603,29 @@ private fun AboutSection() {
             "Reproductor para usar con tu propia lista IPTV.\nNo incluye canales ni contenidos.",
             color = C.text2, fontSize = 14.sp, textAlign = TextAlign.Center, lineHeight = 20.sp,
         )
+    }
+    Spacer(Modifier.height(10.dp))
+    val scope = rememberCoroutineScope()
+    var checking by remember { mutableStateOf(false) }
+    SettingRow(
+        "Buscar actualizaciones", "set_update",
+        subtitle = if (checking) "Comprobando…" else "Descarga e instala la última versión desde la propia app",
+        chevron = false,
+    ) {
+        if (checking) return@SettingRow
+        checking = true
+        scope.launch {
+            val has = try {
+                com.suso.miiptv.data.Updater.check(ctx, force = true)
+            } catch (e: Exception) {
+                Actions.toast(ctx, "No se pudo comprobar: ${e.message ?: "sin conexión"}")
+                checking = false
+                return@launch
+            }
+            checking = false
+            if (has) com.suso.miiptv.data.Updater.dismissed = false
+            else Actions.toast(ctx, "Ya tienes la última versión")
+        }
     }
 }
 
