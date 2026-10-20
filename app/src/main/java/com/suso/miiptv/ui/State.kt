@@ -41,6 +41,8 @@ class BrowseState {
     var focused by mutableStateOf<Item?>(null)
     var loadedSel: String? = null
     var lastItems: List<Item>? = null
+    /** Última tarjeta de la cuadrícula que tuvo el foco (para volver a ella con ▶ desde las categorías). */
+    var lastIdx by mutableStateOf(-1)
 }
 
 /** Estado de navegación que sobrevive al ir y volver de las fichas y del reproductor. */

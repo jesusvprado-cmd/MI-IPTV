@@ -1,6 +1,7 @@
 package com.suso.miiptv.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -20,11 +21,16 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -42,6 +48,7 @@ const val FAV = "__fav"
 const val RECENT = "__recent"
 
 /** Pantallas "TV en directo", "Películas" y "Series": categorías a la izquierda y cuadrícula a la derecha. */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun BrowseScreen(kind: Kind) {
     val ctx = LocalContext.current
@@ -101,10 +108,24 @@ fun BrowseScreen(kind: Kind) {
             contentErr = e.message ?: "No se pudo cargar el contenido"
             emptyList()
         }
-        if (changed && st.loadedSel != null) st.grid = LazyGridState()
+        if (changed && st.loadedSel != null) {
+            st.grid = LazyGridState()
+            st.lastIdx = -1
+        }
         st.loadedSel = sel
         st.lastItems = res
         content = res
+    }
+
+    // ▶ desde una categoría lleva siempre a la cuadrícula: a la última tarjeta usada si se ve, o a la primera visible.
+    val gridFr = remember(kind) { FocusRequester() }
+    val ready = content?.isNotEmpty() == true
+    val grid = st.grid
+    val targetIdx by remember(grid) {
+        derivedStateOf {
+            val visible = grid.layoutInfo.visibleItemsInfo.map { it.index }
+            if (st.lastIdx in visible) st.lastIdx else (visible.firstOrNull() ?: 0)
+        }
     }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -116,6 +137,7 @@ fun BrowseScreen(kind: Kind) {
                 contentPadding = PaddingValues(start = if (narrow) 6.dp else 22.dp, end = 6.dp, top = 14.dp, bottom = 24.dp),
             ) {
                 itemsIndexed(allCats, key = { i, c -> "$i:${c.id}" }) { _, c ->
+                    Box(Modifier.focusProperties { right = if (ready) gridFr else FocusRequester.Cancel }) {
                     CategoryRow(
                         name = c.name,
                         selected = c.id == sel,
@@ -124,6 +146,7 @@ fun BrowseScreen(kind: Kind) {
                     ) {
                         pending = null
                         st.selected = c.id
+                    }
                     }
                 }
             }
@@ -148,16 +171,18 @@ fun BrowseScreen(kind: Kind) {
                     ) {
                         itemsIndexed(its, key = { i, x -> "$i:${x.key}" }) { i, x ->
                             val fk = "g_${kind.name}_${sel}_${x.key}"
+                            val m = if (i == targetIdx) Modifier.focusRequester(gridFr) else Modifier
                             if (kind == Kind.LIVE) {
                                 ChannelCard(
-                                    x.name, x.image, fk,
-                                    onFocus = { f -> if (f) st.focused = x },
+                                    x.name, x.image, fk, m,
+                                    onFocus = { f -> if (f) { st.focused = x; st.lastIdx = i } },
                                     onLong = { Actions.toggleFav(ctx, x) },
                                 ) { Actions.playLive(ctx, its, i, fromPreview = !narrow) }
                             } else {
                                 PosterCard(
-                                    x.name, x.image, fk,
+                                    x.name, x.image, fk, m,
                                     item = x,
+                                    onFocus = { f -> if (f) st.lastIdx = i },
                                     onLong = { Actions.toggleFav(ctx, x) },
                                 ) { Actions.open(x) }
                             }
