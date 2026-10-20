@@ -50,6 +50,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.layout.layout
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.foundation.border
 import androidx.compose.ui.graphics.asImageBitmap
@@ -552,7 +554,14 @@ private fun SeekBar(fraction: Float, modifier: Modifier, preview: Long? = null, 
             val f = Thumbs.frame
             val showImg = Repo.prefs.seekThumbs && f != null && f.first == Thumbs.key(preview)
             Column(
-                Modifier.offset(x = x, y = -(th / 2 + 36.dp)).width(tw),
+                Modifier
+                    .offset(x = x)
+                    // La barra mide 20 dp de alto: la miniatura se mide sin ese límite y se coloca justo encima.
+                    .layout { measurable, constraints ->
+                        val pl = measurable.measure(constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity))
+                        layout(pl.width, 0) { pl.place(0, -pl.height - 10.dp.roundToPx()) }
+                    }
+                    .width(tw),
                 verticalArrangement = Arrangement.Bottom,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
