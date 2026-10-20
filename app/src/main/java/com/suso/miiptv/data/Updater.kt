@@ -60,29 +60,55 @@ object Updater {
         if (!force && now - sp.getLong("last", 0) < CHECK_EVERY) return available != null
         error = null
         val rel = withContext(Dispatchers.IO) {
-            Http.open(LATEST).use { r ->
-                val o = JSONObject(r.body?.string() ?: "{}")
-                val build = o.optString("tag_name").removePrefix("v").toIntOrNull() ?: return@use null
-                val assets = o.optJSONArray("assets")
-                var url: String? = null
-                var size = 0L
-                if (assets != null) {
-                    for (i in 0 until assets.length()) {
-                        val a = assets.getJSONObject(i)
-                        if (a.optString("name").endsWith(".apk", true)) {
-                            url = a.optString("browser_download_url")
-                            size = a.optLong("size")
-                            break
-                        }
-                    }
-                }
-                if (url.isNullOrBlank()) return@use null
-                Release(build, o.optString("name", "Mi IPTV $build"), cleanNotes(o.optString("body")), url, size)
-            }
+            // 1) La API de GitHub (trae las novedades). Con VPN o IP compartida a veces responde 403 por límite de consultas.
+            // 2) Si falla, la página pública de la última versión, que no tiene ese límite.
+            try {
+                fromApi()
+            } catch (e: Exception) {
+                null
+            } ?: fromWeb()
         }
         sp.edit().putLong("last", now).apply()
         available = rel?.takeIf { it.build > currentBuild(ctx) }
         return available != null
+    }
+
+    private const val PAGE_LATEST = "https://github.com/jesusvprado-cmd/MI-IPTV/releases/latest"
+    private const val DOWNLOAD = "https://github.com/jesusvprado-cmd/MI-IPTV/releases/download"
+
+    private fun get(url: String, accept: String? = null): okhttp3.Response {
+        val b = Request.Builder().url(url).header("User-Agent", "MiIPTV-Android")
+        if (accept != null) b.header("Accept", accept)
+        return Http.client.newCall(b.build()).execute()
+    }
+
+    private fun fromApi(): Release? = get(LATEST, "application/vnd.github+json").use { r ->
+        if (!r.isSuccessful) throw IOException("GitHub HTTP ${r.code}")
+        val o = JSONObject(r.body?.string() ?: "{}")
+        val build = o.optString("tag_name").removePrefix("v").toIntOrNull() ?: return@use null
+        val assets = o.optJSONArray("assets")
+        var url: String? = null
+        var size = 0L
+        if (assets != null) {
+            for (i in 0 until assets.length()) {
+                val a = assets.getJSONObject(i)
+                if (a.optString("name").endsWith(".apk", true)) {
+                    url = a.optString("browser_download_url")
+                    size = a.optLong("size")
+                    break
+                }
+            }
+        }
+        if (url.isNullOrBlank()) return@use null
+        Release(build, o.optString("name", "Mi IPTV $build"), cleanNotes(o.optString("body")), url, size)
+    }
+
+    /** «…/releases/latest» redirige a «…/releases/tag/v23»: de ahí sale el número de la última versión. */
+    private fun fromWeb(): Release? = get(PAGE_LATEST).use { r ->
+        if (!r.isSuccessful) throw IOException("No se pudo consultar GitHub (HTTP ${r.code})")
+        val tag = r.request.url.pathSegments.lastOrNull() ?: return@use null
+        val build = tag.removePrefix("v").toIntOrNull() ?: return@use null
+        Release(build, "Mi IPTV $build", "", "$DOWNLOAD/$tag/MiIPTV.apk", 0)
     }
 
     /** Quita las líneas técnicas del texto de la versión (autoría, enlaces de sesión...). */
