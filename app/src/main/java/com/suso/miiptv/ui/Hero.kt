@@ -61,7 +61,7 @@ import com.suso.miiptv.player.PlayQueue
 import kotlinx.coroutines.delay
 
 /** Estado de la portada destacada que se conserva al ir y volver de una ficha. */
-object HeroState {
+internal object HeroState {
     var index by mutableStateOf(0)
     val headers = mutableStateMapOf<String, HeaderInfo>()
 }
