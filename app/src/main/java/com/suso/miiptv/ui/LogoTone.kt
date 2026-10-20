@@ -4,6 +4,10 @@ import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -53,18 +57,26 @@ object LogoTone {
     }
 }
 
-/** Imagen de logo de canal que avisa a [LogoTone] para saber si es oscuro. */
+/**
+ * Imagen de logo de canal que avisa a [LogoTone] para saber si es oscuro.
+ * Si el logo de calidad no carga, se usa el de la lista ([fallback]) en lugar de dejar el recuadro vacío.
+ */
 @Composable
-fun ChannelLogoImage(url: String, modifier: Modifier = Modifier) {
+fun ChannelLogoImage(url: String, modifier: Modifier = Modifier, fallback: String? = null, onModel: (String) -> Unit = {}) {
     val ctx = LocalContext.current
+    var model by remember(url) { mutableStateOf(url) }
     AsyncImage(
-        model = ImageRequest.Builder(ctx).data(url).allowHardware(false).build(),
+        model = remember(model) { ImageRequest.Builder(ctx).data(model).allowHardware(false).build() },
         contentDescription = null,
         contentScale = ContentScale.Fit,
         modifier = modifier,
         onSuccess = { s ->
             val d = s.result.drawable
-            if (d is BitmapDrawable) d.bitmap?.let { LogoTone.analyze(url, it) }
+            if (d is BitmapDrawable) d.bitmap?.let { LogoTone.analyze(model, it) }
+            onModel(model)
+        },
+        onError = {
+            if (model == url && fallback != null && fallback != url) model = fallback
         },
     )
 }

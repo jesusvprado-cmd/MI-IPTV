@@ -412,7 +412,7 @@ private fun LiveOverlay(ctl: PlayerCtl, item: PlayItem, fav: Boolean, onFav: () 
             ) {
                 val logo = remember(item.key, Logos.version) { Logos.url(item.title, item.image) }
                 if (logo != null) {
-                    ChannelLogoImage(logo, Modifier.fillMaxSize().padding(8.dp))
+                    ChannelLogoImage(logo, Modifier.fillMaxSize().padding(8.dp), fallback = item.image)
                 }
             }
             Spacer(Modifier.width(20.dp))
@@ -604,7 +604,7 @@ private fun ChannelListPanel(ctl: PlayerCtl, onPick: (Int) -> Unit, onClose: () 
                         contentAlignment = Alignment.Center,
                     ) {
                         if (logo != null) {
-                            ChannelLogoImage(logo, Modifier.fillMaxSize().padding(2.dp))
+                            ChannelLogoImage(logo, Modifier.fillMaxSize().padding(2.dp), fallback = p.image)
                         }
                     }
                     Spacer(Modifier.width(10.dp))

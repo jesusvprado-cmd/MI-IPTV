@@ -12,6 +12,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import okhttp3.Request
+import org.json.JSONObject
 import java.io.InputStreamReader
 import java.text.Normalizer
 
@@ -29,6 +31,10 @@ object Logos {
     private const val IPTV_CHANNELS = "https://iptv-org.github.io/api/channels.json"
     private const val IPTV_LOGOS = "https://iptv-org.github.io/api/logos.json"
     private const val MAX_AGE = 7L * 24 * 3600 * 1000
+    private const val COMMONS_API = "https://commons.wikimedia.org/w/api.php"
+    private const val COMMONS_ROOT = "Category:SVG logos of television channels of Spain"
+    /** Wikimedia pide identificarse con un nombre de app propio. */
+    const val WIKI_UA = "MiIPTV/1.0 (https://github.com/jesusvprado-cmd/MI-IPTV; Android TV)"
 
     /** Países de iptv-org que se guardan (los habituales en listas españolas). */
     private val IPTV_COUNTRIES = setOf("ES", "AD", "PT", "GB", "UK", "US", "FR", "IT", "DE", "MX", "AR", "INT")
@@ -59,6 +65,10 @@ object Logos {
     @Volatile
     private var iptvOrg: Map<String, String> = emptyMap()
 
+    /** clave → url de Wikimedia Commons (logos actuales de los canales españoles). */
+    @Volatile
+    private var commons: Map<String, String> = emptyMap()
+
     private val cache = HashMap<String, String>()
     private var loading = false
     private lateinit var dir: File
@@ -88,7 +98,7 @@ object Logos {
     /** Logo a mostrar para un canal: el de alta calidad si se encuentra, si no el de la lista. */
     fun url(name: String, original: String?): String? {
         if (!Repo.prefs.hqLogos) return original
-        if (tvLogos.isEmpty() && iptvOrg.isEmpty()) return original
+        if (!ready()) return original
         synchronized(cache) { cache[name] }?.let { return it.ifEmpty { original } }
         val found = find(name)
         synchronized(cache) { cache[name] = found ?: "" }
@@ -96,7 +106,7 @@ object Logos {
     }
 
     /** ¿Está cargado el índice de logos? */
-    fun ready(): Boolean = tvLogos.isNotEmpty() || iptvOrg.isNotEmpty()
+    fun ready(): Boolean = tvLogos.isNotEmpty() || iptvOrg.isNotEmpty() || commons.isNotEmpty()
 
     /** ¿Hay logo de alta calidad para este canal? */
     fun has(name: String): Boolean = ready() && find(name) != null
@@ -121,6 +131,11 @@ object Logos {
         val folder = c.prefix?.let { PREFIX_FOLDER[it] } ?: "spain"
         val key = ALIAS[c.key] ?: c.key
         OVERRIDE[key]?.let { return it }
+        val spanish = folder == "spain"
+        if (spanish && key.length >= 2) {
+            commons[key]?.let { return it }
+            commons[c.key]?.let { return it }
+        }
         if (key.length >= 2) {
             tvLogos[key]?.let { return pick(it, folder) }
             iptvOrg[key]?.let { return it }
@@ -131,6 +146,7 @@ object Logos {
             tvLogos[loose]?.let { return pick(it, folder) }
             tvLoose[loose]?.let { return pick(it, folder) }
             iptvOrg[loose]?.let { return it }
+            if (spanish) commons[loose]?.let { return it }
         }
         return null
     }
@@ -268,12 +284,11 @@ object Logos {
     // ---------------- Carga de los índices ----------------
 
     private fun load() {
-        val cacheFile = File(dir, "logos_index3.tsv")
-        File(dir, "logos_index.tsv").delete()
-        File(dir, "logos_index2.tsv").delete()
+        val cacheFile = File(dir, "logos_index4.tsv")
+        for (old in listOf("logos_index.tsv", "logos_index2.tsv", "logos_index3.tsv")) File(dir, old).delete()
         if (cacheFile.exists() && System.currentTimeMillis() - cacheFile.lastModified() < MAX_AGE) {
             readCache(cacheFile)
-            if (tvLogos.isNotEmpty() || iptvOrg.isNotEmpty()) return
+            if (ready()) return
         }
         val tv = LinkedHashMap<String, MutableList<Pair<String, String>>>()
         val loose = LinkedHashMap<String, MutableList<Pair<String, String>>>()
@@ -302,10 +317,16 @@ object Logos {
         } catch (e: Exception) {
             emptyMap()
         }
-        if (tv.isEmpty() && org.isEmpty()) throw IllegalStateException("sin índice")
+        val com = try {
+            commonsIndex()
+        } catch (e: Exception) {
+            emptyMap()
+        }
+        if (tv.isEmpty() && org.isEmpty() && com.isEmpty()) throw IllegalStateException("sin índice")
         tvLogos = tv
         tvLoose = loose
         iptvOrg = org
+        commons = com
         writeCache(cacheFile)
     }
 
@@ -457,6 +478,7 @@ object Logos {
                 for ((k, list) in tvLogos) for ((folder, url) in list) w.write("t\t$k\t$folder\t$url\n")
                 for ((k, list) in tvLoose) for ((folder, url) in list) w.write("l\t$k\t$folder\t$url\n")
                 for ((k, url) in iptvOrg) w.write("o\t$k\t\t$url\n")
+                for ((k, url) in commons) w.write("c\t$k\t\t$url\n")
             }
         } catch (e: Exception) {
             // No pasa nada: se volverá a descargar.
@@ -466,6 +488,7 @@ object Logos {
     private fun readCache(f: File) {
         val tv = LinkedHashMap<String, MutableList<Pair<String, String>>>()
         val org = HashMap<String, String>()
+        val com = HashMap<String, String>()
         val loose = LinkedHashMap<String, MutableList<Pair<String, String>>>()
         try {
             f.forEachLine { line ->
@@ -474,6 +497,7 @@ object Logos {
                 if (p[0] == "t") tv.getOrPut(p[1]) { mutableListOf() }.add(p[2] to p[3])
                 else if (p[0] == "l") loose.getOrPut(p[1]) { mutableListOf() }.add(p[2] to p[3])
                 else if (p[0] == "o") org[p[1]] = p[3]
+                else if (p[0] == "c") com[p[1]] = p[3]
             }
         } catch (e: Exception) {
             return
@@ -481,5 +505,101 @@ object Logos {
         tvLogos = tv
         tvLoose = loose
         iptvOrg = org
+        commons = com
+    }
+
+    // ---------------- Wikimedia Commons ----------------
+
+    private val YEAR_RANGE = Regex("((?:19|20)\\d{2})\\s*[-–—]\\s*((?:19|20)\\d{2})?")
+    private val YEAR = Regex("\\b((?:19|20)\\d{2})\\b")
+    private val COMMONS_NOISE = setOf(
+        "logo", "logos", "logotipo", "logotype", "icon", "isotipo", "isotype", "imagotipo", "version", "variant",
+        "alt", "alternate", "alternative", "white", "black", "blanco", "negro", "color", "colour", "horizontal",
+        "vertical", "new", "nuevo", "current", "actual", "official", "oficial", "spain", "espana", "es", "svg",
+        "wordmark",
+    )
+    private val COMMONS_KEEP_LA = Regex("^(la|el|canal)\\s")
+
+    /** «File:Telecinco 2024 Logo.svg» → (clave «telecinco», puntuación 2024). Más puntuación = logo más reciente. */
+    private fun commonsKey(title: String): Pair<String, Int>? {
+        var name = title.substringAfter(':').substringBeforeLast('.')
+        name = Normalizer.normalize(name, Normalizer.Form.NFKD).lowercase().replace(Regex("\\p{Mn}+"), "").replace('_', ' ')
+        var score = 2015
+        val range = YEAR_RANGE.find(name)
+        if (range != null) {
+            val end = range.groupValues[2]
+            score = if (end.isEmpty()) 9999 else end.toInt()
+        } else {
+            YEAR.findAll(name).map { it.groupValues[1].toInt() }.maxOrNull()?.let { score = it }
+        }
+        if (Regex("\\b(white|black|blanco|negro|negative|monochrome|mono)\\b").containsMatchIn(name)) score -= 1
+        name = name.replace(YEAR_RANGE, " ").replace(YEAR, " ")
+        // «La 1», «La Sexta», «Canal Sur»: el artículo inicial forma parte del nombre del canal.
+        val keepFirst = COMMONS_KEEP_LA.containsMatchIn(name.trim())
+        val words = name.replace(Regex("[\\[(][^\\])]*[\\])]"), " ").split(Regex("[^a-z0-9+]+")).filter { it.isNotBlank() }
+        val kept = words.filterIndexed { i, w -> (i == 0 && keepFirst) || w !in COMMONS_NOISE }
+        if (kept.isEmpty()) return null
+        val key = clean(kept.joinToString(" ")).key
+        return if (key.length >= 2) key to score else null
+    }
+
+    private fun md5(s: String): String =
+        java.security.MessageDigest.getInstance("MD5").digest(s.toByteArray()).joinToString("") { "%02x".format(it) }
+
+    /** Miniatura PNG de 500 px de un archivo de Commons (las SVG se convierten en el propio servidor). */
+    private fun commonsThumb(title: String): String {
+        val name = title.substringAfter(':').replace(' ', '_')
+        val h = md5(name)
+        val enc = java.net.URLEncoder.encode(name, "UTF-8").replace("+", "%20")
+        val png = if (name.endsWith(".svg", true)) ".png" else ""
+        return "https://upload.wikimedia.org/wikipedia/commons/thumb/${h[0]}/${h.substring(0, 2)}/$enc/500px-$enc$png"
+    }
+
+    private fun commonsGet(params: String): JSONObject {
+        val req = Request.Builder().url("$COMMONS_API?format=json&formatversion=2&$params").header("User-Agent", WIKI_UA).build()
+        Http.client.newCall(req).execute().use { r ->
+            if (!r.isSuccessful) throw java.io.IOException("Commons HTTP ${r.code}")
+            return JSONObject(r.body?.string() ?: "{}")
+        }
+    }
+
+    /** Recorre la categoría de logos de canales españoles (y sus subcategorías) de Wikimedia Commons. */
+    private fun commonsIndex(): Map<String, String> {
+        val best = HashMap<String, Pair<Int, String>>()
+        val seen = HashSet<String>()
+        var level = listOf(COMMONS_ROOT)
+        var depth = 0
+        val started = System.currentTimeMillis()
+        while (level.isNotEmpty() && depth <= 2) {
+            val next = ArrayList<String>()
+            for (cat in level) {
+                if (!seen.add(cat) || seen.size > 120 || System.currentTimeMillis() - started > 60_000) continue
+                var cont: String? = null
+                do {
+                    val q = "action=query&list=categorymembers&cmtype=file|subcat&cmlimit=500&cmtitle=" +
+                        java.net.URLEncoder.encode(cat, "UTF-8") + (cont?.let { "&cmcontinue=" + java.net.URLEncoder.encode(it, "UTF-8") } ?: "")
+                    val o = commonsGet(q)
+                    val members = o.optJSONObject("query")?.optJSONArray("categorymembers")
+                    if (members != null) {
+                        for (i in 0 until members.length()) {
+                            val m = members.getJSONObject(i)
+                            val t = m.optString("title")
+                            when (m.optInt("ns")) {
+                                14 -> next += t
+                                6 -> if (t.endsWith(".svg", true) || t.endsWith(".png", true)) {
+                                    val (k, sc) = commonsKey(t) ?: continue
+                                    val cur = best[k]
+                                    if (cur == null || sc > cur.first) best[k] = sc to commonsThumb(t)
+                                }
+                            }
+                        }
+                    }
+                    cont = o.optJSONObject("continue")?.optString("cmcontinue")?.takeIf { it.isNotBlank() }
+                } while (cont != null)
+            }
+            level = next
+            depth++
+        }
+        return best.mapValues { it.value.second }
     }
 }

@@ -260,7 +260,8 @@ fun ChannelCard(
     val lv = Logos.version
     val logo = remember(title, image, sv, lv) { Logos.url(title, image) }
     // Los logos oscuros (Telecinco, La 1...) van sobre un fondo claro para que se vean bien.
-    val darkLogo = LogoTone.isDark(logo)
+    var shownLogo by remember(logo) { mutableStateOf(logo) }
+    val darkLogo = LogoTone.isDark(shownLogo)
     val cardBg by animateColorAsState(if (darkLogo) LogoTone.light else C.card, Motion.focusSpec(), label = "cbg")
     Column(modifier) {
         Box(
@@ -279,7 +280,7 @@ fun ChannelCard(
             contentAlignment = Alignment.Center,
         ) {
             if (logo != null) {
-                ChannelLogoImage(logo, Modifier.fillMaxSize().padding(14.dp))
+                ChannelLogoImage(logo, Modifier.fillMaxSize().padding(14.dp), fallback = image) { shownLogo = it }
             } else {
                 Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Color(0xFF4A4A4A), modifier = Modifier.size(40.dp))
             }

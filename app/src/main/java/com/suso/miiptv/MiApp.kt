@@ -22,7 +22,17 @@ class MiApp : Application(), ImageLoaderFactory {
     /** Carátulas y logos con caché en disco para que la Mi Box no los descargue cada vez. */
     override fun newImageLoader(): ImageLoader =
         ImageLoader.Builder(this)
-            .okHttpClient(Http.client)
+            .okHttpClient {
+                // Wikimedia exige que cada app se identifique con su propio nombre para servir los logos.
+                Http.client.newBuilder().addInterceptor { chain ->
+                    val r = chain.request()
+                    if (r.url.host.endsWith("wikimedia.org") || r.url.host.endsWith("wikipedia.org")) {
+                        chain.proceed(r.newBuilder().header("User-Agent", Logos.WIKI_UA).build())
+                    } else {
+                        chain.proceed(r)
+                    }
+                }.build()
+            }
             .crossfade(true)
             .respectCacheHeaders(false)
             .memoryCache { MemoryCache.Builder(this).maxSizePercent(0.20).build() }
