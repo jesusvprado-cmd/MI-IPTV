@@ -9,6 +9,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.Row
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
@@ -87,7 +89,16 @@ fun ChannelLogoImage(url: String, modifier: Modifier = Modifier, fallback: Strin
     }
     val clean = remember(url) { url.substringBefore("#b=") }
     var model by remember(url) { mutableStateOf(clean) }
-    Box(modifier) {
+    // Número de color (Liga de Campeones): va a la izquierda del logo, sin taparlo.
+    val sideNumber = badge != null && badgeColor != null && model == clean
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        if (sideNumber) {
+            Text(
+                badge!!, color = badgeColor!!, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold,
+                modifier = Modifier.padding(end = 6.dp),
+            )
+        }
+    Box(Modifier.weight(1f).fillMaxHeight()) {
         AsyncImage(
             model = remember(model) { ImageRequest.Builder(ctx).data(model).allowHardware(false).build() },
             contentDescription = null,
@@ -102,13 +113,8 @@ fun ChannelLogoImage(url: String, modifier: Modifier = Modifier, fallback: Strin
                 if (model == clean && fallback != null && fallback != clean) model = fallback
             },
         )
-        if (badge != null && model == clean) {
-            if (badgeColor != null) {
-                Text(
-                    badge, color = badgeColor, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold,
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(end = 2.dp),
-                )
-            } else {
+        if (badge != null && model == clean && badgeColor == null) {
+            run {
                 Box(
                     Modifier
                         .align(Alignment.BottomEnd)
@@ -121,5 +127,6 @@ fun ChannelLogoImage(url: String, modifier: Modifier = Modifier, fallback: Strin
                 }
             }
         }
+    }
     }
 }
