@@ -12,8 +12,8 @@ android {
         applicationId = "com.suso.miiptv"
         minSdk = 21
         targetSdk = 34
-        versionCode = 6
-        versionName = "0.6"
+        versionCode = 7
+        versionName = "0.7"
 
         // Teles, boxes y móviles usan procesadores ARM: así el APK pesa menos.
         ndk {

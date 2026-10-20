@@ -262,6 +262,8 @@ private fun FullPlotPanel(info: HeaderInfo, onClose: () -> Unit) {
                 .padding(horizontal = 48.dp, vertical = 32.dp)
                 .focusRequester(fr)
                 .onPreviewKeyEvent { e ->
+                    // OK no hace nada aquí (se cierra solo con Atrás); se consume para que no llegue a los botones de detrás.
+                    if (e.key == Key.DirectionCenter || e.key == Key.Enter || e.key == Key.NumPadEnter) return@onPreviewKeyEvent true
                     if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                     when (e.key) {
                         Key.DirectionDown -> {
@@ -270,10 +272,6 @@ private fun FullPlotPanel(info: HeaderInfo, onClose: () -> Unit) {
                         }
                         Key.DirectionUp -> {
                             scope.launch { scroll.animateScrollBy(-180f) }
-                            true
-                        }
-                        Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
-                            onClose()
                             true
                         }
                         // Izquierda/derecha no salen del panel.
@@ -300,7 +298,7 @@ private fun FullPlotPanel(info: HeaderInfo, onClose: () -> Unit) {
                 Text("Reparto: $it", color = C.text2, fontSize = 15.sp, lineHeight = 21.sp)
             }
             Spacer(Modifier.height(20.dp))
-            Text("▲▼ desplazar · OK o Atrás para cerrar", color = C.gold, fontSize = 13.sp)
+            Text("▲▼ desplazar · Atrás para cerrar", color = C.gold, fontSize = 13.sp)
         }
     }
 }

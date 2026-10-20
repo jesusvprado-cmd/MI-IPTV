@@ -42,6 +42,10 @@ object VpnManager {
     var changes by mutableIntStateOf(0)
         private set
 
+    /** true si este equipo no deja limitar la VPN a la app y se está usando para todo el dispositivo. */
+    var wholeDevice by mutableStateOf(false)
+        private set
+
     private lateinit var app: Context
     private var backend: GoBackend? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -99,15 +103,29 @@ object VpnManager {
                     throw IllegalStateException("Primero carga un archivo de configuración WireGuard (.conf).")
                 }
                 val pkg = app.packageName
-                val conf = withContext(Dispatchers.IO) { Config.parse(onlyThisApp(text, pkg).byteInputStream()) }
                 withContext(Dispatchers.IO) {
                     val b = backend ?: GoBackend(app).also { backend = it }
-                    try {
-                        b.setState(tunnel, Tunnel.State.DOWN, null)
-                    } catch (e: Exception) {
-                        // No estaba conectada.
+                    fun up(confText: String) {
+                        try {
+                            b.setState(tunnel, Tunnel.State.DOWN, null)
+                        } catch (e: Exception) {
+                            // No estaba conectada.
+                        }
+                        b.setState(tunnel, Tunnel.State.UP, Config.parse(confText.byteInputStream()))
                     }
-                    b.setState(tunnel, Tunnel.State.UP, conf)
+                    if (wholeDevice) {
+                        up(withoutAppFilter(text))
+                    } else {
+                        try {
+                            up(onlyThisApp(text, pkg))
+                        } catch (e: Exception) {
+                            // Algunas cajas Android TV (p. ej. Xiaomi) no dejan limitar la VPN a una app
+                            // ("getPackageUid ... INTERACT_ACROSS_USERS"). Entonces se usa para todo el equipo.
+                            if (!isAppFilterBug(e)) throw e
+                            wholeDevice = true
+                            up(withoutAppFilter(text))
+                        }
+                    }
                 }
                 state = State.ON
                 message = null
@@ -182,10 +200,28 @@ object VpnManager {
         }
     }
 
+    /** ¿El error es el de los equipos que no dejan limitar la VPN a una sola app? */
+    private fun isAppFilterBug(e: Throwable): Boolean {
+        var c: Throwable? = e
+        var depth = 0
+        while (c != null && depth < 6) {
+            val m = c.message ?: ""
+            if (c is SecurityException || c is android.content.pm.PackageManager.NameNotFoundException ||
+                m.contains("getPackageUid", true) || m.contains("INTERACT_ACROSS_USERS", true)
+            ) return true
+            c = c.cause
+            depth++
+        }
+        return false
+    }
+
+    /** Configuración sin lista de apps: la VPN se aplica a todo el equipo. */
+    private fun withoutAppFilter(conf: String): String = onlyThisApp(conf, null)
+
     /** Añade "IncludedApplications = <esta app>" para que el resto del dispositivo no use la VPN. */
-    private fun onlyThisApp(conf: String, pkg: String): String {
+    private fun onlyThisApp(conf: String, pkg: String?): String {
         val out = StringBuilder()
-        var inserted = false
+        var inserted = pkg == null
         for (raw in conf.replace("\r", "").lines()) {
             val t = raw.trim()
             if (t.startsWith("IncludedApplications", true) || t.startsWith("ExcludedApplications", true)) continue
