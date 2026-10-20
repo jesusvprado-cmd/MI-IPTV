@@ -1,5 +1,6 @@
 package com.suso.miiptv.ui
 
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -31,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
@@ -139,7 +141,12 @@ fun BrowseScreen(kind: Kind) {
                 contentPadding = PaddingValues(start = if (narrow) 6.dp else 22.dp, end = 6.dp, top = 14.dp, bottom = 24.dp),
             ) {
                 itemsIndexed(allCats, key = { i, c -> "$i:${c.id}" }) { _, c ->
-                    Box(Modifier.focusProperties { right = gridTarget() }) {
+                    val cfr = remember { FocusRequester() }
+                    DisposableEffect(c.id, cfr) {
+                        st.catReqs[c.id] = cfr
+                        onDispose { if (st.catReqs[c.id] === cfr) st.catReqs.remove(c.id) }
+                    }
+                    Box(Modifier.focusRequester(cfr).focusProperties { right = gridTarget() }) {
                     CategoryRow(
                         name = c.name,
                         selected = c.id == sel,
@@ -167,7 +174,14 @@ fun BrowseScreen(kind: Kind) {
                     LazyVerticalGrid(
                         columns = GridCells.Adaptive(if (kind == Kind.LIVE) 150.dp else 128.dp),
                         state = st.grid,
-                        modifier = Modifier.fillMaxSize().fadeInOnChange(its),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            // ◀ desde la cuadrícula vuelve a la categoría elegida, no a la que quede a la misma altura.
+                            .focusProperties {
+                                exit = { d -> if (d == FocusDirection.Left) (st.catReqs[sel] ?: FocusRequester.Default) else FocusRequester.Default }
+                            }
+                            .focusGroup()
+                            .fadeInOnChange(its),
                         contentPadding = PaddingValues(start = 14.dp, end = 30.dp, top = 14.dp, bottom = 40.dp),
                         horizontalArrangement = Arrangement.spacedBy(18.dp),
                         verticalArrangement = Arrangement.spacedBy(20.dp),

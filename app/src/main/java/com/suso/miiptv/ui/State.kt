@@ -46,6 +46,8 @@ class BrowseState {
     var lastIdx = -1
     /** Tarjetas de la cuadrícula que están en pantalla, por posición. */
     val reqs = HashMap<Int, androidx.compose.ui.focus.FocusRequester>()
+    /** Filas de categorías que están en pantalla. */
+    val catReqs = HashMap<String, androidx.compose.ui.focus.FocusRequester>()
 }
 
 /** Estado de navegación que sobrevive al ir y volver de las fichas y del reproductor. */
