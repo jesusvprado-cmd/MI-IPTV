@@ -39,17 +39,27 @@ object Thumbs {
 
     private val io = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private var job: Job? = null
-    private var url: String? = null
+    private var worker: Job? = null
+    @Volatile private var url: String? = null
     private var retriever: MediaMetadataRetriever? = null
-    private var failed = false
-    private val cache = LruCache<Long, Bitmap>(40)
+    @Volatile private var failed = false
+    private val cache = LruCache<Long, Bitmap>(90)
+
+    /** Lo último que se ha pedido (se atiende siempre primero) y las que se adelantan en la dirección del avance. */
+    @Volatile private var wanted: Long? = null
+    private val ahead = java.util.concurrent.ConcurrentLinkedDeque<Long>()
+    private var lastAsked: Long? = null
+    private var lastShownFor: Long = -1
 
     private const val STEP_MS = 10_000L
+    private const val NEAR_MS = 90_000L
 
     fun key(pos: Long) = (pos / STEP_MS) * STEP_MS
 
-    /** Pide la miniatura de [pos] para el vídeo [videoUrl] (se espera un poco por si sigues pulsando). */
+    /** ¿La miniatura [f] sirve para la posición [pos]? (la exacta o una cercana mientras llega la exacta) */
+    fun fits(f: Pair<Long, Bitmap>?, pos: Long): Boolean = f != null && kotlin.math.abs(f.first - key(pos)) <= NEAR_MS
+
+    /** Pide la miniatura de [pos] para el vídeo [videoUrl]. */
     fun request(videoUrl: String, pos: Long) {
         if (Build.VERSION.SDK_INT < 23) {
             error = "Necesita Android 6 o superior"
@@ -62,34 +72,68 @@ object Thumbs {
         }
         if (failed) return
         val k = key(pos)
+        // Se adelantan las siguientes en la dirección en que avanzas.
+        val prev = lastAsked
+        lastAsked = k
+        lastShownFor = k
+        showBest(k)
+        if (cache.get(k) != null) return
+        wanted = k
+        if (prev != null && prev != k) {
+            val step = k - prev
+            ahead.clear()
+            for (i in 1..3) ahead.add(key(k + step * i).coerceAtLeast(0))
+        }
+        ensureWorker()
+    }
+
+    /** Muestra la miniatura exacta o, si aún no está, la más cercana que ya tengamos. */
+    private fun showBest(k: Long) {
         cache.get(k)?.let {
             frame = k to it
             return
         }
-        job?.cancel()
-        job = scope.launch {
-            delay(220)
-            val bmp = withTimeoutOrNull(15_000) { withContext(io) { grab(k) } }
-            if (bmp == null) {
-                if (error == null && !failed) error = "El servidor tarda demasiado en responder"
-                return@launch
+        val near = cache.snapshot().keys.minByOrNull { kotlin.math.abs(it - k) }
+        if (near != null && kotlin.math.abs(near - k) <= NEAR_MS) cache.get(near)?.let { frame = near to it }
+    }
+
+    private fun ensureWorker() {
+        if (worker?.isActive == true) return
+        worker = scope.launch {
+            while (true) {
+                val k = wanted?.also { wanted = null } ?: ahead.pollFirst() ?: break
+                if (cache.get(k) != null || failed) continue
+                val u = url
+                val bmp = withContext(io) { if (u == url) grab(k) else null }
+                if (bmp != null) {
+                    error = null
+                    cache.put(k, bmp)
+                    showBest(lastShownFor)
+                }
+                if (failed) break
             }
-            error = null
-            cache.put(k, bmp)
-            frame = k to bmp
         }
     }
 
     private fun reset(newUrl: String?) {
-        job?.cancel()
+        worker?.cancel()
+        worker = null
+        wanted = null
+        ahead.clear()
+        lastAsked = null
         val r = retriever
         retriever = null
-        if (r != null) scope.launch(io) { runCatching { r.release() } }
         val ex = extractor
         extractor = null
+        val c = codec
+        codec = null
         source = null
         videoTrack = -1
-        if (ex != null) scope.launch(io) { runCatching { ex.release() } }
+        scope.launch(io) {
+            runCatching { r?.release() }
+            runCatching { ex?.release() }
+            runCatching { c?.release() }
+        }
         url = newUrl
         failed = false
         error = null
@@ -108,6 +152,7 @@ object Thumbs {
     private var source: HttpSource? = null
     private var extractor: android.media.MediaExtractor? = null
     private var videoTrack = -1
+    private var codec: android.media.MediaCodec? = null
 
     @RequiresApi(23)
     private fun grab(k: Long): Bitmap? {
@@ -172,11 +217,15 @@ object Thumbs {
                         (Build.VERSION.SDK_INT >= 29 && ci.isSoftwareOnly))
             }?.name ?: return null
         ex.seekTo(us, android.media.MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
-        val codec = android.media.MediaCodec.createByCodecName(name)
-        try {
+        // El decodificador se reutiliza entre miniaturas (crearlo cada vez es lento).
+        val codec = this.codec ?: android.media.MediaCodec.createByCodecName(name).also {
             fmt.setInteger(android.media.MediaFormat.KEY_COLOR_FORMAT, android.media.MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible)
-            codec.configure(fmt, null, null, 0)
-            codec.start()
+            it.configure(fmt, null, null, 0)
+            it.start()
+            this.codec = it
+        }
+        try {
+            codec.flush()
             val info = android.media.MediaCodec.BufferInfo()
             var fed = 0
             var eos = false
@@ -212,9 +261,10 @@ object Thumbs {
                 }
             }
             return null
-        } finally {
-            runCatching { codec.stop() }
+        } catch (e: Throwable) {
             runCatching { codec.release() }
+            this.codec = null
+            throw e
         }
     }
 
@@ -250,7 +300,8 @@ object Thumbs {
         }
         val full = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts) ?: return null
         val th = (320f * full.height / full.width.coerceAtLeast(1)).toInt().coerceAtLeast(1)
-        return Bitmap.createScaledBitmap(full, 320, th, true).also { if (it !== full) full.recycle() }
+        val scaled = Bitmap.createScaledBitmap(full, 320, th, true).also { if (it !== full) full.recycle() }
+        return scaled.copy(Bitmap.Config.RGB_565, false).also { scaled.recycle() }
     }
 
     /**

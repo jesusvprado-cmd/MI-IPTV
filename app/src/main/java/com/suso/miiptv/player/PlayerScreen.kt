@@ -552,7 +552,7 @@ private fun SeekBar(fraction: Float, modifier: Modifier, preview: Long? = null, 
             val th = 162.dp
             val x = ((w * fraction) - tw / 2).coerceIn(0.dp, (w - tw).coerceAtLeast(0.dp))
             val f = Thumbs.frame
-            val showImg = Repo.prefs.seekThumbs && f != null && f.first == Thumbs.key(preview)
+            val showImg = Repo.prefs.seekThumbs && f != null && Thumbs.fits(f, preview)
             Column(
                 Modifier
                     .offset(x = x)
