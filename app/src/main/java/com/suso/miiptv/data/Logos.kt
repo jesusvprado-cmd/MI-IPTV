@@ -116,6 +116,8 @@ object Logos {
 
     private fun find(name: String): String? {
         movistarLaLiga(name)?.let { return it }
+        // La 1 UHD tiene su propio logo.
+        clean(name).let { c -> if ((ALIAS[c.key] ?: c.key) == "tve1" && UHD_WORD.containsMatchIn(name)) return LA1_UHD }
         findOne(clean(name))?.let { return it }
         // «Movistar TVG», «M+ Telemadrid»...: se prueba también sin la marca delante.
         val n = ChannelNames.display(name)
@@ -167,7 +169,12 @@ object Logos {
     /** Logos elegidos a mano para canales cuyo logo del banco está anticuado. */
     private val OVERRIDE = mapOf(
         "telecinco" to "https://upload.wikimedia.org/wikipedia/commons/thumb/1/13/Telecinco_2024_Logo.svg/960px-Telecinco_2024_Logo.svg.png",
+        // RTVE estrenó logos en 2026 (Logopedia).
+        "tve1" to LOGOPEDIA + "b/b6/La_1_2026.svg/revision/latest/scale-to-width-down/600",
+        "tve2" to LOGOPEDIA + "a/aa/La_2_2026.svg/revision/latest/scale-to-width-down/600",
     )
+    private val LA1_UHD = LOGOPEDIA + "3/3b/La_1_UHD_2026.svg/revision/latest/scale-to-width-down/600"
+    private val UHD_WORD = Regex("(?i)\\b(uhd|4k|2160p?)\\b")
 
     private fun findOne(c: Cleaned): String? {
         val folder = c.prefix?.let { PREFIX_FOLDER[it] } ?: "spain"
