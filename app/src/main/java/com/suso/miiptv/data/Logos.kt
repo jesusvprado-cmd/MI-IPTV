@@ -115,11 +115,53 @@ object Logos {
         (list.firstOrNull { it.first == folder } ?: list.firstOrNull { it.first == "spain" } ?: list.first()).second
 
     private fun find(name: String): String? {
+        movistarLaLiga(name)?.let { return it }
         findOne(clean(name))?.let { return it }
         // «Movistar TVG», «M+ Telemadrid»...: se prueba también sin la marca delante.
         val n = ChannelNames.display(name)
         if (n != name) findOne(clean(n))?.let { return it }
         return null
+    }
+
+    // ---------------- LaLiga por Movistar Plus+ (logos actuales, 2025) ----------------
+
+    private const val LOGOPEDIA = "https://static.wikia.nocookie.net/logopedia/images/"
+    private val LALIGA_MAIN = LOGOPEDIA + "0/06/LaLiga_por_Movistar_Plus%2B_2025.svg/revision/latest/scale-to-width-down/600"
+    private val LALIGA_HDR = LOGOPEDIA + "0/07/LaLiga_HDR_por_Movistar_Plus%2B_2025.svg/revision/latest/scale-to-width-down/600"
+    private val LALIGA_2_HDR = LOGOPEDIA + "e/e5/LaLiga_2_HDR_por_Movistar_Plus%2B_2025.svg/revision/latest/scale-to-width-down/600"
+    private val LALIGA_N = mapOf(
+        2 to "6/68/LaLiga_2_por_Movistar_Plus%2B_2025.png",
+        3 to "0/0e/LaLiga_3_por_Movistar_Plus%2B_2025.png",
+        4 to "8/89/LaLiga_4_por_Movistar_Plus%2B_2025.png",
+        5 to "f/fd/LaLiga_5_por_Movistar_Plus%2B_2025.png",
+        6 to "e/e5/LaLiga_6_por_Movistar_Plus%2B_2025.png",
+        7 to "b/b7/LaLiga_7_por_Movistar_Plus%2B_2025.png",
+    ).mapValues { LOGOPEDIA + it.value + "/revision/latest" }
+    private val NOT_MOVISTAR_LALIGA = Regex("\\b(hypermotion|dazn|bar|smartbank|ea|tv\\s*bar|femenina|f|liga\\s*f)\\b")
+
+    /**
+     * Canales de LaLiga de Movistar Plus+ («M+ LaLiga TV 2 FHD», «Movistar LaLiga UHD», «LALIGA TV 3»...)
+     * con el logo actual: el principal, el HDR o el del número que corresponda.
+     */
+    private fun movistarLaLiga(name: String): String? {
+        val n = Normalizer.normalize(name, Normalizer.Form.NFKD).lowercase()
+            .replace(Regex("\\p{Mn}+"), "").replace(Regex("[^a-z0-9+ ]"), " ").replace(Regex("\\s+"), " ").trim()
+        val m = Regex("\\bla\\s*liga\\b").find(n) ?: return null
+        if (NOT_MOVISTAR_LALIGA.containsMatchIn(n)) return null
+        // Lo de delante solo puede ser el país o la marca Movistar / M+.
+        val before = n.substring(0, m.range.first).trim().split(' ').filter { it.isNotBlank() }
+        if (before.any { it !in setOf("es", "esp", "spain", "m", "m+", "movistar", "movistar+", "plus", "por", "+") }) return null
+        val after = n.substring(m.range.last + 1).trim().split(' ').filter { it.isNotBlank() }
+            .filter { it !in setOf("tv", "por", "movistar", "movistar+", "plus", "m+", "fhd", "hd", "sd", "1080", "1080p", "720", "50fps", "hevc", "es", "+") }
+        val hdr = after.any { it == "hdr" || it == "uhd" || it == "4k" }
+        val num = after.firstNotNullOfOrNull { it.toIntOrNull() }
+        if (after.any { it.toIntOrNull() == null && it != "hdr" && it != "uhd" && it != "4k" }) return null
+        return when {
+            num == 2 && hdr -> LALIGA_2_HDR
+            hdr -> LALIGA_HDR
+            num == null || num == 1 -> LALIGA_MAIN
+            else -> LALIGA_N[num] ?: LALIGA_MAIN
+        }
     }
 
     /** Logos elegidos a mano para canales cuyo logo del banco está anticuado. */
