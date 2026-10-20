@@ -9,6 +9,19 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.Alignment
+import androidx.compose.material3.Text
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.border
+import androidx.compose.foundation.background
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -26,7 +39,7 @@ object LogoTone {
 
     private val dark = mutableStateMapOf<String, Boolean>()
 
-    fun isDark(url: String?): Boolean = url != null && dark[url] == true
+    fun isDark(url: String?): Boolean = url != null && dark[url.substringBefore("#b=")] == true
 
     private fun lin(c: Int): Double {
         val v = c / 255.0
@@ -64,19 +77,39 @@ object LogoTone {
 @Composable
 fun ChannelLogoImage(url: String, modifier: Modifier = Modifier, fallback: String? = null, onModel: (String) -> Unit = {}) {
     val ctx = LocalContext.current
-    var model by remember(url) { mutableStateOf(url) }
-    AsyncImage(
-        model = remember(model) { ImageRequest.Builder(ctx).data(model).allowHardware(false).build() },
-        contentDescription = null,
-        contentScale = ContentScale.Fit,
-        modifier = modifier,
-        onSuccess = { s ->
-            val d = s.result.drawable
-            if (d is BitmapDrawable) d.bitmap?.let { LogoTone.analyze(model, it) }
-            onModel(model)
-        },
-        onError = {
-            if (model == url && fallback != null && fallback != url) model = fallback
-        },
-    )
+    // «…#b=2» indica un número (o «UHD») que la app dibuja sobre el logo principal.
+    val badge = remember(url) {
+        url.substringAfter("#b=", "").takeIf { it.isNotEmpty() }?.let { java.net.URLDecoder.decode(it, "UTF-8") }
+    }
+    val clean = remember(url) { url.substringBefore("#b=") }
+    var model by remember(url) { mutableStateOf(clean) }
+    Box(modifier) {
+        AsyncImage(
+            model = remember(model) { ImageRequest.Builder(ctx).data(model).allowHardware(false).build() },
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.fillMaxSize(),
+            onSuccess = { s ->
+                val d = s.result.drawable
+                if (d is BitmapDrawable) d.bitmap?.let { LogoTone.analyze(model, it) }
+                onModel(model)
+            },
+            onError = {
+                if (model == clean && fallback != null && fallback != clean) model = fallback
+            },
+        )
+        if (badge != null && model == clean) {
+            BoxWithConstraints(Modifier.align(Alignment.BottomEnd)) {
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(5.dp))
+                        .background(Color(0xFF0B1E4D))
+                        .border(1.dp, Color.White.copy(alpha = 0.8f), RoundedCornerShape(5.dp))
+                        .padding(horizontal = 6.dp, vertical = 1.dp),
+                ) {
+                    Text(badge, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
+                }
+            }
+        }
+    }
 }

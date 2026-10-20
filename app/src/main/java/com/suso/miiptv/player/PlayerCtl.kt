@@ -164,6 +164,11 @@ class PlayerCtl(ctx: Context) {
             }
             video?.let { onVideoFormat?.invoke(it) }
             streamBadges = badgesOf(video, audio)
+            // Película o episodio: se recupera el audio y los subtítulos que tenías puestos.
+            if (!current.live && restoredFor != current.key && tracks.groups.any { it.type == C.TRACK_TYPE_AUDIO }) {
+                restoredFor = current.key
+                restoreTracks()
+            }
         }
 
         override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
@@ -251,8 +256,46 @@ class PlayerCtl(ctx: Context) {
         return out
     }
 
-    /** opt = null desactiva ese tipo de pista (solo tiene sentido para subtítulos). */
+    private var restoredFor: String? = null
+
+    /** Identifica una pista para volver a encontrarla otro día: idioma|nombre|posición. */
+    private fun trackId(type: Int, opt: TrackOption): String {
+        val f = player.currentTracks.groups.getOrNull(opt.groupIndex)?.getTrackFormat(opt.trackIndex)
+        val pos = trackOptions(type).indexOfFirst { it.groupIndex == opt.groupIndex && it.trackIndex == opt.trackIndex }
+        return "${f?.language ?: ""}|${f?.label ?: ""}|$pos"
+    }
+
+    private fun findTrack(type: Int, id: String): TrackOption? {
+        val parts = id.split('|')
+        if (parts.size < 3) return null
+        val opts = trackOptions(type)
+        val groups = player.currentTracks.groups
+        fun fmt(o: TrackOption) = groups[o.groupIndex].getTrackFormat(o.trackIndex)
+        return opts.firstOrNull { (fmt(it).language ?: "") == parts[0] && (fmt(it).label ?: "") == parts[1] }
+            ?: opts.firstOrNull { parts[0].isNotEmpty() && (fmt(it).language ?: "") == parts[0] }
+            ?: parts[2].toIntOrNull()?.let { opts.getOrNull(it) }
+    }
+
+    private fun restoreTracks() {
+        val saved = Repo.prefs.trackChoice(current.key) ?: return
+        saved.optString("a").takeIf { it.isNotEmpty() }?.let { id -> findTrack(C.TRACK_TYPE_AUDIO, id)?.let { applyTrack(C.TRACK_TYPE_AUDIO, it) } }
+        when (val t = saved.optString("t")) {
+            "" -> Unit
+            "off" -> applyTrack(C.TRACK_TYPE_TEXT, null)
+            else -> findTrack(C.TRACK_TYPE_TEXT, t)?.let { applyTrack(C.TRACK_TYPE_TEXT, it) }
+        }
+    }
+
+    /** opt = null desactiva ese tipo de pista (solo tiene sentido para subtítulos). Se recuerda para esta película o serie. */
     fun selectTrack(type: Int, opt: TrackOption?) {
+        if (!current.live) {
+            val field = if (type == C.TRACK_TYPE_AUDIO) "a" else "t"
+            Repo.prefs.saveTrackChoice(current.key, field, if (opt == null) "off" else trackId(type, opt))
+        }
+        applyTrack(type, opt)
+    }
+
+    private fun applyTrack(type: Int, opt: TrackOption?) {
         val b = player.trackSelectionParameters.buildUpon()
         if (opt == null) {
             b.setTrackTypeDisabled(type, true)
@@ -329,6 +372,7 @@ class PlayerCtl(ctx: Context) {
         if (i !in items.indices) return
         saveProgress()
         scrubPos = null
+        restoredFor = null
         handler.removeCallbacksAndMessages(null)
         index = i
         error = null

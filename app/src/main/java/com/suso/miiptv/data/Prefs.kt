@@ -48,6 +48,27 @@ class Prefs(ctx: Context) {
         sp.edit().putInt(k, v).apply()
         settingsVersion++
     }
+    // ---------------- Audio y subtítulos elegidos en cada película o episodio ----------------
+
+    /** Lo elegido para [key] (o, si es un episodio, para la serie): "a" audio y "t" subtítulos ("off" = sin subtítulos). */
+    fun trackChoice(key: String): JSONObject? {
+        val own = sp.getString("tracks_$key", null)
+        val series = if (key.startsWith("EP|")) sp.getString("tracks_" + key.substringBeforeLast('|'), null) else null
+        return (own ?: series)?.let { runCatching { JSONObject(it) }.getOrNull() }
+    }
+
+    fun saveTrackChoice(key: String, field: String, value: String) {
+        val keys = mutableListOf(key)
+        if (key.startsWith("EP|")) keys += key.substringBeforeLast('|')
+        val e = sp.edit()
+        for (k in keys) {
+            val o = sp.getString("tracks_$k", null)?.let { runCatching { JSONObject(it) }.getOrNull() } ?: JSONObject()
+            o.put(field, value)
+            e.putString("tracks_$k", o.toString())
+        }
+        e.apply()
+    }
+
     private fun putBool(k: String, v: Boolean) {
         sp.edit().putBoolean(k, v).apply()
         settingsVersion++

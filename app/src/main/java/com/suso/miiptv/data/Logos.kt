@@ -116,6 +116,7 @@ object Logos {
 
     private fun find(name: String): String? {
         movistarLaLiga(name)?.let { return it }
+        movistarChampions(name)?.let { return it }
         // La 1 UHD tiene su propio logo.
         clean(name).let { c -> if ((ALIAS[c.key] ?: c.key) == "tve1" && UHD_WORD.containsMatchIn(name)) return LA1_UHD }
         findOne(clean(name))?.let { return it }
@@ -164,6 +165,30 @@ object Logos {
             num == null || num == 1 -> LALIGA_MAIN
             else -> LALIGA_N[num] ?: LALIGA_MAIN
         }
+    }
+
+    // ---------------- Liga de Campeones por Movistar Plus+ (logo actual, 2023) ----------------
+
+    private val LDC_MAIN = LOGOPEDIA + "c/c9/Liga_de_Campeones_por_Movistar_Plus%2B_2023.svg/revision/latest/scale-to-width-down/700"
+
+    /**
+     * Canales de Liga de Campeones de Movistar Plus+. Los logos numerados del banco son diminutos (unos 200 px),
+     * así que se usa el logo principal en alta calidad y la app dibuja encima el número (o UHD).
+     */
+    private fun movistarChampions(name: String): String? {
+        val n = Normalizer.normalize(name, Normalizer.Form.NFKD).lowercase()
+            .replace(Regex("\\p{Mn}+"), "").replace(Regex("[^a-z0-9+ ]"), " ").replace(Regex("\\s+"), " ").trim()
+        val m = Regex("\\b(liga de campeones|champions league|champions)\\b").find(n) ?: return null
+        if (Regex("\\b(dazn|tnt|bein|sky|rtl|tf1|canal\\s*plus|femenina|youth)\\b").containsMatchIn(n)) return null
+        val before = n.substring(0, m.range.first).trim().split(' ').filter { it.isNotBlank() }
+        if (before.any { it !in setOf("es", "esp", "spain", "m", "m+", "movistar", "movistar+", "plus", "+") }) return null
+        val words = n.substring(m.range.last + 1).trim().split(' ').filter { it.isNotBlank() }
+        val uhd = words.any { it == "uhd" || it == "4k" || it == "hdr" || it == "2160" || it == "2160p" }
+        val after = words.filter { it !in setOf("tv", "por", "movistar", "movistar+", "plus", "m+", "es", "+") && it !in QUALITY && it !in FEED }
+        if (after.any { it.toIntOrNull() == null }) return null
+        val num = after.firstNotNullOfOrNull { it.toIntOrNull() }?.takeIf { it > 1 }
+        val badge = listOfNotNull(num?.toString(), if (uhd) "UHD" else null).joinToString(" ")
+        return if (badge.isEmpty()) LDC_MAIN else "$LDC_MAIN#b=${java.net.URLEncoder.encode(badge, "UTF-8")}"
     }
 
     /** Logos elegidos a mano para canales cuyo logo del banco está anticuado. */
