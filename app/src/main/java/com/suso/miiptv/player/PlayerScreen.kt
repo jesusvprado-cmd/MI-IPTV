@@ -546,16 +546,24 @@ private fun SeekBar(fraction: Float, modifier: Modifier, preview: Long? = null, 
         val w = maxWidth
         // Miniatura sobre la barra mientras avanzas o retrocedes (como en Netflix).
         if (preview != null) {
-            val tw = 224.dp
-            val th = 126.dp
+            val tw = 288.dp
+            val th = 162.dp
             val x = ((w * fraction) - tw / 2).coerceIn(0.dp, (w - tw).coerceAtLeast(0.dp))
             val f = Thumbs.frame
             val showImg = Repo.prefs.seekThumbs && f != null && f.first == Thumbs.key(preview)
             Column(
                 Modifier.offset(x = x, y = -(th / 2 + 36.dp)).width(tw),
+                verticalArrangement = Arrangement.Bottom,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                if (Repo.prefs.seekThumbs) {
+                val err = Thumbs.error
+                if (Repo.prefs.seekThumbs && err != null) {
+                    Text(
+                        "Sin vista previa: $err", color = C.text2, fontSize = 12.sp,
+                        modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xCC111111)).padding(horizontal = 10.dp, vertical = 5.dp),
+                    )
+                    Spacer(Modifier.height(6.dp))
+                } else if (Repo.prefs.seekThumbs) {
                     Box(
                         Modifier.width(tw).height(th).clip(RoundedCornerShape(8.dp))
                             .background(Color(0xCC111111))

@@ -17,6 +17,7 @@ import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.Dispatchers
 import okhttp3.Request
 import java.io.IOException
@@ -30,6 +31,10 @@ import java.util.concurrent.Executors
 object Thumbs {
     /** Miniatura lista: posición (ms, redondeada) e imagen. */
     var frame by mutableStateOf<Pair<Long, Bitmap>?>(null)
+        private set
+
+    /** Motivo por el que no hay miniaturas para este vídeo (se muestra en lugar de la imagen). */
+    var error by mutableStateOf<String?>(null)
         private set
 
     private val io = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
@@ -46,9 +51,16 @@ object Thumbs {
 
     /** Pide la miniatura de [pos] para el vídeo [videoUrl] (se espera un poco por si sigues pulsando). */
     fun request(videoUrl: String, pos: Long) {
-        if (Build.VERSION.SDK_INT < 23) return
+        if (Build.VERSION.SDK_INT < 23) {
+            error = "Necesita Android 6 o superior"
+            return
+        }
         if (videoUrl != url) reset(videoUrl)
-        if (failed || videoUrl.contains(".m3u8", true)) return
+        if (videoUrl.contains(".m3u8", true)) {
+            error = "No disponible en vídeos HLS"
+            return
+        }
+        if (failed) return
         val k = key(pos)
         cache.get(k)?.let {
             frame = k to it
@@ -57,7 +69,12 @@ object Thumbs {
         job?.cancel()
         job = scope.launch {
             delay(220)
-            val bmp = withContext(io) { grab(k) } ?: return@launch
+            val bmp = withTimeoutOrNull(15_000) { withContext(io) { grab(k) } }
+            if (bmp == null) {
+                if (error == null && !failed) error = "El servidor tarda demasiado en responder"
+                return@launch
+            }
+            error = null
             cache.put(k, bmp)
             frame = k to bmp
         }
@@ -70,12 +87,18 @@ object Thumbs {
         if (r != null) scope.launch(io) { runCatching { r.release() } }
         url = newUrl
         failed = false
+        error = null
         cache.evictAll()
         frame = null
     }
 
     /** Libera todo al salir del reproductor o cambiar de vídeo. */
     fun release() = reset(null)
+
+    private fun fail(msg: String) {
+        failed = true
+        scope.launch { error = msg }
+    }
 
     @RequiresApi(23)
     private fun grab(k: Long): Bitmap? {
@@ -94,9 +117,16 @@ object Thumbs {
                     Bitmap.createScaledBitmap(full, 320, h, true).also { if (it !== full) full.recycle() }
                 }
             }
+            if (b == null) fail("El vídeo no deja sacar imágenes")
             b
         } catch (e: Throwable) {
-            failed = true
+            fail(
+                when {
+                    e is IOException && e.message != null -> e.message!!
+                    e is java.net.SocketTimeoutException -> "El servidor tarda demasiado"
+                    else -> "El vídeo no deja sacar imágenes"
+                }
+            )
             null
         }
     }
@@ -119,7 +149,12 @@ object Thumbs {
                 .header("Range", "bytes=$start-${start + block - 1}")
                 .build()
             Http.client.newCall(req).execute().use { r ->
-                if (r.code != 206) throw IOException("El servidor no permite leer trozos (HTTP ${r.code})")
+                if (r.code != 206) {
+                    throw IOException(
+                        if (r.code == 200) "El servidor no permite leer partes del vídeo"
+                        else "El servidor no da una segunda conexión (HTTP ${r.code})"
+                    )
+                }
                 if (total < 0) {
                     total = r.header("Content-Range")?.substringAfter('/')?.toLongOrNull() ?: -1L
                 }
