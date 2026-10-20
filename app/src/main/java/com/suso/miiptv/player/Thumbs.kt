@@ -85,6 +85,11 @@ object Thumbs {
         val r = retriever
         retriever = null
         if (r != null) scope.launch(io) { runCatching { r.release() } }
+        val ex = extractor
+        extractor = null
+        source = null
+        videoTrack = -1
+        if (ex != null) scope.launch(io) { runCatching { ex.release() } }
         url = newUrl
         failed = false
         error = null
@@ -100,15 +105,28 @@ object Thumbs {
         scope.launch { error = msg }
     }
 
+    private var source: HttpSource? = null
+    private var extractor: android.media.MediaExtractor? = null
+    private var videoTrack = -1
+
     @RequiresApi(23)
     private fun grab(k: Long): Bitmap? {
         val u = url ?: return null
+        val src = source ?: HttpSource(u).also { source = it }
+        val us = k * 1000
+        // 1) Decodificador por software: no compite con el del reproductor (en la Mi Box solo hay uno de hardware).
+        val soft = try {
+            softwareFrame(src, us)
+        } catch (e: Throwable) {
+            null
+        }
+        if (soft != null) return soft
+        // 2) Método estándar de Android.
         return try {
             val r = retriever ?: MediaMetadataRetriever().also {
-                it.setDataSource(HttpSource(u))
+                it.setDataSource(src)
                 retriever = it
             }
-            val us = k * 1000
             val b = if (Build.VERSION.SDK_INT >= 27) {
                 r.getScaledFrameAtTime(us, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 320, 180)
             } else {
@@ -117,18 +135,122 @@ object Thumbs {
                     Bitmap.createScaledBitmap(full, 320, h, true).also { if (it !== full) full.recycle() }
                 }
             }
-            if (b == null) fail("El vídeo no deja sacar imágenes")
+            if (b == null) fail(src.lastError ?: "El vídeo no deja sacar imágenes")
             b
         } catch (e: Throwable) {
             fail(
-                when {
+                src.lastError ?: when {
                     e is IOException && e.message != null -> e.message!!
-                    e is java.net.SocketTimeoutException -> "El servidor tarda demasiado"
                     else -> "El vídeo no deja sacar imágenes"
                 }
             )
             null
         }
+    }
+
+    /** Busca el fotograma clave anterior a [us] y lo decodifica con un decodificador de software. */
+    @RequiresApi(23)
+    private fun softwareFrame(src: HttpSource, us: Long): Bitmap? {
+        val ex = extractor ?: android.media.MediaExtractor().also {
+            it.setDataSource(src)
+            extractor = it
+            for (i in 0 until it.trackCount) {
+                if (it.getTrackFormat(i).getString(android.media.MediaFormat.KEY_MIME)?.startsWith("video/") == true) {
+                    videoTrack = i
+                    break
+                }
+            }
+            if (videoTrack >= 0) it.selectTrack(videoTrack)
+        }
+        if (videoTrack < 0) return null
+        val fmt = ex.getTrackFormat(videoTrack)
+        val mime = fmt.getString(android.media.MediaFormat.KEY_MIME) ?: return null
+        val name = android.media.MediaCodecList(android.media.MediaCodecList.REGULAR_CODECS).codecInfos
+            .firstOrNull { ci ->
+                !ci.isEncoder && ci.supportedTypes.any { it.equals(mime, true) } &&
+                    (ci.name.startsWith("OMX.google.") || ci.name.startsWith("c2.android.") ||
+                        (Build.VERSION.SDK_INT >= 29 && ci.isSoftwareOnly))
+            }?.name ?: return null
+        ex.seekTo(us, android.media.MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
+        val codec = android.media.MediaCodec.createByCodecName(name)
+        try {
+            fmt.setInteger(android.media.MediaFormat.KEY_COLOR_FORMAT, android.media.MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible)
+            codec.configure(fmt, null, null, 0)
+            codec.start()
+            val info = android.media.MediaCodec.BufferInfo()
+            var fed = 0
+            var eos = false
+            val deadline = System.currentTimeMillis() + 8000
+            while (System.currentTimeMillis() < deadline) {
+                if (!eos) {
+                    val ii = codec.dequeueInputBuffer(10_000)
+                    if (ii >= 0) {
+                        val buf = codec.getInputBuffer(ii)!!
+                        val n = if (fed < 1) ex.readSampleData(buf, 0) else -1
+                        if (n < 0) {
+                            codec.queueInputBuffer(ii, 0, 0, 0, android.media.MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                            eos = true
+                        } else {
+                            codec.queueInputBuffer(ii, 0, n, ex.sampleTime, 0)
+                            ex.advance()
+                            fed++
+                        }
+                    }
+                }
+                val oi = codec.dequeueOutputBuffer(info, 10_000)
+                if (oi >= 0) {
+                    if (info.size > 0) {
+                        val img = codec.getOutputImage(oi)
+                        val bmp = img?.let { toBitmap(it) }
+                        img?.close()
+                        codec.releaseOutputBuffer(oi, false)
+                        if (bmp != null) return bmp
+                    } else {
+                        codec.releaseOutputBuffer(oi, false)
+                    }
+                    if ((info.flags and android.media.MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) break
+                }
+            }
+            return null
+        } finally {
+            runCatching { codec.stop() }
+            runCatching { codec.release() }
+        }
+    }
+
+    /** Imagen YUV del decodificador → miniatura de 320 px. */
+    private fun toBitmap(img: android.media.Image): Bitmap? {
+        if (img.format != android.graphics.ImageFormat.YUV_420_888) return null
+        val crop = img.cropRect
+        val w = crop.width()
+        val h = crop.height()
+        val nv21 = ByteArray(w * h * 3 / 2)
+        val y = img.planes[0]
+        val u = img.planes[1]
+        val v = img.planes[2]
+        var o = 0
+        for (row in 0 until h) {
+            val base = (row + crop.top) * y.rowStride + crop.left * y.pixelStride
+            for (col in 0 until w) nv21[o++] = y.buffer.get(base + col * y.pixelStride)
+        }
+        for (row in 0 until h / 2) {
+            for (col in 0 until w / 2) {
+                val vi = (row + crop.top / 2) * v.rowStride + (col + crop.left / 2) * v.pixelStride
+                val ui = (row + crop.top / 2) * u.rowStride + (col + crop.left / 2) * u.pixelStride
+                nv21[o++] = v.buffer.get(vi)
+                nv21[o++] = u.buffer.get(ui)
+            }
+        }
+        val out = java.io.ByteArrayOutputStream()
+        android.graphics.YuvImage(nv21, android.graphics.ImageFormat.NV21, w, h, null)
+            .compressToJpeg(android.graphics.Rect(0, 0, w, h), 80, out)
+        val bytes = out.toByteArray()
+        val opts = android.graphics.BitmapFactory.Options().apply {
+            inSampleSize = Integer.highestOneBit((w / 320).coerceAtLeast(1))
+        }
+        val full = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts) ?: return null
+        val th = (320f * full.height / full.width.coerceAtLeast(1)).toInt().coerceAtLeast(1)
+        return Bitmap.createScaledBitmap(full, 320, th, true).also { if (it !== full) full.recycle() }
     }
 
     /**
@@ -141,6 +263,10 @@ object Thumbs {
         private val blocks = LruCache<Long, ByteArray>(24)
         private var total = -1L
 
+        /** Último problema de red (para explicarlo en pantalla). */
+        @Volatile
+        var lastError: String? = null
+
         private fun fetch(index: Long): ByteArray {
             blocks.get(index)?.let { return it }
             val start = index * block
@@ -150,10 +276,10 @@ object Thumbs {
                 .build()
             Http.client.newCall(req).execute().use { r ->
                 if (r.code != 206) {
-                    throw IOException(
-                        if (r.code == 200) "El servidor no permite leer partes del vídeo"
-                        else "El servidor no da una segunda conexión (HTTP ${r.code})"
-                    )
+                    val msg = if (r.code == 200) "El servidor no permite leer partes del vídeo"
+                    else "El servidor no da una segunda conexión (HTTP ${r.code})"
+                    lastError = msg
+                    throw IOException(msg)
                 }
                 if (total < 0) {
                     total = r.header("Content-Range")?.substringAfter('/')?.toLongOrNull() ?: -1L
@@ -171,7 +297,18 @@ object Thumbs {
             var pos = position
             while (done < size) {
                 val idx = pos / block
-                val data = fetch(idx)
+                val data = try {
+                    fetch(idx)
+                } catch (e: IOException) {
+                    if (lastError == null) {
+                        lastError = when (e) {
+                            is java.net.SocketTimeoutException -> "El servidor tarda demasiado"
+                            is java.net.UnknownHostException -> "Sin conexión con el servidor"
+                            else -> e.message ?: "Error de red"
+                        }
+                    }
+                    throw e
+                }
                 val inBlock = (pos - idx * block).toInt()
                 if (inBlock >= data.size) break
                 val n = minOf(size - done, data.size - inBlock)
