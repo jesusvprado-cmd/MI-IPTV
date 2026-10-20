@@ -438,7 +438,7 @@ fun MovieDetailScreen(item: Item) {
                 }
                 if (showRelated) {
                     RelatedRow(item) { x -> hs.previewItem = x }
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(22.dp))
                 }
             }
         }
@@ -526,9 +526,12 @@ fun SeriesDetailScreen(item: Item) {
     // Cabecera fija arriba; solo se desplaza la lista de temporadas y episodios.
     Box(Modifier.fillMaxSize().background(C.bg)) {
         HeroImage(shown.image)
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+        // Cabecera de altura fija: al pasar por los relacionados, la lista de abajo no sube ni baja.
+        val headerH = (maxHeight * 0.46f).coerceIn(210.dp, 320.dp)
         Column(Modifier.fillMaxSize()) {
-            Column(Modifier.fillMaxWidth(0.62f).padding(start = 48.dp, top = 28.dp, end = 16.dp)) {
-                HeaderText(shown, C.gold, 3, Modifier.fillMaxWidth()) { k, o ->
+            Column(Modifier.fillMaxWidth(0.62f).height(headerH).padding(start = 48.dp, top = 28.dp, end = 16.dp)) {
+                HeaderText(shown, C.gold, 4, Modifier.fillMaxWidth().weight(1f)) { k, o ->
                     if (k == own.key) hs.overflow = o
                 }
                 Spacer(Modifier.height(14.dp))
@@ -601,6 +604,7 @@ fun SeriesDetailScreen(item: Item) {
                     }
                 }
             }
+        }
         }
         if (hs.fullOpen) FullPlotPanel(own) { hs.fullOpen = false }
     }
