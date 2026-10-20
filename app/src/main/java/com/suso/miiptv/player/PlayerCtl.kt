@@ -328,6 +328,7 @@ class PlayerCtl(ctx: Context) {
     fun play(i: Int, pos: Long) {
         if (i !in items.indices) return
         saveProgress()
+        scrubPos = null
         handler.removeCallbacksAndMessages(null)
         index = i
         error = null
@@ -447,6 +448,39 @@ class PlayerCtl(ctx: Context) {
         }
     }
 
+    /** Posición elegida con ◀ ▶ mientras se avanza o retrocede (aún sin saltar); null si no. */
+    var scrubPos by mutableStateOf<Long?>(null)
+        private set
+    private val commitScrubRunnable = Runnable { commitScrub() }
+
+    /** Avance «a lo Netflix»: se mueve la marca y se ve la miniatura; el salto se hace al parar o con OK. */
+    fun scrubBy(ms: Long) {
+        if (current.live) return
+        val d = player.duration
+        val base = scrubPos ?: player.currentPosition
+        val target = (base + ms).coerceAtLeast(0).let { if (d > 0) it.coerceAtMost(d - 1000) else it }
+        scrubPos = target
+        if (Repo.prefs.seekThumbs) Thumbs.request(current.url, target)
+        handler.removeCallbacks(commitScrubRunnable)
+        handler.postDelayed(commitScrubRunnable, 1300)
+    }
+
+    fun commitScrub(): Boolean {
+        val t = scrubPos ?: return false
+        handler.removeCallbacks(commitScrubRunnable)
+        player.seekTo(t)
+        position = t
+        scrubPos = null
+        return true
+    }
+
+    fun cancelScrub(): Boolean {
+        if (scrubPos == null) return false
+        handler.removeCallbacks(commitScrubRunnable)
+        scrubPos = null
+        return true
+    }
+
     fun seekBy(ms: Long) {
         if (current.live) return
         val d = player.duration
@@ -501,6 +535,7 @@ class PlayerCtl(ctx: Context) {
     }
 
     fun release() {
+        Thumbs.release()
         saveProgress()
         handler.removeCallbacksAndMessages(null)
         scope.cancel()

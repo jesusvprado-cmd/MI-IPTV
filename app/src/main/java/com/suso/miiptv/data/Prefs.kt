@@ -117,6 +117,11 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("afr", false)
         set(v) = putBool("afr", v)
 
+    /** Miniaturas del vídeo al avanzar o retroceder en películas y series. */
+    var seekThumbs: Boolean
+        get() = sp.getBoolean("seek_thumbs", true)
+        set(v) = putBool("seek_thumbs", v)
+
     // ---------- VPN ----------
 
     /** off, warp, wg */

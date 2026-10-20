@@ -50,6 +50,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.foundation.border
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.foundation.Image
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
@@ -171,6 +175,7 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
 
     BackHandler {
         when {
+            ctl.scrubPos != null -> ctl.cancelScrub()
             tracksOpen -> tracksOpen = false
             listOpen -> listOpen = false
             else -> onExit()
@@ -208,7 +213,7 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
                 if (item.live) {
                     if (ctl.items.size > 1) listOpen = true else show()
                 } else {
-                    ctl.seekBy(-step(rep))
+                    ctl.scrubBy(-step(rep))
                     show()
                 }
                 true
@@ -217,7 +222,7 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
                 if (item.live) {
                     tracksOpen = true
                 } else {
-                    ctl.seekBy(step(rep))
+                    ctl.scrubBy(step(rep))
                     show()
                 }
                 true
@@ -225,6 +230,7 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
             Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
                 if (rep == 0) {
                     when {
+                        ctl.commitScrub() -> show()
                         ctl.error != null -> ctl.retry()
                         item.live -> if (overlay) toggleFav() else show()
                         else -> {
@@ -241,12 +247,12 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
                 true
             }
             Key.MediaFastForward -> {
-                ctl.seekBy(30_000)
+                ctl.scrubBy(30_000)
                 show()
                 true
             }
             Key.MediaRewind -> {
-                ctl.seekBy(-30_000)
+                ctl.scrubBy(-30_000)
                 show()
                 true
             }
@@ -514,10 +520,11 @@ private fun VodOverlay(ctl: PlayerCtl, item: PlayItem) {
                         }
                     }
                     Spacer(Modifier.width(18.dp))
-                    Text(fmtTime(ctl.position), color = Color.White, fontSize = 15.sp)
+                    val shownPos = ctl.scrubPos ?: ctl.position
+                    Text(fmtTime(shownPos), color = if (ctl.scrubPos != null) C.gold else Color.White, fontSize = 15.sp)
                     Spacer(Modifier.width(14.dp))
-                    val frac = if (ctl.duration > 0) (ctl.position.toFloat() / ctl.duration).coerceIn(0f, 1f) else 0f
-                    SeekBar(frac, Modifier.weight(1f)) { f -> ctl.seekToFraction(f) }
+                    val frac = if (ctl.duration > 0) (shownPos.toFloat() / ctl.duration).coerceIn(0f, 1f) else 0f
+                    SeekBar(frac, Modifier.weight(1f), preview = ctl.scrubPos) { f -> ctl.seekToFraction(f) }
                     Spacer(Modifier.width(14.dp))
                     Text(fmtTime(ctl.duration), color = Color.White, fontSize = 15.sp)
                 }
@@ -527,7 +534,7 @@ private fun VodOverlay(ctl: PlayerCtl, item: PlayItem) {
 }
 
 @Composable
-private fun SeekBar(fraction: Float, modifier: Modifier, onSeek: (Float) -> Unit) {
+private fun SeekBar(fraction: Float, modifier: Modifier, preview: Long? = null, onSeek: (Float) -> Unit) {
     BoxWithConstraints(
         modifier
             .height(20.dp)
@@ -537,6 +544,35 @@ private fun SeekBar(fraction: Float, modifier: Modifier, onSeek: (Float) -> Unit
         contentAlignment = Alignment.CenterStart,
     ) {
         val w = maxWidth
+        // Miniatura sobre la barra mientras avanzas o retrocedes (como en Netflix).
+        if (preview != null) {
+            val tw = 224.dp
+            val th = 126.dp
+            val x = ((w * fraction) - tw / 2).coerceIn(0.dp, (w - tw).coerceAtLeast(0.dp))
+            val f = Thumbs.frame
+            val showImg = Repo.prefs.seekThumbs && f != null && f.first == Thumbs.key(preview)
+            Column(
+                Modifier.offset(x = x, y = -(th / 2 + 36.dp)).width(tw),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                if (Repo.prefs.seekThumbs) {
+                    Box(
+                        Modifier.width(tw).height(th).clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xCC111111))
+                            .border(2.dp, Color.White, RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (showImg) {
+                            Image(f!!.second.asImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                        } else {
+                            CircularProgressIndicator(color = C.gold, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
+                        }
+                    }
+                    Spacer(Modifier.height(6.dp))
+                }
+                Text(fmtTime(preview), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            }
+        }
         Box(Modifier.fillMaxWidth().height(2.dp).background(Color(0x66FFFFFF)))
         Box(Modifier.fillMaxWidth(fraction).height(2.dp).background(C.gold))
         Box(
