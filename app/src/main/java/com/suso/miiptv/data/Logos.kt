@@ -179,7 +179,12 @@ object Logos {
     private fun special(name: String): String? {
         val n = Normalizer.normalize(name, Normalizer.Form.NFKD).replace(Regex("\\p{Mn}+"), "")
         if (NBA_WORD.containsMatchIn(n)) return LOGOPEDIA + "4/4c/NBA_2017.svg/revision/latest/scale-to-width-down/600"
-        if (DAZN_LALIGA.containsMatchIn(n)) tvLogos["daznlaliga"]?.let { return pick(it, "spain") }
+        if (DAZN_LALIGA.containsMatchIn(n)) {
+            // Logos actuales (2024) de Logopedia: el de DAZN LaLiga 2 lleva el «2» en blanco sobre fondo negro.
+            val num = Regex("(?i)la\\s*liga\\s*(\\d)").find(n)?.groupValues?.get(1)
+            return if (num == "2") LOGOPEDIA + "f/fa/DAZN_LaLiga_2_2024.svg/revision/latest/scale-to-width-down/600"
+            else LOGOPEDIA + "1/18/DAZN_LALIGA_2024.svg/revision/latest/scale-to-width-down/600"
+        }
         return null
     }
 
@@ -423,7 +428,9 @@ object Logos {
         tvLoose = loose
         iptvOrg = org
         commons = com
-        writeCache(cacheFile)
+        // Si no se pudo leer el banco tv-logos (p. ej. GitHub limita las consultas con la VPN), no se guarda
+        // el índice: así se vuelve a intentar al abrir la app otra vez.
+        if (tv.isNotEmpty()) writeCache(cacheFile)
     }
 
     private fun githubTree(): List<String> {
