@@ -61,26 +61,47 @@ object PlayQueue {
         if (Repo.prefs.externalPlayer) {
             // El otro reproductor abre su propia conexión: se corta la previsualización.
             PlayerHolder.stopPreview()
-            if (openExternal(ctx, list[index])) return
+            if (openExternal(ctx, list[index], pos)) return
         }
         val i = Intent(ctx, PlayerActivity::class.java)
         if (ctx !is android.app.Activity) i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         ctx.startActivity(i)
     }
 
-    /** Abre el vídeo en otro reproductor instalado (VLC, MX Player...). Devuelve false si no hay ninguno. */
-    fun openExternal(ctx: Context, item: PlayItem): Boolean {
+    /** Reproductores de vídeo instalados (nombre, paquete), sin contar esta app. */
+    fun installedPlayers(ctx: Context): List<Pair<String, String>> {
+        val pm = ctx.packageManager
+        val probe = Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse("http://example.com/video.mp4"), "video/*")
+        return try {
+            @Suppress("DEPRECATION")
+            pm.queryIntentActivities(probe, 0)
+                .map { it.activityInfo.packageName to it.loadLabel(pm).toString() }
+                .filter { it.first != ctx.packageName }
+                .distinctBy { it.first }
+                .map { it.second to it.first }
+                .sortedBy { it.first.lowercase() }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    /** Abre el vídeo en el reproductor elegido en Ajustes (sin preguntar). Devuelve false si no se pudo. */
+    fun openExternal(ctx: Context, item: PlayItem, pos: Long = 0): Boolean {
+        val pkg = Repo.prefs.externalPkg?.takeIf { p -> installedPlayers(ctx).any { it.second == p } }
         val i = Intent(Intent.ACTION_VIEW)
             .setDataAndType(Uri.parse(item.url), "video/*")
             .putExtra("title", item.title)
+        if (pos > 0) {
+            i.putExtra("position", pos) // VLC (milisegundos)
+            i.putExtra("from_start", false)
+        }
+        if (pkg != null) i.setPackage(pkg)
         if (ctx !is android.app.Activity) i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         return try {
-            ctx.startActivity(Intent.createChooser(i, "Abrir con…").apply {
-                if (ctx !is android.app.Activity) addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            })
+            ctx.startActivity(i)
             true
         } catch (e: ActivityNotFoundException) {
-            Toast.makeText(ctx, "No hay otro reproductor instalado. Se usa el de la app.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(ctx, "No se pudo abrir el otro reproductor. Se usa el de la app.", Toast.LENGTH_SHORT).show()
             false
         }
     }

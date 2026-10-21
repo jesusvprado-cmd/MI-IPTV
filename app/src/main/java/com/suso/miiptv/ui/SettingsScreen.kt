@@ -380,6 +380,8 @@ private fun <T> Ask.of(title: String, options: List<Pair<String, T>>, selected: 
 
 @Composable
 private fun AccountSection(onChangeList: () -> Unit, ask: Ask) {
+    @Suppress("UNUSED_VARIABLE")
+    val sv = Repo.prefs.settingsVersion // se redibuja al momento al cambiar un ajuste
     val ctx = LocalContext.current
     val cfg = Repo.config
     var acc by remember { mutableStateOf<AccountInfo?>(null) }
@@ -441,6 +443,8 @@ private fun AccountSection(onChangeList: () -> Unit, ask: Ask) {
 
 @Composable
 private fun VpnSection(onMode: () -> Unit, onConnect: () -> Unit, onFile: () -> Unit, onUrl: () -> Unit) {
+    @Suppress("UNUSED_VARIABLE")
+    val sv = Repo.prefs.settingsVersion // se redibuja al momento al cambiar un ajuste
     val p = Repo.prefs
     val vs = VpnManager.state
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -505,6 +509,8 @@ private val EPG_PRESETS = listOf(
 
 @Composable
 private fun EpgSection(ask: Ask, onUrl: () -> Unit) {
+    @Suppress("UNUSED_VARIABLE")
+    val sv = Repo.prefs.settingsVersion // se redibuja al momento al cambiar un ajuste
     val p = Repo.prefs
     val ctx = LocalContext.current
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -552,6 +558,8 @@ private fun EpgSection(ask: Ask, onUrl: () -> Unit) {
 
 @Composable
 private fun VideoSection(ask: Ask) {
+    @Suppress("UNUSED_VARIABLE")
+    val sv = Repo.prefs.settingsVersion // se redibuja al momento al cambiar un ajuste
     val p = Repo.prefs
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         GroupLabel("Imagen")
@@ -569,15 +577,36 @@ private fun VideoSection(ask: Ask) {
         SettingRow("Salto al avanzar o retroceder", "set_seek", subtitle = "En películas y series", value = label(SEEK, p.seekStep)) {
             ask.of("Salto al avanzar o retroceder", SEEK, p.seekStep) { p.seekStep = it }
         }
+        val ctx = LocalContext.current
+        fun pickPlayer() {
+            val players = com.suso.miiptv.player.PlayQueue.installedPlayers(ctx)
+            if (players.isEmpty()) {
+                Actions.toast(ctx, "No hay otro reproductor instalado (por ejemplo VLC o MX Player)")
+                p.externalPlayer = false
+                return
+            }
+            ask.of("Elige el reproductor", players.map { it.first to it.second }, p.externalPkg) { pkg ->
+                p.externalPkg = pkg
+                p.externalPlayer = true
+            }
+        }
         ToggleRow(
             "Usar otro reproductor", "set_ext", p.externalPlayer,
             subtitle = "Abrir los vídeos en VLC, MX Player u otro instalado",
-        ) { p.externalPlayer = it }
+        ) { on ->
+            if (on) pickPlayer() else p.externalPlayer = false
+        }
+        if (p.externalPlayer) {
+            val name = com.suso.miiptv.player.PlayQueue.installedPlayers(ctx).firstOrNull { it.second == p.externalPkg }?.first ?: "Elegir…"
+            SettingRow("Reproductor elegido", "set_ext_pkg", value = name) { pickPlayer() }
+        }
     }
 }
 
 @Composable
 private fun AudioSection(ask: Ask) {
+    @Suppress("UNUSED_VARIABLE")
+    val sv = Repo.prefs.settingsVersion // se redibuja al momento al cambiar un ajuste
     val p = Repo.prefs
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SettingRow(
@@ -599,6 +628,8 @@ private fun AudioSection(ask: Ask) {
 
 @Composable
 private fun SubsSection(ask: Ask) {
+    @Suppress("UNUSED_VARIABLE")
+    val sv = Repo.prefs.settingsVersion // se redibuja al momento al cambiar un ajuste
     val p = Repo.prefs
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SubtitlePreview()
@@ -659,6 +690,8 @@ private fun SubtitlePreview() {
 
 @Composable
 private fun ContentSection() {
+    @Suppress("UNUSED_VARIABLE")
+    val sv = Repo.prefs.settingsVersion // se redibuja al momento al cambiar un ajuste
     val ctx = LocalContext.current
     val p = Repo.prefs
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -111,6 +111,7 @@ private fun TopBar(restoring: Boolean) {
                                 TopTab(
                                     text = t.label,
                                     selected = UiState.tab == t,
+                                    menuFocused = hovered != null,
                                     focusKey = "tab_${t.name}",
                                     focusRequester = UiState.tabRequester(t),
                                     requestInitial = !restoring && UiState.tab == t,
@@ -159,6 +160,7 @@ fun Clock(fontSize: Int = 18) {
 private fun TopTab(
     text: String,
     selected: Boolean,
+    menuFocused: Boolean,
     focusKey: String,
     focusRequester: FocusRequester,
     requestInitial: Boolean,
@@ -172,14 +174,13 @@ private fun TopTab(
             runCatching { focusRequester.requestFocus() }
         }
     }
-    // Sin brillo ni recuadro: la sección con el cursor se pone en dorado y en negrita.
-    val color by animateColorAsState(
-        when {
-            focused || selected -> C.gold
-            else -> Color(0xFFB4B4B4)
-        },
-        Motion.focusSpec(), label = "ttc",
-    )
+    // Sin brillo ni recuadro: la sección con el cursor se pone en dorado y en negrita, al instante.
+    // Con el cursor en el menú solo esa va en dorado; si estás abajo, la sección activa.
+    val color = when {
+        focused -> C.gold
+        selected && !menuFocused -> C.gold
+        else -> Color(0xFFB4B4B4)
+    }
     Box(
         Modifier
             .focusRequester(focusRequester)
@@ -197,7 +198,7 @@ private fun TopTab(
             text, color = color, fontSize = 17.sp, maxLines = 1,
             fontWeight = when {
                 focused -> FontWeight.ExtraBold
-                selected -> FontWeight.SemiBold
+                selected && !menuFocused -> FontWeight.SemiBold
                 else -> FontWeight.Medium
             },
         )

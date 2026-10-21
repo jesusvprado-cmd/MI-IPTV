@@ -103,6 +103,11 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("external", false)
         set(v) = putBool("external", v)
 
+    /** App del reproductor externo elegido (paquete). */
+    var externalPkg: String?
+        get() = sp.getString("external_pkg", null)
+        set(v) = putStr("external_pkg", v)
+
     /** true = decodificar siempre el audio en la app (para canales que no se oyen). */
     var audioDecode: Boolean
         get() = sp.getBoolean("audioDecode", false)
