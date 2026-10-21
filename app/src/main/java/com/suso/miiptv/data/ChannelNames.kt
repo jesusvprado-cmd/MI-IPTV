@@ -16,7 +16,7 @@ object ChannelNames {
         "cine", "estreno", "serie", "golf", "documental", "comedia", "drama", "accion", "clasico", "musica",
         "indie", "suspense", "original", "f1", "formula", "motor", "moto", "tenis", "copa", "supercopa", "europa",
         "ufc", "nba", "euroliga", "eurocup", "ppv", "multi", "bar", "hits", "españa", "espana", "max", "partidos",
-        "toros", "caza", "fiesta", "kids", "infantil", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
+        "toros", "caza", "fiesta", "kids", "infantil", "fanzone", "fest", "hits", "documental", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
     )
 
     private val MOVISTAR = Regex("(?i)\\bmovistar\\b\\s*[:|\\-–·]*\\s*")

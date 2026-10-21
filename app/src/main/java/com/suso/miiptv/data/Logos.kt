@@ -117,6 +117,7 @@ object Logos {
     private fun find(name: String): String? {
         movistarLaLiga(name)?.let { return it }
         movistarChampions(name)?.let { return it }
+        movistarPlus(name)?.let { return it }
         special(name)?.let { return it }
         // La 1 UHD tiene su propio logo.
         clean(name).let { c -> if ((ALIAS[c.key] ?: c.key) == "tve1" && UHD_WORD.containsMatchIn(name)) return LA1_UHD }
@@ -168,6 +169,65 @@ object Logos {
             num == null || num == 1 -> LALIGA_MAIN
             else -> LALIGA_N[num] ?: LALIGA_MAIN
         }
+    }
+
+    // ---------------- Canales «por Movistar Plus+» (logos actuales de Logopedia, en vectorial) ----------------
+
+    private class MPlus(val words: Regex, val main: String, val numbered: Map<Int, String> = emptyMap())
+
+    /** Orden importante: lo más concreto primero («cine español» antes que «cine»). */
+    private val MPLUS = listOf(
+        MPlus(Regex("^cine espanol\\b"), "d/d2/Cine_Espa%C3%B1ol_por_Movistar_Plus%2B_2023.svg"),
+        MPlus(Regex("^ellas( vamos)?\\b"), "1/1d/Ellas_Vamos_por_Movistar_Plus%2B.svg"),
+        MPlus(Regex("^(estrenos|cine)\\b"), "8/88/Estrenos_por_Movistar_Plus%2B_2025.svg", mapOf(2 to "3/31/Estrenos_2_por_Movistar_Plus%2B.svg")),
+        MPlus(Regex("^deportes\\b"), "d/d7/Deportes_por_Movistar_Plus%2B_2023.svg"),
+        MPlus(Regex("^vamos\\b"), "b/be/Vamos_por_Movistar_Plus%2B_2023.svg"),
+        MPlus(Regex("^documentales\\b"), "7/7c/Documentales_por_Movistar_Plus%2B_2023.svg"),
+        MPlus(Regex("^(hits|series)\\b"), "3/3c/Hits_por_M%2B.svg", mapOf(2 to "3/3f/Series_2_por_Movistar_Plus%2B.svg")),
+        MPlus(Regex("^originales\\b"), "0/09/Originales_por_Movistar_Plus%2B_2023.svg"),
+        MPlus(Regex("^accion\\b"), "b/b6/Acci%C3%B3n_por_Movistar_Plus%2B_2023.svg"),
+        MPlus(Regex("^drama\\b"), "0/0d/Drama_por_Movistar_Plus%2B_2023.svg"),
+        MPlus(Regex("^suspense\\b"), "4/4d/Suspense_por_Movistar_Plus%2B_2023.svg"),
+        MPlus(Regex("^clasicos\\b"), "2/2f/Cl%C3%A1sicos_por_Movistar_Plus%2B_2023.svg"),
+        MPlus(Regex("^comedia\\b"), "2/27/Comedia_por_Movistar_Plus%2B_2023.svg"),
+        MPlus(Regex("^musica\\b"), "3/38/M%C3%BAsica_por_Movistar_Plus%2B_2023.svg"),
+        MPlus(Regex("^fest\\b"), "6/67/Fest_por_Movistar_Plus%2B.svg"),
+        MPlus(Regex("^fanzone\\b"), "c/ca/Fanzone_por_Movistar_Plus%2B_2026.svg"),
+        MPlus(Regex("^indie\\b"), "2/22/Indie_por_Movistar_Plus%2B_2023.svg"),
+        MPlus(Regex("^golf\\b"), "2/21/Golf_por_Movistar_Plus%2B_2023.svg"),
+        MPlus(Regex("^(# ?0|0|cero)$"), "0/07/Movistar_Plus%2B.svg"),
+    )
+    private val MPLUS_BRAND = setOf("m", "m+", "movistar", "movistar+", "plus", "+", "es", "esp", "spain")
+    private val MPLUS_GREEN = "1AC93A"
+
+    /**
+     * «M+ Deportes 3 FHD», «Movistar Estrenos», «#Vamos», «#0»...: logo actual en alta calidad.
+     * Los numerados que en Logopedia solo existen diminutos se muestran con el logo principal y el número en verde.
+     */
+    private fun movistarPlus(name: String): String? {
+        var n = Normalizer.normalize(name, Normalizer.Form.NFKD).lowercase()
+            .replace(Regex("\\p{Mn}+"), "").replace(Regex("[^a-z0-9+# ]"), " ")
+            .replace(Regex("([a-z])(\\d)"), "$1 $2").replace(Regex("\\s+"), " ").trim()
+        val hashtag = n.contains("#")
+        n = n.replace(Regex("\\s*por (movistar ?plus|movistar ?\\+|m ?\\+)\\s*"), " ").trim()
+        val words = n.split(' ').filter { it.isNotBlank() }.toMutableList()
+        var branded = hashtag
+        while (words.isNotEmpty() && words.first() in MPLUS_BRAND) {
+            if (words.first() !in setOf("es", "esp", "spain")) branded = true
+            words.removeAt(0)
+        }
+        if (!branded && !name.contains("movistar", true)) return null
+        val rest = words.filter { it !in QUALITY && it !in FEED }.joinToString(" ").replace("#", "").trim()
+        if (rest.isEmpty() && hashtag) return null
+        for (m in MPLUS) {
+            val hit = m.words.find(rest) ?: continue
+            val tail = rest.removePrefix(hit.value).trim()
+            val num = tail.split(' ').firstOrNull()?.toIntOrNull()?.takeIf { it in 2..20 }
+            val own = num?.let { m.numbered[it] }
+            val base = LOGOPEDIA + (own ?: m.main) + "/revision/latest/scale-to-width-down/700"
+            return if (num != null && own == null) "$base#b=$num&c=$MPLUS_GREEN" else base
+        }
+        return null
     }
 
     // ---------------- Casos especiales pedidos ----------------
