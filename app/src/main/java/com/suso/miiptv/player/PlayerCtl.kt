@@ -497,14 +497,13 @@ class PlayerCtl(ctx: Context) {
         private set
     private val commitScrubRunnable = Runnable { commitScrub() }
 
-    /** Avance «a lo Netflix»: se mueve la marca y se ve la miniatura; el salto se hace al parar o con OK. */
+    /** Avance: se mueve la marca y se ve el minuto; el salto se hace al parar o con OK. */
     fun scrubBy(ms: Long) {
         if (current.live) return
         val d = player.duration
         val base = scrubPos ?: player.currentPosition
         val target = (base + ms).coerceAtLeast(0).let { if (d > 0) it.coerceAtMost(d - 1000) else it }
         scrubPos = target
-        if (Repo.prefs.seekThumbs) Thumbs.request(current.url, target)
         handler.removeCallbacks(commitScrubRunnable)
         handler.postDelayed(commitScrubRunnable, 1300)
     }
@@ -579,7 +578,6 @@ class PlayerCtl(ctx: Context) {
     }
 
     fun release() {
-        Thumbs.release()
         saveProgress()
         handler.removeCallbacksAndMessages(null)
         scope.cancel()

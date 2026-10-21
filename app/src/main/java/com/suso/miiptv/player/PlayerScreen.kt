@@ -558,48 +558,24 @@ private fun SeekBar(fraction: Float, modifier: Modifier, preview: Long? = null, 
         contentAlignment = Alignment.CenterStart,
     ) {
         val w = maxWidth
-        // Miniatura sobre la barra mientras avanzas o retrocedes (como en Netflix).
+        // Minuto al que vas, sobre la barra, mientras avanzas o retrocedes.
         if (preview != null) {
-            val tw = 288.dp
-            val th = 162.dp
+            val tw = 90.dp
             val x = ((w * fraction) - tw / 2).coerceIn(0.dp, (w - tw).coerceAtLeast(0.dp))
-            val f = Thumbs.frame
-            val showImg = Repo.prefs.seekThumbs && f != null && Thumbs.fits(f, preview)
-            Column(
+            Box(
                 Modifier
                     .offset(x = x)
-                    // La barra mide 20 dp de alto: la miniatura se mide sin ese límite y se coloca justo encima.
                     .layout { measurable, constraints ->
                         val pl = measurable.measure(constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity))
                         layout(pl.width, 0) { pl.place(0, -pl.height - 10.dp.roundToPx()) }
                     }
                     .width(tw),
-                verticalArrangement = Arrangement.Bottom,
-                horizontalAlignment = Alignment.CenterHorizontally,
+                contentAlignment = Alignment.Center,
             ) {
-                val err = Thumbs.error
-                if (Repo.prefs.seekThumbs && err != null) {
-                    Text(
-                        "Sin vista previa: $err", color = C.text2, fontSize = 12.sp,
-                        modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xCC111111)).padding(horizontal = 10.dp, vertical = 5.dp),
-                    )
-                    Spacer(Modifier.height(6.dp))
-                } else if (Repo.prefs.seekThumbs) {
-                    Box(
-                        Modifier.width(tw).height(th).clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xCC111111))
-                            .border(2.dp, Color.White, RoundedCornerShape(8.dp)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (showImg) {
-                            Image(f!!.second.asImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                        } else {
-                            CircularProgressIndicator(color = C.gold, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
-                        }
-                    }
-                    Spacer(Modifier.height(6.dp))
-                }
-                Text(fmtTime(preview), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    fmtTime(preview), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xCC111111)).padding(horizontal = 10.dp, vertical = 4.dp),
+                )
             }
         }
         Box(Modifier.fillMaxWidth().height(2.dp).background(Color(0x66FFFFFF)))

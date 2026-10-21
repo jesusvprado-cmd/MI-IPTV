@@ -479,10 +479,6 @@ private fun VideoSection(ask: Ask) {
             subtitle = "Cambia a 24, 25, 50 o 60 Hz según el vídeo, si tu tele lo permite",
         ) { p.afr = it }
         GroupLabel("Reproducción")
-        ToggleRow(
-            "Miniaturas al avanzar", "set_thumbs", p.seekThumbs,
-            subtitle = "Al usar ◀ ▶ en películas y series se ve una imagen del punto al que vas. Si tu cuenta solo permite una conexión y da cortes, desactívalo.",
-        ) { p.seekThumbs = it }
         SettingRow("Búfer", "set_buf", subtitle = "Más alto: menos cortes, pero tarda más en arrancar", value = label(BUFFER, p.bufferMode)) {
             ask.of("Búfer", BUFFER, p.bufferMode) { p.bufferMode = it }
         }

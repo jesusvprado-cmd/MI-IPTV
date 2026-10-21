@@ -172,12 +172,10 @@ private fun TopTab(
             runCatching { focusRequester.requestFocus() }
         }
     }
-    val scale by animateFloatAsState(if (focused) 1.12f else 1f, Motion.focusSpec(), label = "tts")
-    val glow by animateFloatAsState(if (focused) 1f else 0f, Motion.focusSpec(), label = "ttg")
+    // Sin brillo ni recuadro: la sección con el cursor se pone en dorado y en negrita.
     val color by animateColorAsState(
         when {
-            selected -> C.gold
-            focused -> Color.White
+            focused || selected -> C.gold
             else -> Color(0xFFB4B4B4)
         },
         Motion.focusSpec(), label = "ttc",
@@ -190,24 +188,18 @@ private fun TopTab(
                 onFocusChange(it)
             }
             .tvClick(onClick = onClick)
-            .graphicsLayer { scaleX = scale; scaleY = scale }
-            .drawBehind {
-                if (glow > 0f) {
-                    drawRoundRect(
-                        Brush.radialGradient(
-                            listOf(Color.White.copy(alpha = 0.16f * glow), Color.Transparent),
-                            center = center, radius = size.width * 0.7f,
-                        ),
-                        cornerRadius = CornerRadius(size.height / 2),
-                    )
-                }
-            }
             .padding(horizontal = 14.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
+        // Texto invisible en negrita: reserva el ancho para que el menú no se mueva al cambiar el grosor.
+        Text(text, color = Color.Transparent, fontSize = 17.sp, maxLines = 1, fontWeight = FontWeight.ExtraBold)
         Text(
             text, color = color, fontSize = 17.sp, maxLines = 1,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            fontWeight = when {
+                focused -> FontWeight.ExtraBold
+                selected -> FontWeight.SemiBold
+                else -> FontWeight.Medium
+            },
         )
     }
 }
@@ -216,15 +208,11 @@ private fun TopTab(
 @Composable
 private fun TopIcon(icon: ImageVector, label: String, focusKey: String, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(if (focused) 1.15f else 1f, Motion.focusSpec(), label = "tis")
     val color by animateColorAsState(if (focused) C.gold else Color(0xFFB4B4B4), Motion.focusSpec(), label = "tic")
     Box(
         Modifier
             .memFocus(focusKey) { focused = it }
             .tvClick(onClick = onClick)
-            .graphicsLayer { scaleX = scale; scaleY = scale }
-            .clip(CircleShape)
-            .background(Color.White.copy(alpha = if (focused) 0.14f else 0f))
             .padding(9.dp),
         contentAlignment = Alignment.Center,
     ) {
