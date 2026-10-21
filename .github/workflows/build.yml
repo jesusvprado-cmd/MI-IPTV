@@ -50,7 +50,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ github.run_number }}
-          name: Mi IPTV ${{ github.run_number }}
+          name: Pepino IPTV ${{ github.run_number }}
           make_latest: true
           body: ${{ github.event.head_commit.message }}
           files: MiIPTV.apk

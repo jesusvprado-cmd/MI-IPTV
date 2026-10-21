@@ -100,7 +100,7 @@ object Updater {
             }
         }
         if (url.isNullOrBlank()) return@use null
-        Release(build, o.optString("name", "Mi IPTV $build"), cleanNotes(o.optString("body")), url, size)
+        Release(build, o.optString("name", "Pepino IPTV $build"), cleanNotes(o.optString("body")), url, size)
     }
 
     /** «…/releases/latest» redirige a «…/releases/tag/v23»: de ahí sale el número de la última versión. */
@@ -108,7 +108,7 @@ object Updater {
         if (!r.isSuccessful) throw IOException("No se pudo consultar GitHub (HTTP ${r.code})")
         val tag = r.request.url.pathSegments.lastOrNull() ?: return@use null
         val build = tag.removePrefix("v").toIntOrNull() ?: return@use null
-        Release(build, "Mi IPTV $build", "", "$DOWNLOAD/$tag/MiIPTV.apk", 0)
+        Release(build, "Pepino IPTV $build", "", "$DOWNLOAD/$tag/MiIPTV.apk", 0)
     }
 
     /** Quita las líneas técnicas del texto de la versión (autoría, enlaces de sesión...). */

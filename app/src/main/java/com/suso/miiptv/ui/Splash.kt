@@ -112,7 +112,7 @@ fun SplashOverlay() {
                 )
                 Spacer(Modifier.height(26.dp))
                 Text(
-                    "Mi IPTV",
+                    "Pepino IPTV",
                     color = Color.White,
                     fontSize = 40.sp,
                     fontWeight = FontWeight.ExtraBold,

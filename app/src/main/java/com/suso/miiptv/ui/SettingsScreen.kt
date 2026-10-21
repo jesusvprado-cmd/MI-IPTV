@@ -740,7 +740,7 @@ private fun AboutSection() {
     ) {
         Logo(64.dp)
         Spacer(Modifier.height(14.dp))
-        Text("Mi IPTV", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+        Text("Pepino IPTV", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
         Text("Versión $version", color = C.gold, fontSize = 15.sp)
         Spacer(Modifier.height(10.dp))
         Text(

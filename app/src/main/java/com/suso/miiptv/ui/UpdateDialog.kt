@@ -109,7 +109,7 @@ fun UpdateDialog() {
                 Spacer(Modifier.height(12.dp))
                 Text(
                     "Se instala encima de la actual: no pierdes tu lista, favoritos ni ajustes. " +
-                        "Si Android pide permiso para instalar apps de Mi IPTV, actívalo y vuelve atrás.",
+                        "Si Android pide permiso para instalar apps de Pepino IPTV, actívalo y vuelve atrás.",
                     color = C.text2, fontSize = 12.sp, lineHeight = 17.sp,
                 )
             }

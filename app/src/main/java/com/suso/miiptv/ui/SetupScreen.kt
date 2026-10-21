@@ -151,7 +151,7 @@ fun SetupScreen(canCancel: Boolean, onDone: () -> Unit, onCancel: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Logo(40.dp)
                 Spacer(Modifier.width(14.dp))
-                Text("Mi IPTV", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                Text("Pepino IPTV", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
             }
             Text(
                 "Introduce los datos de tu lista. Se guardan solo en este dispositivo.",
