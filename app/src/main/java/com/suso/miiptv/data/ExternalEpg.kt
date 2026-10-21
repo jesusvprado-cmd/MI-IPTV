@@ -39,7 +39,7 @@ object ExternalEpg {
                 loadedUrl = url
                 loadedAt = now
                 byKey = try {
-                    io { load(url) }
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { load(url) }
                 } catch (e: Exception) {
                     emptyMap()
                 }
