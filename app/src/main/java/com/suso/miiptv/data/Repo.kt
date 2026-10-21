@@ -129,16 +129,44 @@ object Repo {
     suspend fun seriesDetail(item: Item): SeriesDetail = src().seriesDetail(item)
 
     suspend fun epg(item: Item): List<EpgEntry> {
+        if (!prefs.epgEnabled || item.kind != Kind.LIVE) return emptyList()
         val now = System.currentTimeMillis()
         val c = epgCache[item.key]
-        if (c != null && now - c.first < 10 * 60_000L) return c.second.filter { it.end > now }
-        val l = try {
-            src().epg(item)
-        } catch (e: Exception) {
-            emptyList()
+        val raw = if (c != null && now - c.first < 10 * 60_000L) {
+            c.second
+        } else {
+            val provider = suspend {
+                try {
+                    src().epg(item)
+                } catch (e: Exception) {
+                    emptyList()
+                }
+            }
+            val external = suspend {
+                try {
+                    ExternalEpg.epg(item)
+                } catch (e: Exception) {
+                    emptyList()
+                }
+            }
+            val l = when (prefs.epgMode) {
+                "external" -> external()
+                "both" -> provider().ifEmpty { external() }
+                else -> provider()
+            }
+            epgCache[item.key] = now to l
+            l
         }
-        epgCache[item.key] = now to l
-        return l
+        // Ajuste de hora elegido en Ajustes → Guía.
+        val shift = prefs.epgOffset * 60_000L
+        val l = if (shift == 0L) raw else raw.map { it.copy(start = it.start + shift, end = it.end + shift) }
+        return l.filter { it.end > now }
+    }
+
+    /** Vuelve a pedir la guía (Ajustes → Guía → Actualizar). */
+    fun refreshEpg() {
+        epgCache.clear()
+        ExternalEpg.reset()
     }
 
     fun streamUrl(item: Item): String = item.url ?: src().streamUrl(item)

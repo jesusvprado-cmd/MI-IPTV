@@ -81,7 +81,8 @@ object VpnManager {
     /** Al abrir la app: si la VPN estaba activada y el permiso ya está concedido, conecta sola. */
     fun autoStart() {
         if (!::app.isInitialized) return
-        if (Repo.prefs.vpnMode != "off" && permissionIntent(app) == null) connect()
+        // Solo si el usuario lo ha pedido en Ajustes → VPN («Conectar al abrir la app»).
+        if (Repo.prefs.vpnAuto && Repo.prefs.vpnMode != "off" && permissionIntent(app) == null) connect()
     }
 
     fun connect() {

@@ -69,11 +69,12 @@ import java.io.File
 
 private enum class Sec(val label: String, val desc: String) {
     ACCOUNT("Cuenta", "Tu lista IPTV y el estado de la suscripción."),
-    VPN("VPN", "Solo pasa por la VPN el tráfico de Mi IPTV; el resto del dispositivo sigue con tu conexión normal."),
+    VPN("VPN", "Se conecta cuando tú quieras. En algunas teles la VPN se aplica a todo el equipo mientras está conectada."),
     VIDEO("Vídeo", "Imagen, carga y forma de reproducir."),
     AUDIO("Audio", "Sonido de canales, películas y series."),
     SUBS("Subtítulos", "Idioma y aspecto de los subtítulos."),
     CONTENT("Contenido", "Qué se muestra en la app."),
+    EPG("Guía", "Guía de programación de los canales (EPG)."),
     ABOUT("Acerca de", ""),
 }
 
@@ -190,6 +191,7 @@ fun SettingsScreen(onChangeList: () -> Unit) {
     }
     var downloadsList by remember { mutableStateOf<List<File>?>(null) }
     var urlDialog by remember { mutableStateOf(false) }
+    var epgUrlDialog by remember { mutableStateOf(false) }
     val openDoc = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) {
             scope.launch {
@@ -240,6 +242,16 @@ fun SettingsScreen(onChangeList: () -> Unit) {
         }
         return
     }
+    if (epgUrlDialog) {
+        UrlEntry(title = "Dirección de la guía XMLTV", button = "Guardar", initial = p.epgUrl, onCancel = { epgUrlDialog = false }) { url ->
+            epgUrlDialog = false
+            p.epgUrl = url
+            if (p.epgMode == "provider") p.epgMode = "both"
+            Repo.refreshEpg()
+            Actions.toast(ctx, "Guía guardada")
+        }
+        return
+    }
     if (urlDialog) {
         UrlEntry(onCancel = { urlDialog = false }) { url ->
             urlDialog = false
@@ -286,6 +298,7 @@ fun SettingsScreen(onChangeList: () -> Unit) {
                             Sec.AUDIO -> SIcons.audio
                             Sec.SUBS -> SIcons.subs
                             Sec.CONTENT -> SIcons.content
+                            Sec.EPG -> SIcons.guide
                             Sec.ABOUT -> SIcons.info
                         },
                         selected = sec == s,
@@ -336,6 +349,9 @@ fun SettingsScreen(onChangeList: () -> Unit) {
                         Sec.AUDIO -> item(key = "audio") { AudioSection { t, o, s, f -> ask(t, o, s, f) } }
                         Sec.SUBS -> item(key = "subs") { SubsSection { t, o, s, f -> ask(t, o, s, f) } }
                         Sec.CONTENT -> item(key = "content") { ContentSection() }
+                        Sec.EPG -> item(key = "epg") {
+                            EpgSection(ask = { t, o, sel, f -> ask(t, o, sel, f) }, onUrl = { epgUrlDialog = true })
+                        }
                         Sec.ABOUT -> item(key = "about") { Column { AboutSection() } }
                     }
                 }
@@ -443,6 +459,10 @@ private fun VpnSection(onMode: () -> Unit, onConnect: () -> Unit, onFile: () -> 
 
         GroupLabel("Conexión")
         SettingRow("Tipo de VPN", "set_vpn_mode", value = label(VPN_MODE, p.vpnMode)) { onMode() }
+        ToggleRow(
+            "Conectar al abrir la app", "set_vpn_auto", p.vpnAuto,
+            subtitle = "Desactivado: la VPN solo se conecta cuando tú lo pidas",
+        ) { p.vpnAuto = it }
         if (p.vpnMode != "off") {
             if (vs == VpnManager.State.ON || vs == VpnManager.State.CONNECTING) {
                 SettingRow("Desconectar", "set_vpn_toggle", chevron = false) { VpnManager.disconnect() }
@@ -463,6 +483,70 @@ private fun VpnSection(onMode: () -> Unit, onConnect: () -> Unit, onFile: () -> 
             "Sirve el archivo de Proton VPN (gratis) o de cualquier VPN que ofrezca WireGuard.",
             color = Color(0xFF777777), fontSize = 13.sp, modifier = Modifier.padding(start = 4.dp, top = 4.dp),
         )
+    }
+}
+
+private val EPG_MODE = listOf(
+    "La de mi lista" to "provider",
+    "La de mi lista y, si falta, la externa" to "both",
+    "Solo la guía externa" to "external",
+)
+private val EPG_OFFSET = listOf(
+    "−3 horas" to -180, "−2 horas" to -120, "−1 hora" to -60, "−30 minutos" to -30, "Sin ajuste" to 0,
+    "+30 minutos" to 30, "+1 hora" to 60, "+2 horas" to 120, "+3 horas" to 180,
+)
+/** Guías XMLTV públicas para elegir sin escribir la dirección. */
+private val EPG_PRESETS = listOf(
+    "Guía de España (dobleM)" to "https://raw.githubusercontent.com/davidmuma/EPG_dobleM/master/guiatv.xml.gz",
+    "Guía de España para IPTV (dobleM)" to "https://raw.githubusercontent.com/davidmuma/EPG_dobleM/master/guiaiptv.xml",
+    "Escribir otra dirección…" to "__custom",
+    "Quitar la guía externa" to "",
+)
+
+@Composable
+private fun EpgSection(ask: Ask, onUrl: () -> Unit) {
+    val p = Repo.prefs
+    val ctx = LocalContext.current
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        ToggleRow(
+            "Mostrar la guía", "set_epg_on", p.epgEnabled,
+            subtitle = "Programa actual y siguiente en la lista de canales y en el reproductor",
+        ) { p.epgEnabled = it; Repo.refreshEpg() }
+        if (p.epgEnabled) {
+            GroupLabel("Origen")
+            SettingRow("Guía que se usa", "set_epg_mode", value = label(EPG_MODE, p.epgMode)) {
+                ask.of("Guía que se usa", EPG_MODE, p.epgMode) { v ->
+                    p.epgMode = v
+                    Repo.refreshEpg()
+                }
+            }
+            val ext = p.epgUrl
+            val extName = EPG_PRESETS.firstOrNull { it.second == ext && ext.isNotEmpty() }?.first
+                ?: if (ext.isEmpty()) "Ninguna" else Uri.parse(ext).host ?: ext
+            SettingRow("Guía externa (XMLTV)", "set_epg_url", subtitle = "Sirve para canales sin guía o con la guía mal", value = extName) {
+                ask.of("Guía externa", EPG_PRESETS, ext) { v ->
+                    when (v) {
+                        "__custom" -> onUrl()
+                        else -> {
+                            p.epgUrl = v
+                            if (v.isNotEmpty() && p.epgMode == "provider") p.epgMode = "both"
+                            if (v.isEmpty() && p.epgMode == "external") p.epgMode = "provider"
+                            Repo.refreshEpg()
+                        }
+                    }
+                }
+            }
+            GroupLabel("Ajustes")
+            SettingRow("Ajuste de hora", "set_epg_off", subtitle = "Si la guía va adelantada o atrasada", value = label(EPG_OFFSET, p.epgOffset)) {
+                ask.of("Ajuste de hora", EPG_OFFSET, p.epgOffset) { v ->
+                    p.epgOffset = v
+                }
+            }
+            SettingRow("Actualizar la guía ahora", "set_epg_refresh", chevron = false) {
+                Repo.refreshEpg()
+                Actions.toast(ctx, "La guía se volverá a descargar")
+            }
+        }
     }
 }
 
@@ -680,8 +764,14 @@ private fun FilePickList(files: List<File>, onCancel: () -> Unit, onPick: (File)
 
 /** Pantalla para escribir la dirección web de un archivo .conf. */
 @Composable
-private fun UrlEntry(onCancel: () -> Unit, onDone: (String) -> Unit) {
-    var value by remember { mutableStateOf("") }
+private fun UrlEntry(
+    title: String = "Dirección web del archivo .conf",
+    button: String = "Cargar",
+    initial: String = "",
+    onCancel: () -> Unit,
+    onDone: (String) -> Unit,
+) {
+    var value by remember { mutableStateOf(initial) }
     val fr = remember { FocusRequester() }
     LaunchedEffect(Unit) {
         delay(120)
@@ -692,7 +782,7 @@ private fun UrlEntry(onCancel: () -> Unit, onDone: (String) -> Unit) {
             Modifier.widthIn(max = 640.dp).fillMaxWidth().padding(top = 48.dp, start = 32.dp, end = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text("Dirección web del archivo .conf", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text(title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
             OutlinedTextField(
                 value = value,
                 onValueChange = { value = it.trim() },
@@ -709,7 +799,7 @@ private fun UrlEntry(onCancel: () -> Unit, onDone: (String) -> Unit) {
                 modifier = Modifier.fillMaxWidth().focusRequester(fr),
             )
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                TvButton("Cargar", "url_ok", filled = true) { if (value.isNotBlank()) onDone(value) }
+                TvButton(button, "url_ok", filled = true) { if (value.isNotBlank()) onDone(value) }
                 TvButton("Cancelar", "url_cancel") { onCancel() }
             }
         }

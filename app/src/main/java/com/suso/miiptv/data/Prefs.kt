@@ -142,6 +142,31 @@ class Prefs(ctx: Context) {
     // ---------- VPN ----------
 
     /** off, warp, wg */
+    /** Conectar la VPN sola al abrir la app (si no, se conecta a mano desde Ajustes o el reproductor). */
+    var vpnAuto: Boolean
+        get() = sp.getBoolean("vpn_auto", false)
+        set(v) = putBool("vpn_auto", v)
+
+    // ---------------- Guía de programación ----------------
+
+    var epgEnabled: Boolean
+        get() = sp.getBoolean("epg_on", true)
+        set(v) = putBool("epg_on", v)
+
+    /** "provider" (la de tu lista), "external" (la de la dirección elegida) o "both" (la de la lista y, si falta, la externa). */
+    var epgMode: String
+        get() = str("epg_mode", "provider")
+        set(v) = putStr("epg_mode", v)
+
+    var epgUrl: String
+        get() = str("epg_url", "")
+        set(v) = putStr("epg_url", v)
+
+    /** Ajuste de hora de la guía, en minutos. */
+    var epgOffset: Int
+        get() = sp.getInt("epg_offset", 0)
+        set(v) = putInt("epg_offset", v)
+
     var vpnMode: String
         get() = str("vpnMode", "off")
         set(v) = putStr("vpnMode", v)
