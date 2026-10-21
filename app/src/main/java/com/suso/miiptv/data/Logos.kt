@@ -173,12 +173,32 @@ object Logos {
     // ---------------- Casos especiales pedidos ----------------
 
     private val NBA_WORD = Regex("(?i)\\bnba\\b")
+    private val HYPERMOTION = Regex("(?i)hypermotion")
+    /** LaLiga TV Hypermotion (2023–hoy, Logopedia): cada canal con su número. */
+    private val HYPERMOTION_N = mapOf(
+        2 to "6/6f/La_Liga_Hypermotion_2.svg",
+        3 to "2/23/La_Liga_Hypermotion_3.svg",
+        4 to "3/38/La_Liga_TV_Hypermotion_4.svg",
+        5 to "3/37/La_Liga_TV_Hypermotion_5.svg",
+        6 to "c/c6/La_Liga_TV_Hypermotion_6.svg",
+        7 to "7/76/La_Liga_TV_Hypermotion_7.svg",
+        8 to "2/27/La_Liga_TV_Hypermotion_8.svg",
+        9 to "d/d5/La_Liga_TV_Hypermotion_9.svg",
+        10 to "a/a2/La_Liga_TV_Hypermotion_10.svg",
+        11 to "9/92/La_Liga_TV_Hypermotion_11.svg",
+        12 to "2/29/La_Liga_TV_Hypermotion_12.svg",
+    )
     private val DAZN_LALIGA = Regex("(?i)\\bdazn\\b.*\\bla\\s*liga(?:\\b|\\d)")
 
     /** Todos los canales NBA con el logo de la NBA; todos los DAZN LaLiga (2, 3, script...) con el de DAZN LaLiga. */
     private fun special(name: String): String? {
         val n = Normalizer.normalize(name, Normalizer.Form.NFKD).replace(Regex("\\p{Mn}+"), "")
         if (NBA_WORD.containsMatchIn(n)) return LOGOPEDIA + "4/4c/NBA_2017.svg/revision/latest/scale-to-width-down/600"
+        if (HYPERMOTION.containsMatchIn(n)) {
+            val num = Regex("(?i)hypermotion\\s*(\\d{1,2})(?!\\d)").find(n)?.groupValues?.get(1)?.toIntOrNull()
+            val file = num?.let { HYPERMOTION_N[it] } ?: "b/b5/LaLiga_TV_Hypermotion.svg"
+            return LOGOPEDIA + file + "/revision/latest/scale-to-width-down/600"
+        }
         if (DAZN_LALIGA.containsMatchIn(n)) {
             // Logos actuales (2024) de Logopedia: el de DAZN LaLiga 2 lleva el «2» en blanco sobre fondo negro.
             val num = Regex("(?i)la\\s*liga\\s*(\\d)").find(n)?.groupValues?.get(1)
