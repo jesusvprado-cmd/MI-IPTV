@@ -114,7 +114,9 @@ object Logos {
     private fun hasWhite(u: String) = u.substringAfter('#', "").split('&').contains("w=1")
 
     /** Canales que van sobre fondo blanco aunque su logo venga de la lista (Movistar Plus+, FlixOlé, Cosmo, SyFy, FDF, Neox...). */
-    private val WHITE_NAMES = Regex("^(fl?ix ?ole|cosmo|syfy|sy fy|fdf|factoria de ficcion|neox|a 3 ?series|a3 ?series|atreseries)\\b")
+    private val WHITE_NAMES = Regex("^(r?tve )?(fl?ix ?ole|cosmo|syfy|sy fy|sci ?fi|fdf|factoria de ficcion|neox|a 3 ?series|a3 ?series|atreseries|" +
+        "eurosport|gol|teledeporte|tdp|d ?max|nova|mega|ten|baby ?tv|nick|boing|clan|mtv|24 ?h|24 horas|canal 24|" +
+        "deportes|amc|odisea|u ?beat)\\b")
 
     private fun onWhiteByName(name: String): Boolean {
         val n = Normalizer.normalize(name, Normalizer.Form.NFKD).lowercase()
@@ -125,7 +127,7 @@ object Logos {
         val first = words.firstOrNull() ?: return false
         if (first in setOf("m", "m+", "movistar", "movistar+", "mplus")) {
             val rest = words.drop(1).filter { it !in setOf("+", "plus", "por") }.joinToString(" ")
-            return rest.isEmpty() || ChannelNames.isOwnMovistar(rest) || Regex("^(romance|baloncesto|basket)").containsMatchIn(rest)
+            return rest.isEmpty() || ChannelNames.isOwnMovistar(rest) || Regex("^(los |las )?(romance|baloncesto|basket|primera|1 ?a federacion|federacion|documentales)").containsMatchIn(rest)
         }
         return WHITE_NAMES.containsMatchIn(words.joinToString(" "))
     }
@@ -230,7 +232,7 @@ object Logos {
     private val MPLUS_BRAND = setOf("m", "m+", "movistar", "movistar+", "plus", "+", "es", "esp", "spain")
     private val MPLUS_GREEN = "1AC93A"
     /** Nombres que en las listas españolas son de Movistar Plus+ aunque no lleven la marca («DOCUMENTALES SAT», «GOLF 2»). */
-    private val UNBRANDED_MPLUS = Regex("^(golf|documentales|documental|vamos|ellas vamos|ellas|originales|estrenos|cine espanol|baloncesto|suspense|clasicos|fanzone|deportes \\d+|portada)( \\d+)?$")
+    private val UNBRANDED_MPLUS = Regex("^(golf|documentales|documental|vamos|ellas vamos|ellas|originales|estrenos|cine espanol|baloncesto|suspense|clasicos|fanzone|deportes|portada)( \\d+)?$")
 
     /**
      * «M+ Deportes 3 FHD», «Movistar Estrenos», «#Vamos», «#0»...: logo actual en alta calidad.
@@ -252,10 +254,12 @@ object Logos {
             if (words.first() !in setOf("es", "esp", "spain")) branded = true
             words.removeAt(0)
         }
-        val rest = words.filter { it !in QUALITY && it !in FEED }.joinToString(" ").replace("#", "").trim()
+        var rest = words.filter { it !in QUALITY && it !in FEED }.joinToString(" ").replace("#", "").trim()
         // «GOLF 2 FHD» sin marca: en las listas españolas es el de Movistar Plus+.
         if (!branded && !name.contains("movistar", true) && !UNBRANDED_MPLUS.matches(rest)) return null
         if (rest.isEmpty() && hashtag) return null
+        // «M. LOS DOCUMENTALES SAT» → «documentales»
+        rest = rest.removePrefix("los ").removePrefix("las ")
         // «M.PLUS SAT», «M+ HEVC»: el canal principal de Movistar Plus+.
         if (rest.isEmpty() || Regex("^portada\\b").containsMatchIn(rest)) return LOGOPEDIA + "0/07/Movistar_Plus%2B.svg/revision/latest/scale-to-width-down/700"
         // Baloncesto (logo pasado por el usuario, con el número en verde) y Romance (hecho a partir del de Clásicos).
@@ -292,6 +296,7 @@ object Logos {
     private val PICKS by lazy {
         listOf(
             Pick(Regex("^amc$"), OWN_LOGOS + "amc.png"),
+            Pick(Regex("^(nickelodeon|nick)$"), OWN_LOGOS + "nickelodeon.png", onWhite = true),
             Pick(Regex("^(telecinco|tele 5|t 5)$"), OWN_LOGOS + "telecinco2.png", onWhite = true),
             Pick(Regex("^(cuatro|canal cuatro)$"), OWN_LOGOS + "cuatro.png", onWhite = true),
             Pick(Regex("^(antena 3|antena tres|a 3)$"), lp("1/11/Antena_3_2025.svg"), onWhite = true),
