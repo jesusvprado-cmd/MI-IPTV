@@ -204,18 +204,12 @@ fun ToggleRow(title: String, focusKey: String, checked: Boolean, subtitle: Strin
 
 @Composable
 private fun Switch(checked: Boolean, focused: Boolean) {
-    val track by animateColorAsState(
-        when {
-            checked -> C.gold
-            focused -> Color(0xFFBBBBBB)
-            else -> Color(0xFF3A3A3A)
-        },
-        Motion.focusSpec(),
-        label = "track",
-    )
+    // Minimalista: el mismo carril gris siempre; círculo blanco a la izquierda (apagado) o verde a la derecha (encendido).
+    val track = if (focused) Color(0xFF9E9E9E) else Color(0xFF555555)
+    val knob by animateColorAsState(if (checked) Color(0xFF5CC860) else Color.White, Motion.focusSpec(), label = "knobc")
     val x by animateDpAsState(if (checked) 20.dp else 0.dp, Motion.focusSpec(), label = "knob")
     Box(Modifier.width(44.dp).height(24.dp).clip(RoundedCornerShape(12.dp)).background(track).padding(3.dp)) {
-        Box(Modifier.offset(x = x).size(18.dp).clip(CircleShape).background(if (checked) Color.Black else Color.White))
+        Box(Modifier.offset(x = x).size(18.dp).clip(CircleShape).background(knob))
     }
 }
 
