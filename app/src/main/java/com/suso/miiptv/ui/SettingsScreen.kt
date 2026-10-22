@@ -480,10 +480,18 @@ private fun VpnSection(onMode: () -> Unit, onConnect: () -> Unit, onFile: () -> 
             VpnManager.State.ERROR -> "Error" to S.bad
             VpnManager.State.OFF -> "Desconectada" to Color(0xFF777777)
         }
+        // Siempre las mismas filas (con «—» si no hay dato) para que nada cambie de altura al conectar o desconectar.
         val rows = mutableListOf("Tipo" to label(VPN_MODE, p.vpnMode))
-        VpnManager.info?.let { rows += "Salida" to it }
-        if (VpnManager.wholeDevice && vs == VpnManager.State.ON) rows += "Alcance" to "Todo el equipo (no permite limitarla a la app)"
-        if (vs == VpnManager.State.ERROR) VpnManager.message?.let { rows += "Detalle" to it }
+        rows += "Salida" to when {
+            vs == VpnManager.State.ERROR -> VpnManager.message ?: "—"
+            vs == VpnManager.State.ON -> VpnManager.info ?: "—"
+            else -> "—"
+        }
+        rows += "Alcance" to when {
+            vs != VpnManager.State.ON -> "—"
+            VpnManager.wholeDevice -> "Todo el equipo (no permite limitarla a la app)"
+            else -> "Solo esta app"
+        }
         if (p.vpnMode == "wg") rows += "Perfil" to (p.wgConf?.let { VpnManager.profileName(it) } ?: "ninguno cargado")
         InfoCard(rows, status)
 
@@ -500,9 +508,7 @@ private fun VpnSection(onMode: () -> Unit, onConnect: () -> Unit, onFile: () -> 
                 if (connected) VpnManager.disconnect() else onConnect()
             }
         }
-        if (vs == VpnManager.State.ON) {
-            SettingRow("Comprobar IP de salida", "set_vpn_ip", chevron = false) { VpnManager.refreshInfo() }
-        }
+        SettingRow("Comprobar IP de salida", "set_vpn_ip", chevron = false, enabled = vs == VpnManager.State.ON) { VpnManager.refreshInfo() }
         if (p.vpnMode == "warp") {
             SettingRow("Nueva cuenta WARP", "set_vpn_renew", subtitle = "Si WARP deja de conectar", chevron = false) { VpnManager.renewWarp() }
         }

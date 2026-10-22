@@ -138,7 +138,7 @@ private fun TopBar(restoring: Boolean) {
 
 /** Hora en la esquina, como en las apps de TV. */
 @Composable
-fun Clock(fontSize: Int = 18) {
+fun Clock(fontSize: Int = 17) {
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -147,8 +147,9 @@ fun Clock(fontSize: Int = 18) {
         }
     }
     androidx.compose.material3.Text(
-        hm(now), color = androidx.compose.ui.graphics.Color.White, fontSize = fontSize.sp,
-        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+        // Mismo estilo que las secciones del menú (Inicio, TV en directo...).
+        hm(now), color = androidx.compose.ui.graphics.Color(0xFFB4B4B4), fontSize = fontSize.sp,
+        fontWeight = androidx.compose.ui.text.font.FontWeight.Medium, fontFamily = Manrope, maxLines = 1,
     )
 }
 
