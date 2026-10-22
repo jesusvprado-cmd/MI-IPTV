@@ -230,7 +230,7 @@ object Logos {
     private val MPLUS_BRAND = setOf("m", "m+", "movistar", "movistar+", "plus", "+", "es", "esp", "spain")
     private val MPLUS_GREEN = "1AC93A"
     /** Nombres que en las listas españolas son de Movistar Plus+ aunque no lleven la marca («DOCUMENTALES SAT», «GOLF 2»). */
-    private val UNBRANDED_MPLUS = Regex("^(golf|documentales|documental|vamos|ellas vamos|originales|estrenos)( \\d+)?$")
+    private val UNBRANDED_MPLUS = Regex("^(golf|documentales|documental|vamos|ellas vamos|ellas|originales|estrenos|cine espanol|baloncesto|suspense|clasicos|fanzone|deportes \\d+|portada)( \\d+)?$")
 
     /**
      * «M+ Deportes 3 FHD», «Movistar Estrenos», «#Vamos», «#0»...: logo actual en alta calidad.
@@ -257,7 +257,17 @@ object Logos {
         if (!branded && !name.contains("movistar", true) && !UNBRANDED_MPLUS.matches(rest)) return null
         if (rest.isEmpty() && hashtag) return null
         // «M.PLUS SAT», «M+ HEVC»: el canal principal de Movistar Plus+.
-        if (rest.isEmpty()) return LOGOPEDIA + "0/07/Movistar_Plus%2B.svg/revision/latest/scale-to-width-down/700"
+        if (rest.isEmpty() || Regex("^portada\\b").containsMatchIn(rest)) return LOGOPEDIA + "0/07/Movistar_Plus%2B.svg/revision/latest/scale-to-width-down/700"
+        // Baloncesto (logo pasado por el usuario, con el número en verde) y Romance (hecho a partir del de Clásicos).
+        Regex("^(baloncesto|basket|basquet)( (\\d{1,2}))?\\b").find(rest)?.let { m ->
+            val num = m.groupValues[3].toIntOrNull()
+            return when {
+                num == null -> OWN_LOGOS + "baloncesto.png"
+                num in 1..5 -> OWN_LOGOS + "baloncesto$num.png"
+                else -> OWN_LOGOS + "baloncesto.png#b=$num&c=$MPLUS_GREEN"
+            }
+        }
+        if (Regex("^romance\\b").containsMatchIn(rest)) return OWN_LOGOS + "romance.png"
         for (m in MPLUS) {
             val hit = m.words.find(rest) ?: continue
             val tail = rest.removePrefix(hit.value).trim()
@@ -287,6 +297,7 @@ object Logos {
             Pick(Regex("^(antena 3|antena tres|a 3)$"), lp("1/11/Antena_3_2025.svg"), onWhite = true),
             Pick(Regex("^(la ?sexta|la 6|sexta)$"), lp("0/08/LaSexta_2024.svg"), onWhite = true),
             Pick(Regex("^(la 1|tve 1|tve la 1|tve)$"), lp("e/e4/La_1_Flat_logo_2026.svg"), onWhite = true),
+            Pick(Regex("^(la 2|tve 2|tve la 2|la dos)$"), OWN_LOGOS + "la2.png", onWhite = true),
             Pick(Regex("^aragon( tv| television)?( int| internacional)?$"), OWN_LOGOS + "aragon-tv.png"),
             Pick(Regex("^hbo ?max\\b"), lp("b/b3/HBO_Max_%282025%29.svg")),
             Pick(Regex("^fl?ix ?ole\\b"), lp("5/5a/FlixOl%C3%A9.svg"), "EC0032", onWhite = true),
@@ -297,7 +308,7 @@ object Logos {
             Pick(Regex("^(a ?3 ?series|atreseries|a ?3 ?s)$"), OWN_LOGOS + "a3series.png", onWhite = true),
             Pick(Regex("^neox$"), lp("a/ac/Neox_2023.svg"), onWhite = true),
             Pick(Regex("^cosmo( tv)?$"), lp("0/05/COSMO_Espa%C3%B1a_2024.svg"), onWhite = true),
-            Pick(Regex("^sy ?fy$"), lp("f/fb/Syfy_%282017%29.svg", 800), onWhite = true),
+            Pick(Regex("^(sy ?fy|sci ?fi)$"), OWN_LOGOS + "syfy.png", onWhite = true),
             Pick(Regex("^real madrid( tv)?$"), tvl("real-madrid-tv-es.png")),
             Pick(Regex("^iberalia\\b"), tvl("iberalia-tv-es.png")),
             Pick(Regex("^u ?beat$"), tvl("u-beat-es.png")),
@@ -401,7 +412,7 @@ object Logos {
         "telecinco" to OWN_LOGOS + "telecinco2.png#w=1",
         // RTVE estrenó logos en 2026 (Logopedia).
         "tve1" to LOGOPEDIA + "b/b6/La_1_2026.svg/revision/latest/scale-to-width-down/600",
-        "tve2" to LOGOPEDIA + "a/aa/La_2_2026.svg/revision/latest/scale-to-width-down/600",
+        "tve2" to OWN_LOGOS + "la2.png#w=1",
     )
     private val LA1_UHD = LOGOPEDIA + "3/3b/La_1_UHD_2026.svg/revision/latest/scale-to-width-down/600"
     private val UHD_WORD = Regex("(?i)\\b(uhd|4k|2160p?)\\b")
