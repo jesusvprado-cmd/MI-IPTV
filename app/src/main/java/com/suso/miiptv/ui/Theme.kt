@@ -22,11 +22,11 @@ object C {
     val text2 = Color(0xFFA0A0A0)
     val text3 = Color(0xFFDDDDDD)
     /** Acento (antes dorado): verde pepino claro. */
-    val gold = Color(0xFFB8F5A6)
+    val gold = Color(0xFFA6EE90)
     /** Verde intenso de la marca (icono, etiquetas). */
     val brand = Color(0xFF268332)
     /** Verde de «activado» (favoritos, interruptores). */
-    val fav = Color(0xFFB8F5A6)
+    val fav = Color(0xFFA6EE90)
     val divider = Color(0xFF334036)
     val playBtn = Color(0xFFDDF3F2)
     val error = Color(0xFFFF6B6B)

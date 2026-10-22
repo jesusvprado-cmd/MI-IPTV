@@ -39,6 +39,9 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+/** Verde del logo y del nombre: siempre el mismo, no cambia con el foco ni con la pantalla. */
+val BRAND_GREEN = Color(0xFF8FE27C)
+
 val GoldBrush = Brush.linearGradient(listOf(Color(0xFFD6FBCB), Color(0xFF8EDB7E)))
 
 /** Marca de la app: rodaja de pepino (aro y 8 semillas). [ring] de 0 a 1 dibuja el aro poco a poco. */
@@ -46,7 +49,8 @@ val GoldBrush = Brush.linearGradient(listOf(Color(0xFFD6FBCB), Color(0xFF8EDB7E)
 fun BrandMark(size: Dp, ring: Float = 1f, modifier: Modifier = Modifier) {
     Canvas(modifier.size(size)) {
         val s = this.size.width
-        val green = Color(0xFFB8F5A6)
+        // Verde fijo y algo más saturado: se ve verde sobre cualquier fondo (con el pastel, en pantallas grises parecía blanco).
+        val green = BRAND_GREEN
         val stroke = s * 0.075f
         val r = s * 0.42f
         drawArc(
@@ -76,7 +80,7 @@ fun BrandName() = androidx.compose.ui.text.buildAnnotatedString {
     pushStyle(androidx.compose.ui.text.SpanStyle(color = Color.White))
     append("Pepino ")
     pop()
-    pushStyle(androidx.compose.ui.text.SpanStyle(color = Color(0xFFB8F5A6)))
+    pushStyle(androidx.compose.ui.text.SpanStyle(color = BRAND_GREEN))
     append("IPTV")
     pop()
 }
