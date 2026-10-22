@@ -105,7 +105,7 @@ private val SUB_BG = listOf("Sin fondo (contorno)" to "none", "Franja oscura" to
 private val VPN_MODE = listOf("Desactivada" to "off", "WARP de Cloudflare" to "warp", "Mi WireGuard (.conf)" to "wg")
 private val LIVE_FMT = listOf("TS (recomendado)" to "ts", "HLS (m3u8)" to "m3u8")
 
-@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun SettingsScreen(onChangeList: () -> Unit) {
     val ctx = LocalContext.current
@@ -732,12 +732,6 @@ private fun ContentSection() {
         ) { v ->
             p.hqLogos = v
             if (v) com.suso.miiptv.data.Logos.ensureLoaded()
-        }
-        if (p.hqLogos) {
-            SettingRow(
-                "Canales sin logo de calidad", "set_nologo",
-                subtitle = "Lista de los canales para los que no se ha encontrado logo",
-            ) { UiState.push(Screen.MissingLogos) }
         }
         SettingRow("Borrar «Continuar viendo»", "set_clear", subtitle = "Quita el historial de películas y series empezadas", chevron = false) {
             p.clearProgress()
