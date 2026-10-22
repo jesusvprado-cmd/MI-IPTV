@@ -329,7 +329,7 @@ object Logos {
             Pick(Regex("^iberalia\\b"), OWN_LOGOS + "iberalia.png", onWhite = true),
             Pick(Regex("^(canal )?cocina\\b"), OWN_LOGOS + "canalcocina.png", onWhite = true),
             Pick(Regex("^u ?beat( tv)?$"), OWN_LOGOS + "ubeat.png", onWhite = true),
-            Pick(Regex("^discovery( channel)?$"), OWN_LOGOS + "discovery.png", onWhite = true),
+            Pick(Regex("^di?s?c[ou]very( channel)?$"), OWN_LOGOS + "discovery.png", onWhite = true),
             Pick(Regex("^dreamworks( channel)?$"), OWN_LOGOS + "dreamworks.png", onWhite = true),
         )
     }

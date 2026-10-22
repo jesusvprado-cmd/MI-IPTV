@@ -27,8 +27,25 @@ object ChannelNames {
     private fun norm(s: String): String =
         Normalizer.normalize(s.lowercase(), Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "")
 
+    /** Erratas de la lista que se corrigen al mostrar el nombre («DICOVERY» → «DISCOVERY»). */
+    private val TYPOS = listOf(Regex("(?i)\\bdicovery\\b") to "Discovery")
+
+    private fun fixTypos(name: String): String {
+        var n = name
+        for ((re, good) in TYPOS) n = re.replace(n) { m ->
+            val v = m.value
+            when {
+                v == v.uppercase() -> good.uppercase()
+                v == v.lowercase() -> good.lowercase()
+                else -> good
+            }
+        }
+        return n
+    }
+
     /** Nombre a mostrar: sin «Movistar» delante de los canales que no son suyos. */
-    fun display(name: String): String {
+    fun display(raw: String): String {
+        val name = fixTypos(raw)
         val m = MOVISTAR.find(name) ?: return name
         val rest = name.substring(m.range.last + 1)
         if (rest.isBlank()) return name
