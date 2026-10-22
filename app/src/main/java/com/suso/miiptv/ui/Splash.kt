@@ -71,9 +71,9 @@ fun BrandMark(size: Dp, ring: Float = 1f, modifier: Modifier = Modifier) {
     }
 }
 
-/** «Pepino IPTV» siempre en color: «Pepino» en verde medio e «IPTV» en verde pepino claro. */
+/** «Pepino IPTV»: «Pepino» en blanco e «IPTV» en verde pepino claro. */
 fun BrandName() = androidx.compose.ui.text.buildAnnotatedString {
-    pushStyle(androidx.compose.ui.text.SpanStyle(color = Color(0xFF5CC860)))
+    pushStyle(androidx.compose.ui.text.SpanStyle(color = Color.White))
     append("Pepino ")
     pop()
     pushStyle(androidx.compose.ui.text.SpanStyle(color = Color(0xFFB8F5A6)))

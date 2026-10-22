@@ -25,6 +25,8 @@ object C {
     val gold = Color(0xFFB8F5A6)
     /** Verde intenso de la marca (icono, etiquetas). */
     val brand = Color(0xFF268332)
+    /** Verde de «activado» (favoritos, interruptores). */
+    val fav = Color(0xFF5CC860)
     val divider = Color(0xFF334036)
     val playBtn = Color(0xFFDDF3F2)
     val error = Color(0xFFFF6B6B)

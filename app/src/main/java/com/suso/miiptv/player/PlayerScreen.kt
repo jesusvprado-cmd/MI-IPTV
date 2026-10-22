@@ -413,7 +413,7 @@ private fun LiveOverlay(ctl: PlayerCtl, item: PlayItem, fav: Boolean, onFav: () 
                     Icon(
                         if (fav) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                         contentDescription = "Favorito",
-                        tint = if (fav) C.gold else C.text2,
+                        tint = if (fav) C.fav else C.text2,
                         modifier = Modifier.size(24.dp).focusProperties { canFocus = false }.clickable { onFav() },
                     )
                 }

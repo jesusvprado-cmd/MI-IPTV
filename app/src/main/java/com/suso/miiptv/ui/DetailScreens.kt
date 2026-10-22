@@ -409,7 +409,7 @@ fun MovieDetailScreen(item: Item) {
                         .weight(1f)
                         .padding(start = 48.dp, top = 28.dp, end = 16.dp, bottom = 6.dp),
                 ) {
-                    HeaderText(shown, Color.White, 8, Modifier.weight(1f, fill = false)) { k, o ->
+                    HeaderText(shown, C.gold, 8, Modifier.weight(1f, fill = false)) { k, o ->
                         if (k == own.key) hs.overflow = o
                     }
                     Spacer(Modifier.height(16.dp))
@@ -432,7 +432,7 @@ fun MovieDetailScreen(item: Item) {
                             ) { play(prog?.pos ?: 0L) }
                             if (prog != null) TvButton("Empezar", "d_restart") { play(0L) }
                             if (hs.overflow) TvButton("Leer más", "d_more", focusRequester = hs.moreFr) { hs.fullOpen = true }
-                            TvButton(null, "d_fav", icon = if (fav) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder) {
+                            TvButton(null, "d_fav", icon = if (fav) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder, iconTint = if (fav) C.fav else null) {
                                 Actions.toggleFav(ctx, item)
                             }
                             det.trailer?.let { t -> TvButton("Tráiler", "d_trailer") { Actions.openTrailer(ctx, t) } }
@@ -560,6 +560,7 @@ fun SeriesDetailScreen(item: Item) {
                         null,
                         "s_fav",
                         icon = if (fav) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                        iconTint = if (fav) C.fav else null,
                         focusRequester = if (lastEp == null) firstFr else null,
                     ) { Actions.toggleFav(ctx, item) }
                 }

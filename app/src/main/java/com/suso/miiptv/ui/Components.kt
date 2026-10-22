@@ -70,6 +70,7 @@ fun TabChip(
     focusRequester: FocusRequester? = null,
     requestInitial: Boolean = false,
     icon: ImageVector? = null,
+    iconTint: Color? = null,
     onFocusChange: ((Boolean) -> Unit)? = null,
     onClick: () -> Unit,
 ) {
@@ -119,6 +120,7 @@ fun TvButton(
     focusKey: String,
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
+    iconTint: Color? = null,
     filled: Boolean = false,
     focusRequester: FocusRequester? = null,
     onClick: () -> Unit,
@@ -144,7 +146,7 @@ fun TvButton(
             .padding(horizontal = if (text == null) 14.dp else 20.dp, vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (icon != null) Icon(icon, contentDescription = text, tint = fg, modifier = Modifier.size(24.dp))
+        if (icon != null) Icon(icon, contentDescription = text, tint = iconTint ?: fg, modifier = Modifier.size(24.dp))
         if (icon != null && text != null) Spacer(Modifier.width(8.dp))
         if (text != null) Text(text.uppercase(), color = fg, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1)
     }
