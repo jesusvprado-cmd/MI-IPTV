@@ -112,7 +112,10 @@ fun SideItem(
             .height(48.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Spacer(Modifier.width(14.dp))
+        // Línea vertical verde a la izquierda de la sección activa (donde está el cursor).
+        val bar by animateDpAsState(if (active) 3.dp else 0.dp, Motion.focusSpec(), label = "bar")
+        Box(Modifier.width(bar).height(26.dp).clip(RoundedCornerShape(2.dp)).background(C.gold))
+        Spacer(Modifier.width(14.dp - bar))
         Box(Modifier.size(22.dp)) {
             Icon(icon, contentDescription = null, tint = iconColor ?: if (active) C.gold else C.text2, modifier = Modifier.size(22.dp))
             if (overlay != null) Icon(overlay, contentDescription = null, tint = overlayColor, modifier = Modifier.size(22.dp))
