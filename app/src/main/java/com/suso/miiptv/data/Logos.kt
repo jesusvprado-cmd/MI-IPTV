@@ -134,7 +134,16 @@ object Logos {
             Regex("fan ?play").containsMatchIn(sec) -> "k"
             else -> return url
         }
-        return (if (url.contains('#')) "$url&" else "$url#") + "x=$x&w=1"
+        var extra = "x=$x&w=1"
+        if (x == "swap") {
+            // Número del canal («LIGA RFEF 3 FHD» → 3), en rojo abajo a la derecha.
+            val num = Normalizer.normalize(name, Normalizer.Form.NFKD).lowercase().replace(Regex("[^a-z0-9 ]"), " ")
+                .replace(Regex("([a-z])(\\d)"), "$1 $2").split(' ')
+                .filter { it.isNotBlank() && it !in QUALITY && it !in FEED }
+                .lastOrNull { it.toIntOrNull()?.let { n -> n in 1..99 } == true }
+            if (num != null) extra += "&b=$num&c=E4002B&p=br"
+        }
+        return (if (url.contains('#')) "$url&" else "$url#") + extra
     }
 
     private fun hasWhite(u: String) = u.substringAfter('#', "").split('&').contains("w=1")

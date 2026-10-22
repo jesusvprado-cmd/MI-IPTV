@@ -140,7 +140,8 @@ fun ChannelLogoImage(url: String, modifier: Modifier = Modifier, fallback: Strin
     val clean = remember(url) { url.substringBefore('#') }
     var model by remember(url) { mutableStateOf(clean) }
     // Número de color (Liga de Campeones): va a la izquierda del logo, sin taparlo.
-    val sideNumber = badge != null && badgeColor != null && model == clean
+    val cornerNumber = params["p"] == "br"
+    val sideNumber = badge != null && badgeColor != null && model == clean && !cornerNumber
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         if (sideNumber) {
             Text(
@@ -168,6 +169,13 @@ fun ChannelLogoImage(url: String, modifier: Modifier = Modifier, fallback: Strin
                 if (model == clean && fallback != null && fallback != clean) model = fallback
             },
         )
+        if (badge != null && model == clean && badgeColor != null && cornerNumber) {
+            // Número de color en la esquina inferior derecha, sin recuadro (Liga RFEF).
+            Text(
+                badge, color = badgeColor, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 18.sp,
+                modifier = Modifier.align(Alignment.BottomEnd),
+            )
+        }
         if (badge != null && model == clean && badgeColor == null) {
             run {
                 Box(
