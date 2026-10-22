@@ -203,16 +203,22 @@ fun ToggleRow(title: String, focusKey: String, checked: Boolean, subtitle: Strin
 
 @Composable
 private fun Switch(checked: Boolean, focused: Boolean) {
-    // Minimalista: el mismo carril gris siempre; círculo blanco a la izquierda (apagado) o verde a la derecha (encendido).
-    val track = if (focused) Color(0xFFB5B5B5) else Color(0xFF6E6E6E)
-    val knob by animateColorAsState(if (checked) C.fav else Color.White, Motion.focusSpec(), label = "knobc")
-    val x by animateDpAsState(if (checked) 20.dp else 0.dp, Motion.focusSpec(), label = "knob")
-    Box(Modifier.width(44.dp).height(24.dp).clip(RoundedCornerShape(12.dp)).background(track).padding(3.dp)) {
-        // Borde fino para que el círculo se vea entero también sobre la fila blanca (con el cursor encima).
-        Box(
-            Modifier.offset(x = x).size(18.dp).clip(CircleShape).background(knob)
-                .border(1.dp, Color.Black.copy(alpha = if (focused) 0.28f else 0.12f), CircleShape)
-        )
+    // Dibujado a mano (Canvas) para que el círculo quede siempre entero y centrado en el carril.
+    // Apagado: círculo blanco a la izquierda. Encendido: círculo verde vivo a la derecha.
+    val track = if (focused) Color(0xFFB9B9B9) else Color(0xFF6E6E6E)
+    val on = Color(0xFF4FD65A)
+    val knob by animateColorAsState(if (checked) on else Color.White, Motion.focusSpec(), label = "knobc")
+    val pos by androidx.compose.animation.core.animateFloatAsState(if (checked) 1f else 0f, Motion.focusSpec(), label = "knob")
+    androidx.compose.foundation.Canvas(Modifier.width(46.dp).height(26.dp)) {
+        val h = size.height
+        val w = size.width
+        drawRoundRect(track, cornerRadius = androidx.compose.ui.geometry.CornerRadius(h / 2, h / 2))
+        val r = h / 2 - 3.dp.toPx()
+        val cx = h / 2 + (w - h) * pos
+        val c = androidx.compose.ui.geometry.Offset(cx, h / 2)
+        // Sombra suave alrededor para separar el círculo del carril.
+        drawCircle(Color.Black.copy(alpha = 0.18f), radius = r + 1.dp.toPx(), center = c)
+        drawCircle(knob, radius = r, center = c)
     }
 }
 
