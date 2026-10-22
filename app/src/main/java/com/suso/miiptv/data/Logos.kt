@@ -101,12 +101,33 @@ object Logos {
     /** Logo a mostrar para un canal: el de alta calidad si se encuentra, si no el de la lista. */
     fun url(name: String, original: String?): String? {
         if (!Repo.prefs.hqLogos) return original
-        synchronized(cache) { cache[name] }?.let { return it.ifEmpty { original } }
-        // Los logos elegidos a mano no dependen de que se haya descargado el índice.
-        if (!ready()) return curated(name) ?: original
-        val found = find(name)
-        synchronized(cache) { cache[name] = found ?: "" }
-        return found ?: original
+        val cached = synchronized(cache) { cache[name] }
+        val r = when {
+            cached != null -> cached.ifEmpty { original }
+            // Los logos elegidos a mano no dependen de que se haya descargado el índice.
+            !ready() -> curated(name) ?: original
+            else -> find(name).also { synchronized(cache) { cache[name] = it ?: "" } } ?: original
+        }
+        return r?.let { if (onWhiteByName(name) && !hasWhite(it)) white(it) else it }
+    }
+
+    private fun hasWhite(u: String) = u.substringAfter('#', "").split('&').contains("w=1")
+
+    /** Canales que van sobre fondo blanco aunque su logo venga de la lista (Movistar Plus+, FlixOlé, Cosmo, SyFy, FDF, Neox...). */
+    private val WHITE_NAMES = Regex("^(fl?ix ?ole|cosmo|syfy|sy fy|fdf|factoria de ficcion|neox|a 3 ?series|a3 ?series|atreseries)\\b")
+
+    private fun onWhiteByName(name: String): Boolean {
+        val n = Normalizer.normalize(name, Normalizer.Form.NFKD).lowercase()
+            .replace(Regex("\\p{Mn}+"), "").replace(Regex("\\+(?=[a-z0-9])"), "+ ")
+            .replace(Regex("[^a-z0-9+ ]"), " ").replace(Regex("\\s+"), " ").trim()
+        val words = n.split(' ').filter { it.isNotBlank() }.toMutableList()
+        while (words.size > 1 && (words.first() in setOf("es", "esp", "spain") || words.first().all { it.isDigit() })) words.removeAt(0)
+        val first = words.firstOrNull() ?: return false
+        if (first in setOf("m", "m+", "movistar", "movistar+", "mplus")) {
+            val rest = words.drop(1).filter { it !in setOf("+", "plus", "por") }.joinToString(" ")
+            return rest.isEmpty() || ChannelNames.isOwnMovistar(rest) || Regex("^(romance|baloncesto|basket)").containsMatchIn(rest)
+        }
+        return WHITE_NAMES.containsMatchIn(words.joinToString(" "))
     }
 
     /** ¿Está cargado el índice de logos? */
@@ -208,6 +229,8 @@ object Logos {
     )
     private val MPLUS_BRAND = setOf("m", "m+", "movistar", "movistar+", "plus", "+", "es", "esp", "spain")
     private val MPLUS_GREEN = "1AC93A"
+    /** Nombres que en las listas españolas son de Movistar Plus+ aunque no lleven la marca («DOCUMENTALES SAT», «GOLF 2»). */
+    private val UNBRANDED_MPLUS = Regex("^(golf|documentales|documental|vamos|ellas vamos|originales|estrenos)( \\d+)?$")
 
     /**
      * «M+ Deportes 3 FHD», «Movistar Estrenos», «#Vamos», «#0»...: logo actual en alta calidad.
@@ -217,17 +240,21 @@ object Logos {
         var n = Normalizer.normalize(name, Normalizer.Form.NFKD).lowercase()
             .replace(Regex("\\p{Mn}+"), "").replace(Regex("[^a-z0-9+# ]"), " ")
             .replace(Regex("([a-z])(\\d)"), "$1 $2").replace(Regex("\\s+"), " ").trim()
+        // «M+DOCUMENTALES» → «M+ DOCUMENTALES»
+        n = n.replace(Regex("\\+(?=[a-z0-9])"), "+ ")
         val hashtag = n.contains("#")
         n = n.replace(Regex("\\s*por (movistar ?plus|movistar ?\\+|m ?\\+)\\s*"), " ").trim()
         val words = n.split(' ').filter { it.isNotBlank() }.toMutableList()
         var branded = hashtag
+        // Número de canal delante («105 M. DOCUMENTALES»).
+        while (words.size > 1 && words.first().all { it.isDigit() }) words.removeAt(0)
         while (words.isNotEmpty() && words.first() in MPLUS_BRAND) {
             if (words.first() !in setOf("es", "esp", "spain")) branded = true
             words.removeAt(0)
         }
         val rest = words.filter { it !in QUALITY && it !in FEED }.joinToString(" ").replace("#", "").trim()
         // «GOLF 2 FHD» sin marca: en las listas españolas es el de Movistar Plus+.
-        if (!branded && !name.contains("movistar", true) && !Regex("^golf( \\d+)?$").matches(rest)) return null
+        if (!branded && !name.contains("movistar", true) && !UNBRANDED_MPLUS.matches(rest)) return null
         if (rest.isEmpty() && hashtag) return null
         // «M.PLUS SAT», «M+ HEVC»: el canal principal de Movistar Plus+.
         if (rest.isEmpty()) return LOGOPEDIA + "0/07/Movistar_Plus%2B.svg/revision/latest/scale-to-width-down/700"
@@ -262,12 +289,15 @@ object Logos {
             Pick(Regex("^(la 1|tve 1|tve la 1|tve)$"), lp("e/e4/La_1_Flat_logo_2026.svg"), onWhite = true),
             Pick(Regex("^aragon( tv| television)?( int| internacional)?$"), OWN_LOGOS + "aragon-tv.png"),
             Pick(Regex("^hbo ?max\\b"), lp("b/b3/HBO_Max_%282025%29.svg")),
-            Pick(Regex("^fl?ix ?ole\\b"), lp("5/5a/FlixOl%C3%A9.svg"), "FFFFFF"),
+            Pick(Regex("^fl?ix ?ole\\b"), lp("5/5a/FlixOl%C3%A9.svg"), "EC0032", onWhite = true),
             Pick(Regex("^bbc top ?gear\\b|^top ?gear\\b"), lp("b/b1/BBC_TopGear_2021.svg")),
             Pick(Regex("^bbc (series|history|historia|drama|documentales)$"), lp("d/d7/BBC_2021.svg")),
             Pick(Regex("^warner( tv)?$"), lp("c/c7/WarnerTV_2021.svg")),
-            Pick(Regex("^(fdf|factoria de ficcion)$"), lp("4/42/Factor%C3%ADa_de_Ficci%C3%B3n.svg")),
-            Pick(Regex("^(a3 ?series|atreseries)$"), lp("8/81/Atreseries_2020.svg")),
+            Pick(Regex("^(fdf|factoria de ficcion)$"), lp("4/42/Factor%C3%ADa_de_Ficci%C3%B3n.svg"), onWhite = true),
+            Pick(Regex("^(a ?3 ?series|atreseries|a ?3 ?s)$"), OWN_LOGOS + "a3series.png", onWhite = true),
+            Pick(Regex("^neox$"), lp("a/ac/Neox_2023.svg"), onWhite = true),
+            Pick(Regex("^cosmo( tv)?$"), lp("0/05/COSMO_Espa%C3%B1a_2024.svg"), onWhite = true),
+            Pick(Regex("^sy ?fy$"), lp("f/fb/Syfy_%282017%29.svg", 800), onWhite = true),
             Pick(Regex("^real madrid( tv)?$"), tvl("real-madrid-tv-es.png")),
             Pick(Regex("^iberalia\\b"), tvl("iberalia-tv-es.png")),
             Pick(Regex("^u ?beat$"), tvl("u-beat-es.png")),

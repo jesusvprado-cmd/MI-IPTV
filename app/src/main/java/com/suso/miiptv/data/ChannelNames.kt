@@ -19,6 +19,9 @@ object ChannelNames {
         "toros", "caza", "fiesta", "kids", "infantil", "fanzone", "fest", "hits", "documental", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
     )
 
+    /** ¿Lo que va detrás de «Movistar»/«M+» es un canal propio de Movistar Plus+? */
+    fun isOwnMovistar(rest: String): Boolean { val r = norm(rest.trimStart()); return OWN.any { r.startsWith(it) } }
+
     private val MOVISTAR = Regex("(?i)\\bmovistar\\b\\s*[:|\\-–·]*\\s*")
 
     private fun norm(s: String): String =
