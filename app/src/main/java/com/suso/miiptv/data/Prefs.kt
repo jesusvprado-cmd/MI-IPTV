@@ -152,6 +152,11 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("vpn_auto", false)
         set(v) = putBool("vpn_auto", v)
 
+    /** Si un canal se corta varias veces seguidas, conectar la VPN sola y volver a intentarlo. */
+    var vpnFallback: Boolean
+        get() = sp.getBoolean("vpn_fallback", true)
+        set(v) = putBool("vpn_fallback", v)
+
     // ---------------- Guía de programación ----------------
 
     var epgEnabled: Boolean

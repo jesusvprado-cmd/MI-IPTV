@@ -107,6 +107,10 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
     var overlayTick by remember { mutableIntStateOf(0) }
     var listOpen by remember { mutableStateOf(false) }
     var tracksOpen by remember { mutableStateOf(false) }
+    // Teclado numérico en pantalla (OK mantenido en un directo) y número tecleado con el mando.
+    var padOpen by remember { mutableStateOf(false) }
+    var typed by remember { mutableStateOf("") }
+    var okLong by remember { mutableStateOf(false) }
     var aspect by remember { mutableStateOf(Repo.prefs.resizeMode) }
     // Permiso de Android para la VPN (solo la primera vez).
     val vpnPerm = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
@@ -168,8 +172,24 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
             delay(500)
         }
     }
-    LaunchedEffect(listOpen, tracksOpen) {
-        if (!listOpen && !tracksOpen) {
+    // Número tecleado: al dejar de pulsar un momento, se salta a ese canal.
+    LaunchedEffect(typed) {
+        if (typed.isEmpty() || padOpen) return@LaunchedEffect
+        delay(1600)
+        val n = typed.toIntOrNull()
+        typed = ""
+        if (n != null && !ctl.zapToNumber(n)) Toast.makeText(ctx, "No hay canal $n", Toast.LENGTH_SHORT).show()
+    }
+    // Avisos breves (reconexión, VPN...).
+    val notice = ctl.notice
+    LaunchedEffect(notice) {
+        if (notice != null) {
+            delay(3500)
+            ctl.clearNotice()
+        }
+    }
+    LaunchedEffect(listOpen, tracksOpen, padOpen) {
+        if (!listOpen && !tracksOpen && !padOpen) {
             delay(40)
             runCatching { rootFr.requestFocus() }
         }
@@ -177,6 +197,10 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
 
     BackHandler {
         when {
+            padOpen -> {
+                padOpen = false
+                typed = ""
+            }
             ctl.scrubPos != null -> ctl.cancelScrub()
             tracksOpen -> tracksOpen = false
             listOpen -> listOpen = false
@@ -186,10 +210,49 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
 
     fun step(repeat: Int): Long = ctl.seekStepMs(repeat)
 
+    fun shortOk() {
+        when {
+            ctl.commitScrub() -> show()
+            ctl.error != null -> ctl.retry()
+            item.live -> if (overlay) toggleFav() else show()
+            else -> {
+                ctl.togglePlay()
+                show()
+            }
+        }
+    }
+
     val onKey: (KeyEvent) -> Boolean = handler@{ e ->
+        if (listOpen || tracksOpen || padOpen) return@handler false
+        val isOk = e.key == Key.DirectionCenter || e.key == Key.Enter || e.key == Key.NumPadEnter
+        // En directo, OK se decide al soltar: pulsación corta = lo de siempre; mantenido = teclado de números.
+        if (isOk && item.live) {
+            if (e.type == KeyEventType.KeyUp) {
+                if (!okLong) shortOk()
+                okLong = false
+            } else if (e.type == KeyEventType.KeyDown && e.nativeKeyEvent.repeatCount == 1 && ctl.error == null) {
+                okLong = true
+                typed = ""
+                padOpen = true
+            }
+            return@handler true
+        }
         if (e.type != KeyEventType.KeyDown) return@handler false
-        if (listOpen || tracksOpen) return@handler false
         val rep = e.nativeKeyEvent.repeatCount
+        // Números del mando (teles con teclado numérico).
+        val digit = when (e.nativeKeyEvent.keyCode) {
+            in android.view.KeyEvent.KEYCODE_0..android.view.KeyEvent.KEYCODE_9 -> e.nativeKeyEvent.keyCode - android.view.KeyEvent.KEYCODE_0
+            in android.view.KeyEvent.KEYCODE_NUMPAD_0..android.view.KeyEvent.KEYCODE_NUMPAD_9 -> e.nativeKeyEvent.keyCode - android.view.KeyEvent.KEYCODE_NUMPAD_0
+            else -> -1
+        }
+        if (digit >= 0 && item.live) {
+            if (rep == 0 && typed.length < 4) typed += digit
+            return@handler true
+        }
+        if (e.nativeKeyEvent.keyCode == android.view.KeyEvent.KEYCODE_LAST_CHANNEL) {
+            if (!ctl.zapBack()) show()
+            return@handler true
+        }
         when (e.key) {
             Key.DirectionUp -> {
                 if (item.live) ctl.zap(-1) else show()
@@ -230,17 +293,7 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
                 true
             }
             Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
-                if (rep == 0) {
-                    when {
-                        ctl.commitScrub() -> show()
-                        ctl.error != null -> ctl.retry()
-                        item.live -> if (overlay) toggleFav() else show()
-                        else -> {
-                            ctl.togglePlay()
-                            show()
-                        }
-                    }
-                }
+                if (rep == 0) shortOk()
                 true
             }
             Key.MediaPlayPause, Key.MediaPlay, Key.MediaPause, Key.Spacebar -> {
@@ -350,6 +403,47 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
                 listOpen = false
                 if (i != ctl.index) ctl.play(i, 0)
             }, onClose = { listOpen = false })
+        }
+
+        // Número que se está tecleando con el mando.
+        if (typed.isNotEmpty() && !padOpen) {
+            Text(
+                typed, color = C.gold, fontSize = 64.sp, fontWeight = FontWeight.ExtraBold,
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 30.dp, end = 50.dp)
+                    .clip(RoundedCornerShape(12.dp)).background(Color(0xCC000000)).padding(horizontal = 22.dp, vertical = 6.dp),
+            )
+        }
+
+        // Aviso breve arriba (reconexión automática, VPN...).
+        if (notice != null) {
+            Text(
+                notice, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 24.dp)
+                    .clip(RoundedCornerShape(20.dp)).background(Color(0xE6102414))
+                    .border(1.dp, C.gold.copy(alpha = 0.6f), RoundedCornerShape(20.dp))
+                    .padding(horizontal = 18.dp, vertical = 8.dp),
+            )
+        }
+
+        if (padOpen) {
+            NumberPad(
+                typed = typed,
+                hasPrevious = true,
+                onDigit = { d -> if (typed.length < 4) typed += d },
+                onDelete = { typed = typed.dropLast(1) },
+                onPrevious = {
+                    padOpen = false
+                    typed = ""
+                    if (!ctl.zapBack()) Toast.makeText(ctx, "Aún no has cambiado de canal", Toast.LENGTH_SHORT).show()
+                },
+                onGo = {
+                    val n = typed.toIntOrNull()
+                    padOpen = false
+                    typed = ""
+                    if (n != null && !ctl.zapToNumber(n)) Toast.makeText(ctx, "No hay canal $n", Toast.LENGTH_SHORT).show()
+                },
+                modifier = Modifier.align(Alignment.Center),
+            )
         }
 
         if (tracksOpen) {
@@ -829,5 +923,106 @@ private fun StreamBadges(badges: List<String>) {
                 )
             }
         }
+    }
+}
+
+
+/** Teclado numérico en pantalla para ir a un canal por su número (mandos sin números, como el de la Mi Box). */
+@Composable
+private fun NumberPad(
+    typed: String,
+    hasPrevious: Boolean,
+    onDigit: (Int) -> Unit,
+    onDelete: () -> Unit,
+    onPrevious: () -> Unit,
+    onGo: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val first = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        delay(60)
+        runCatching { first.requestFocus() }
+    }
+    Column(
+        modifier
+            .clip(RoundedCornerShape(18.dp))
+            .background(Color(0xF00B140D))
+            .border(1.dp, C.gold.copy(alpha = 0.35f), RoundedCornerShape(18.dp))
+            .padding(22.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text("Ir al canal", color = C.text2, fontSize = 14.sp)
+        Text(
+            typed.ifEmpty { "—" }, color = C.gold, fontSize = 44.sp, fontWeight = FontWeight.ExtraBold,
+            modifier = Modifier.padding(vertical = 6.dp),
+        )
+        val rows = listOf(listOf("1", "2", "3"), listOf("4", "5", "6"), listOf("7", "8", "9"), listOf("↩", "0", "⌫"))
+        rows.forEachIndexed { r, row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 10.dp)) {
+                row.forEachIndexed { c, k ->
+                    PadKey(
+                        k, "pad_$k",
+                        enabled = k != "↩" || hasPrevious,
+                        modifier = if (r == 0 && c == 0) Modifier.focusRequester(first) else Modifier,
+                    ) {
+                        when (k) {
+                            "↩" -> onPrevious()
+                            "⌫" -> onDelete()
+                            else -> onDigit(k.toInt())
+                        }
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        PadKey("Ir", "pad_go", wide = true, enabled = typed.isNotEmpty()) { onGo() }
+        Spacer(Modifier.height(8.dp))
+        Text("↩ canal anterior · ⌫ borrar · Atrás cerrar", color = Color(0xFF7A7A7A), fontSize = 12.sp)
+    }
+}
+
+@Composable
+private fun PadKey(label: String, key: String, modifier: Modifier = Modifier, wide: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    // Solo cuenta una pulsación que empieza en esta tecla (así no se «pulsa» al soltar el OK mantenido que abrió el teclado).
+    var pressed by remember { mutableStateOf(false) }
+    Box(
+        modifier
+            .width(if (wide) 222.dp else 64.dp)
+            .height(54.dp)
+            .onFocusChanged {
+                focused = it.isFocused
+                if (!it.isFocused) pressed = false
+            }
+            .focusProperties { canFocus = enabled }
+            .focusable()
+            .onPreviewKeyEvent { e ->
+                val ok = e.key == Key.DirectionCenter || e.key == Key.Enter || e.key == Key.NumPadEnter
+                when {
+                    !ok -> false
+                    e.type == KeyEventType.KeyDown -> {
+                        if (e.nativeKeyEvent.repeatCount == 0) pressed = true
+                        true
+                    }
+                    e.type == KeyEventType.KeyUp -> {
+                        if (pressed) onClick()
+                        pressed = false
+                        true
+                    }
+                    else -> true
+                }
+            }
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (focused) C.gold else Color(0xFF1C2A1F)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            label, fontSize = 22.sp, fontWeight = FontWeight.Bold,
+            color = when {
+                focused -> Color.Black
+                enabled -> Color.White
+                else -> Color(0xFF555555)
+            },
+        )
     }
 }

@@ -115,6 +115,7 @@ object PlayQueue {
 
 @OptIn(UnstableApi::class)
 class PlayerCtl(ctx: Context) {
+    private val appCtx: Context = ctx.applicationContext
     val items: List<PlayItem> = PlayQueue.items
     var index by mutableIntStateOf(PlayQueue.index)
         private set
@@ -390,8 +391,21 @@ class PlayerCtl(ctx: Context) {
     /** Al salir de la pantalla completa a la lista de canales, la emisión sigue en la previsualización. */
     private fun keepForPreview(finishing: Boolean): Boolean = finishing && PlayQueue.handoff && current.live
 
+    /** Canal que se estaba viendo antes del actual (para «canal anterior»). */
+    private var prevIndex = -1
+
+    /** Aviso breve que se muestra arriba en el reproductor (reconexiones, VPN...). */
+    var notice by mutableStateOf<String?>(null)
+        private set
+
+    fun clearNotice() {
+        notice = null
+    }
+
     fun play(i: Int, pos: Long) {
         if (i !in items.indices) return
+        if (i != index && items.getOrNull(index)?.live == true) prevIndex = index
+        resetWatchdog()
         saveProgress()
         scrubPos = null
         restoredFor = null
@@ -467,6 +481,8 @@ class PlayerCtl(ctx: Context) {
             }, 2000L * retries)
             return
         }
+        // Directo que no hay manera de abrir: plan B con la VPN antes de dar el error.
+        if (it.live && code in 2000..2999 && tryVpnFallback()) return
         buffering = false
         error = when {
             code == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> {
@@ -495,6 +511,86 @@ class PlayerCtl(ctx: Context) {
         } else {
             onFinished?.invoke()
         }
+    }
+
+    /** Vuelve al canal que se estaba viendo antes. */
+    fun zapBack(): Boolean {
+        if (!current.live || prevIndex !in items.indices || prevIndex == index) return false
+        play(prevIndex, 0)
+        return true
+    }
+
+    /** Va al canal con ese número (el de la lista; si no lo tiene, por su posición). */
+    fun zapToNumber(n: Int): Boolean {
+        if (!current.live) return false
+        val i = items.indexOfFirst { it.channel?.num == n }.takeIf { it >= 0 }
+            ?: (n - 1).takeIf { items.none { it.channel?.num ?: 0 > 0 } && it in items.indices }
+            ?: return false
+        if (i != index) play(i, 0)
+        return true
+    }
+
+    // ---------- Vigilancia del directo: imagen congelada y plan B con la VPN ----------
+
+    private var lastPos = -1L
+    private var stuckSince = 0L
+    private var freezeCount = 0
+    private var freezeWindow = 0L
+
+    private fun resetWatchdog() {
+        lastPos = -1L
+        stuckSince = 0L
+    }
+
+    /** Se llama cada medio segundo: si la imagen de un directo no avanza, se reconecta el canal solo. */
+    private fun watchdog() {
+        if (!current.live || error != null || !player.playWhenReady || player.mediaItemCount == 0) {
+            stuckSince = 0L
+            return
+        }
+        val now = android.os.SystemClock.elapsedRealtime()
+        val pos = player.currentPosition
+        val advancing = player.playbackState == Player.STATE_READY && player.isPlaying && pos != lastPos
+        lastPos = pos
+        if (advancing) {
+            stuckSince = 0L
+            return
+        }
+        if (stuckSince == 0L) {
+            stuckSince = now
+            return
+        }
+        // Congelada (sin avanzar) 8 s, o cargando sin parar 15 s.
+        val limit = if (player.playbackState == Player.STATE_BUFFERING) 15_000L else 8_000L
+        if (now - stuckSince < limit) return
+        stuckSince = 0L
+        if (now - freezeWindow > 120_000L) {
+            freezeWindow = now
+            freezeCount = 0
+        }
+        freezeCount++
+        // Tres cortes en dos minutos: plan B con la VPN (si está permitido).
+        if (freezeCount >= 3 && tryVpnFallback()) return
+        notice = "Imagen congelada · reconectando el canal"
+        load(current.url, 0, triedHls)
+    }
+
+    /** Conecta la VPN sola para reintentar un canal que se corta. Devuelve false si no se puede. */
+    private fun tryVpnFallback(): Boolean {
+        val p = Repo.prefs
+        if (!p.vpnFallback) return false
+        val st = com.suso.miiptv.vpn.VpnManager.state
+        if (st == com.suso.miiptv.vpn.VpnManager.State.ON || st == com.suso.miiptv.vpn.VpnManager.State.CONNECTING) return false
+        // Solo si Android ya dio permiso a la VPN alguna vez (aquí no se puede preguntar).
+        if (com.suso.miiptv.vpn.VpnManager.permissionIntent(appCtx) != null) return false
+        if (p.vpnMode == "off") p.vpnMode = if (p.wgConf != null) "wg" else "warp"
+        if (p.vpnMode == "wg" && p.wgConf == null) return false
+        freezeCount = 0
+        notice = "El canal se corta · activando la VPN"
+        buffering = true
+        // Al conectarse, la pantalla del reproductor vuelve a abrir el canal por la nueva ruta.
+        com.suso.miiptv.vpn.VpnManager.connect()
+        return true
     }
 
     fun zap(delta: Int) {
@@ -571,6 +667,7 @@ class PlayerCtl(ctx: Context) {
         // Refresca la guía cuando termina el programa actual.
         val e = epg.firstOrNull()
         if (current.live && e != null && e.end < System.currentTimeMillis() - 60_000) loadEpg()
+        watchdog()
     }
 
     fun isFavorite(): Boolean = current.channel?.let { Repo.prefs.isFavorite(it.key) } ?: false

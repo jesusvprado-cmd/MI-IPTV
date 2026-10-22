@@ -500,6 +500,10 @@ private fun VpnSection(onMode: () -> Unit, onConnect: () -> Unit, onFile: () -> 
             "Conectar al abrir la app", "set_vpn_auto", p.vpnAuto,
             subtitle = "Desactivado: la VPN solo se conecta cuando tú lo pidas",
         ) { p.vpnAuto = it }
+        ToggleRow(
+            "Activarla si un canal se corta", "set_vpn_fallback", p.vpnFallback,
+            subtitle = "Si un directo se congela 3 veces seguidas, conecta la VPN sola y lo reintenta",
+        ) { p.vpnFallback = it }
         if (p.vpnMode != "off") {
             // Una sola fila que cambia de texto: así el foco se queda en ella al conectar o desconectar.
             val connected = vs == VpnManager.State.ON || vs == VpnManager.State.CONNECTING
