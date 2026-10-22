@@ -299,7 +299,9 @@ object Logos {
 
     private val PICKS by lazy {
         listOf(
-            Pick(Regex("^amc$"), OWN_LOGOS + "amc.png"),
+            Pick(Regex("^amc$"), OWN_LOGOS + "amc2.png", onWhite = true),
+            Pick(Regex("^bbc food$"), lp("5/51/BBC-FOOD.svg", 800), onWhite = true),
+            Pick(Regex("^(canal )?hollywood\\b"), OWN_LOGOS + "hollywood.png", onWhite = true),
             Pick(Regex("^(nickelodeon|nick)$"), OWN_LOGOS + "nickelodeon.png", onWhite = true),
             Pick(Regex("^(telecinco|tele 5|t 5)$"), OWN_LOGOS + "telecinco2.png", onWhite = true),
             Pick(Regex("^(cuatro|canal cuatro)$"), OWN_LOGOS + "cuatro.png", onWhite = true),
@@ -318,11 +320,11 @@ object Logos {
             Pick(Regex("^neox$"), lp("a/ac/Neox_2023.svg"), onWhite = true),
             Pick(Regex("^cosmo( tv)?$"), lp("0/05/COSMO_Espa%C3%B1a_2024.svg"), onWhite = true),
             Pick(Regex("^(sy ?fy|sci ?fi)$"), OWN_LOGOS + "syfy.png", onWhite = true),
-            Pick(Regex("^real madrid( tv)?$"), tvl("real-madrid-tv-es.png")),
-            Pick(Regex("^iberalia\\b"), tvl("iberalia-tv-es.png")),
+            Pick(Regex("^real madrid( tv)?$"), OWN_LOGOS + "realmadrid.png", onWhite = true),
+            Pick(Regex("^iberalia\\b"), OWN_LOGOS + "iberalia.png", onWhite = true),
             Pick(Regex("^u ?beat( tv)?$"), OWN_LOGOS + "ubeat.png", onWhite = true),
             Pick(Regex("^discovery( channel)?$"), lp("a/a8/Discovery_Channel_2019.svg")),
-            Pick(Regex("^dreamworks( channel)?$"), tvl("dreamworks-channel-es.png")),
+            Pick(Regex("^dreamworks( channel)?$"), OWN_LOGOS + "dreamworks.png", onWhite = true),
         )
     }
 
