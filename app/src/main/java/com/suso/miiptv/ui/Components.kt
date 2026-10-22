@@ -262,7 +262,15 @@ fun ChannelCard(
     // Los logos oscuros (Telecinco, La 1...) van sobre un fondo claro para que se vean bien.
     var shownLogo by remember(logo) { mutableStateOf(logo) }
     val darkLogo = LogoTone.isDark(shownLogo)
-    val cardBg by animateColorAsState(if (darkLogo) LogoTone.light else C.card, Motion.focusSpec(), label = "cbg")
+    val whiteLogo = LogoTone.wantsWhite(logo) && shownLogo?.substringBefore('#') == logo?.substringBefore('#')
+    val cardBg by animateColorAsState(
+        when {
+            whiteLogo -> Color.White
+            darkLogo -> LogoTone.light
+            else -> C.card
+        },
+        Motion.focusSpec(), label = "cbg",
+    )
     Column(modifier) {
         Box(
             Modifier
@@ -276,7 +284,7 @@ fun ChannelCard(
                 .tvClick(onLong, onClick)
                 .clip(shape)
                 .background(cardBg)
-                .border(2.dp, if (darkLogo && focused) C.gold else borderColor, shape),
+                .border(2.dp, if ((darkLogo || whiteLogo) && focused) C.gold else borderColor, shape),
             contentAlignment = Alignment.Center,
         ) {
             if (logo != null) {

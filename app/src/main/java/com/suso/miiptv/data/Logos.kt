@@ -118,9 +118,13 @@ object Logos {
     private fun pick(list: List<Pair<String, String>>, folder: String): String =
         (list.firstOrNull { it.first == folder } ?: list.firstOrNull { it.first == "spain" } ?: list.first()).second
 
-    /** Logos elegidos a mano (no necesitan el índice de los bancos). */
+    /** Marca un logo para que se muestre sobre fondo blanco («…#w=1»). */
+    private fun white(url: String): String = if (url.contains('#')) "$url&w=1" else "$url#w=1"
+
+    /** Logos elegidos a mano (no necesitan el índice de los bancos). Los de Movistar Plus+ van sobre fondo blanco. */
     private fun curated(name: String): String? =
-        movistarLaLiga(name) ?: movistarChampions(name) ?: movistarPlus(name) ?: special(name) ?: picked(name)
+        (movistarLaLiga(name) ?: movistarChampions(name) ?: movistarPlus(name))?.let { white(it) }
+            ?: picked(name) ?: special(name)
 
     private fun find(name: String): String? {
         curated(name)?.let { return it }
@@ -184,16 +188,16 @@ object Logos {
     private val MPLUS = listOf(
         MPlus(Regex("^(cine )?espanol\\b"), "d/d2/Cine_Espa%C3%B1ol_por_Movistar_Plus%2B_2023.svg"),
         MPlus(Regex("^ellas( vamos)?\\b"), "1/1d/Ellas_Vamos_por_Movistar_Plus%2B.svg"),
-        MPlus(Regex("^(estrenos|cine)\\b"), "8/88/Estrenos_por_Movistar_Plus%2B_2025.svg", mapOf(2 to "3/31/Estrenos_2_por_Movistar_Plus%2B.svg")),
+        MPlus(Regex("^(estrenos|estreno|cine)\\b"), "8/88/Estrenos_por_Movistar_Plus%2B_2025.svg", mapOf(2 to "3/31/Estrenos_2_por_Movistar_Plus%2B.svg")),
         MPlus(Regex("^deportes\\b"), "d/d7/Deportes_por_Movistar_Plus%2B_2023.svg"),
         MPlus(Regex("^vamos\\b"), "b/be/Vamos_por_Movistar_Plus%2B_2023.svg"),
-        MPlus(Regex("^documentales\\b"), "7/7c/Documentales_por_Movistar_Plus%2B_2023.svg"),
+        MPlus(Regex("^(documentales|documental|docu|docs)\\b"), "7/7c/Documentales_por_Movistar_Plus%2B_2023.svg"),
         MPlus(Regex("^(hits|series)\\b"), "3/3c/Hits_por_M%2B.svg", mapOf(2 to "3/3f/Series_2_por_Movistar_Plus%2B.svg")),
-        MPlus(Regex("^originales\\b"), "0/09/Originales_por_Movistar_Plus%2B_2023.svg"),
+        MPlus(Regex("^(originales|original)\\b"), "0/09/Originales_por_Movistar_Plus%2B_2023.svg"),
         MPlus(Regex("^accion\\b"), "b/b6/Acci%C3%B3n_por_Movistar_Plus%2B_2023.svg"),
         MPlus(Regex("^drama\\b"), "0/0d/Drama_por_Movistar_Plus%2B_2023.svg"),
         MPlus(Regex("^suspense\\b"), "4/4d/Suspense_por_Movistar_Plus%2B_2023.svg"),
-        MPlus(Regex("^clasicos\\b"), "2/2f/Cl%C3%A1sicos_por_Movistar_Plus%2B_2023.svg"),
+        MPlus(Regex("^(clasicos|clasico)\\b"), "2/2f/Cl%C3%A1sicos_por_Movistar_Plus%2B_2023.svg"),
         MPlus(Regex("^comedia\\b"), "2/27/Comedia_por_Movistar_Plus%2B_2023.svg"),
         MPlus(Regex("^musica\\b"), "3/38/M%C3%BAsica_por_Movistar_Plus%2B_2023.svg"),
         MPlus(Regex("^fest\\b"), "6/67/Fest_por_Movistar_Plus%2B.svg"),
@@ -246,12 +250,16 @@ object Logos {
     private fun lp(path: String, w: Int = 600) = LOGOPEDIA + path + "/revision/latest/scale-to-width-down/$w"
 
     /** (expresión sobre el nombre limpio, logo, número opcional en ese color). Se prueba en orden. */
-    private class Pick(val re: Regex, val url: String, val numberColor: String? = null)
+    private class Pick(val re: Regex, val url: String, val numberColor: String? = null, val onWhite: Boolean = false)
 
     private val PICKS by lazy {
         listOf(
             Pick(Regex("^amc$"), OWN_LOGOS + "amc.png"),
-            Pick(Regex("^(telecinco|tele 5|t 5)$"), OWN_LOGOS + "telecinco.png"),
+            Pick(Regex("^(telecinco|tele 5|t 5)$"), OWN_LOGOS + "telecinco2.png", onWhite = true),
+            Pick(Regex("^(cuatro|canal cuatro)$"), OWN_LOGOS + "cuatro.png", onWhite = true),
+            Pick(Regex("^(antena 3|antena tres|a 3)$"), lp("1/11/Antena_3_2025.svg"), onWhite = true),
+            Pick(Regex("^(la ?sexta|la 6|sexta)$"), lp("0/08/LaSexta_2024.svg"), onWhite = true),
+            Pick(Regex("^(la 1|tve 1|tve la 1|tve)$"), lp("e/e4/La_1_Flat_logo_2026.svg"), onWhite = true),
             Pick(Regex("^aragon( tv| television)?( int| internacional)?$"), OWN_LOGOS + "aragon-tv.png"),
             Pick(Regex("^hbo ?max\\b"), lp("b/b3/HBO_Max_%282025%29.svg")),
             Pick(Regex("^fl?ix ?ole\\b"), lp("5/5a/FlixOl%C3%A9.svg"), "FFFFFF"),
@@ -277,9 +285,18 @@ object Logos {
         val all = words.filter { it !in QUALITY && it !in FEED && it != "avances" }
         val num = all.lastOrNull()?.toIntOrNull()
         val base = (if (num != null) all.dropLast(1) else all).joinToString(" ")
+        // La 1 UHD: su logo propio («1» azul con UHD), también sobre blanco.
+        if (Regex("^(la|tve)( la)? 1$").matches((if (num != null) "$base $num" else base).trim()) && Regex("\\b(uhd|4k|2160p?)\\b").containsMatchIn(n)) {
+            return white(lp("3/3b/La_1_UHD_2026.svg"))
+        }
+        val full = if (num != null) "$base $num".trim() else base
         for (p in PICKS) {
-            if (!p.re.containsMatchIn(base)) continue
-            return if (num != null && num > 1 && p.numberColor != null) "${p.url}#b=$num&c=${p.numberColor}" else p.url
+            // Primero con el número como parte del nombre («la 1», «antena 3»), luego sin él («flixole 2» → número aparte).
+            val whole = p.numberColor == null && p.re.containsMatchIn(full)
+            if (!whole && !p.re.containsMatchIn(base)) continue
+            var u = p.url
+            if (!whole && num != null && num > 1 && p.numberColor != null) u = "$u#b=$num&c=${p.numberColor}"
+            return if (p.onWhite) white(u) else u
         }
         return null
     }
@@ -351,7 +368,7 @@ object Logos {
 
     /** Logos elegidos a mano para canales cuyo logo del banco está anticuado. */
     private val OVERRIDE = mapOf(
-        "telecinco" to OWN_LOGOS + "telecinco.png",
+        "telecinco" to OWN_LOGOS + "telecinco2.png#w=1",
         // RTVE estrenó logos en 2026 (Logopedia).
         "tve1" to LOGOPEDIA + "b/b6/La_1_2026.svg/revision/latest/scale-to-width-down/600",
         "tve2" to LOGOPEDIA + "a/aa/La_2_2026.svg/revision/latest/scale-to-width-down/600",

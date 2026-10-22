@@ -386,7 +386,15 @@ private fun LiveOverlay(ctl: PlayerCtl, item: PlayItem, fav: Boolean, onFav: () 
         ) {
             Box(
                 Modifier.width(120.dp).height(76.dp).clip(RoundedCornerShape(8.dp))
-                    .background(if (LogoTone.isDark(Logos.url(item.title, item.image))) LogoTone.light else Color(0x33FFFFFF)),
+                    .background(
+                        Logos.url(item.title, item.image).let { u ->
+                            when {
+                                LogoTone.wantsWhite(u) -> Color.White
+                                LogoTone.isDark(u) -> LogoTone.light
+                                else -> Color(0x33FFFFFF)
+                            }
+                        }
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
                 val logo = remember(item.key, Logos.version) { Logos.url(item.title, item.image) }
@@ -603,7 +611,13 @@ private fun ChannelListPanel(ctl: PlayerCtl, onPick: (Int) -> Unit, onClose: () 
                     val logo = remember(p.key, Logos.version) { Logos.url(p.title, p.image) }
                     Box(
                         Modifier.width(44.dp).height(28.dp).clip(RoundedCornerShape(4.dp))
-                            .background(if (LogoTone.isDark(logo)) LogoTone.light else Color.Transparent),
+                            .background(
+                                when {
+                                    LogoTone.wantsWhite(logo) -> Color.White
+                                    LogoTone.isDark(logo) -> LogoTone.light
+                                    else -> Color.Transparent
+                                }
+                            ),
                         contentAlignment = Alignment.Center,
                     ) {
                         if (logo != null) {

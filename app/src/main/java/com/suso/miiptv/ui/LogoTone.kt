@@ -41,7 +41,10 @@ object LogoTone {
 
     private val dark = mutableStateMapOf<String, Boolean>()
 
-    fun isDark(url: String?): Boolean = url != null && dark[url.substringBefore("#b=")] == true
+    fun isDark(url: String?): Boolean = url != null && dark[url.substringBefore('#')] == true
+
+    /** Logos marcados para verse sobre fondo blanco («…#w=1»). */
+    fun wantsWhite(url: String?): Boolean = url != null && url.substringAfter('#', "").split('&').contains("w=1")
 
     private fun lin(c: Int): Double {
         val v = c / 255.0
@@ -79,15 +82,13 @@ object LogoTone {
 @Composable
 fun ChannelLogoImage(url: String, modifier: Modifier = Modifier, fallback: String? = null, onModel: (String) -> Unit = {}) {
     val ctx = LocalContext.current
-    // «…#b=2» indica un número (o «UHD») que la app dibuja sobre el logo principal.
-    val badge = remember(url) {
-        url.substringAfter("#b=", "").substringBefore("&c=").takeIf { it.isNotEmpty() }?.let { java.net.URLDecoder.decode(it, "UTF-8") }
+    // Detrás de «#» van ajustes de la app: b=número a dibujar, c=color del número, w=1 fondo blanco.
+    val params = remember(url) {
+        url.substringAfter('#', "").split('&').filter { it.contains('=') }.associate { it.substringBefore('=') to it.substringAfter('=') }
     }
-    // «&c=RRGGBB»: el número va en ese color, sin recuadro (como en el propio logo).
-    val badgeColor = remember(url) {
-        url.substringAfter("&c=", "").takeIf { it.length == 6 }?.toLongOrNull(16)?.let { Color(0xFF000000 or it) }
-    }
-    val clean = remember(url) { url.substringBefore("#b=") }
+    val badge = remember(url) { params["b"]?.takeIf { it.isNotEmpty() }?.let { java.net.URLDecoder.decode(it, "UTF-8") } }
+    val badgeColor = remember(url) { params["c"]?.takeIf { it.length == 6 }?.toLongOrNull(16)?.let { Color(0xFF000000 or it) } }
+    val clean = remember(url) { url.substringBefore('#') }
     var model by remember(url) { mutableStateOf(clean) }
     // Número de color (Liga de Campeones): va a la izquierda del logo, sin taparlo.
     val sideNumber = badge != null && badgeColor != null && model == clean
