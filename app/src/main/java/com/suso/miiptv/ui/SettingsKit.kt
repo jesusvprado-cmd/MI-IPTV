@@ -221,7 +221,7 @@ fun InfoCard(rows: List<Pair<String, String>>, status: Pair<String, Color>? = nu
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(S.panel)
+            .background(C.bg.copy(alpha = 0.55f))
             .border(1.dp, S.line, RoundedCornerShape(12.dp))
             .padding(horizontal = 20.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),

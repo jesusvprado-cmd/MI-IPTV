@@ -276,14 +276,15 @@ fun SettingsScreen(onChangeList: () -> Unit) {
         runCatching { sideFrs.getValue(sec).requestFocus() }
     }
 
-    Box(Modifier.fillMaxSize().background(C.bg)) {
+    Box(Modifier.fillMaxSize().background(S.panel)) {
         Row(Modifier.fillMaxSize()) {
             // ---------------- Menú lateral (fijo) ----------------
             Column(
                 Modifier
                     .width(280.dp)
                     .fillMaxHeight()
-                    .background(S.panel)
+                    // Menú lateral en negro (más contraste para los iconos); las opciones, sobre el verde oscuro.
+                    .background(C.bg)
                     .padding(horizontal = 16.dp, vertical = 28.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 8.dp, bottom = 22.dp)) {
