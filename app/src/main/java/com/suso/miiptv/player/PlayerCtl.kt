@@ -137,7 +137,7 @@ class PlayerCtl(ctx: Context) {
         private set
     var index by mutableIntStateOf(PlayQueue.index)
         private set
-    val current: PlayItem get() = items[index]
+    val current: PlayItem get() = items[index.coerceIn(0, items.lastIndex)]
 
     var isPlaying by mutableStateOf(false)
         private set
@@ -540,7 +540,11 @@ class PlayerCtl(ctx: Context) {
     /** Reproduce un programa ya emitido (o desde su inicio) dentro del mismo reproductor; Atrás vuelve al directo. */
     fun playCatchup(pi: PlayItem) {
         if (liveBack == null) liveBack = items to index
-        items = listOf(pi)
+        // Lista e índice cambian a la vez (si no, durante un instante el índice apunta fuera de la lista nueva).
+        androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
+            items = listOf(pi)
+            index = 0
+        }
         play(0, 0)
     }
 
@@ -548,8 +552,11 @@ class PlayerCtl(ctx: Context) {
     fun backToLive(): Boolean {
         val b = liveBack ?: return false
         liveBack = null
-        items = b.first
-        play(b.second, 0)
+        androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
+            items = b.first
+            index = b.second.coerceIn(0, b.first.lastIndex)
+        }
+        play(index, 0)
         return true
     }
 
@@ -731,7 +738,9 @@ class PlayerCtl(ctx: Context) {
     fun toggleFavorite(): Boolean? = current.channel?.let { Repo.prefs.toggleFavorite(it) }
 
     fun saveProgress() {
-        if (player.mediaItemCount == 0 || items.isEmpty() || current.live) return
+        if (player.mediaItemCount == 0 || index !in items.indices || current.live) return
+        // Lo visto «desde el principio» o ya emitido no va a «Continuar viendo».
+        if (current.key.startsWith("CU|")) return
         val d = player.duration
         if (d <= 0) return
         Repo.prefs.saveProgress(current, player.currentPosition, d)
