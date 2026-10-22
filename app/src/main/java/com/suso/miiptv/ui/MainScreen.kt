@@ -215,7 +215,8 @@ private fun TopTab(
 @Composable
 private fun TopIcon(icon: ImageVector, label: String, focusKey: String, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
-    val color by animateColorAsState(if (focused) C.gold else Color(0xFFB4B4B4), Motion.focusSpec(), label = "tic")
+    // Igual que las secciones del menú: verde al momento cuando tiene el cursor.
+    val color = if (focused) C.gold else Color(0xFFB4B4B4)
     Box(
         Modifier
             .memFocus(focusKey) { focused = it }
