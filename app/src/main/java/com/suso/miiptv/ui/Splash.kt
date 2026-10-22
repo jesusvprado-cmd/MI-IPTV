@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -38,33 +39,44 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-val GoldBrush = Brush.linearGradient(listOf(Color(0xFFFAE4A5), Color(0xFFC9963E)))
+val GoldBrush = Brush.linearGradient(listOf(Color(0xFFD6FBCB), Color(0xFF8EDB7E)))
 
-/** Marca de la app: aro dorado con el triángulo de reproducir. [ring] de 0 a 1 dibuja el aro poco a poco. */
+/** Marca de la app: rodaja de pepino (aro y 8 semillas). [ring] de 0 a 1 dibuja el aro poco a poco. */
 @Composable
 fun BrandMark(size: Dp, ring: Float = 1f, modifier: Modifier = Modifier) {
     Canvas(modifier.size(size)) {
         val s = this.size.width
-        val brush = Brush.linearGradient(listOf(Color(0xFFFAE4A5), Color(0xFFC9963E)), Offset.Zero, Offset(s, s))
-        val stroke = s * 0.055f
+        val green = Color(0xFFB8F5A6)
+        val stroke = s * 0.075f
+        val r = s * 0.42f
         drawArc(
-            brush, startAngle = -90f, sweepAngle = 360f * ring, useCenter = false,
-            topLeft = Offset(stroke / 2 + s * 0.04f, stroke / 2 + s * 0.04f),
-            size = androidx.compose.ui.geometry.Size(s * 0.92f - stroke, s * 0.92f - stroke),
+            green, startAngle = -90f, sweepAngle = 360f * ring, useCenter = false,
+            topLeft = Offset(s / 2 - r, s / 2 - r),
+            size = androidx.compose.ui.geometry.Size(r * 2, r * 2),
             style = Stroke(stroke, cap = StrokeCap.Round),
         )
-        val c = s / 2
-        val r = s * 0.22f
-        val cx = c + s * 0.035f
-        val p = Path().apply {
-            moveTo(cx - r * 0.62f, c - r)
-            lineTo(cx + r * 0.95f, c)
-            lineTo(cx - r * 0.62f, c + r)
-            close()
+        // Semillas: 8 gotas alrededor del centro, que aparecen con el aro.
+        val a = ring.coerceIn(0f, 1f)
+        val sw = s * 0.052f
+        val sh = s * 0.105f
+        for (i in 0 until 8) {
+            rotate(i * 45f, Offset(s / 2, s / 2)) {
+                drawOval(
+                    green.copy(alpha = a),
+                    topLeft = Offset(s / 2 - sw / 2, s / 2 - s * 0.145f - sh / 2),
+                    size = androidx.compose.ui.geometry.Size(sw, sh),
+                )
+            }
         }
-        drawPath(p, brush)
-        drawPath(p, brush, style = Stroke(s * 0.05f, join = androidx.compose.ui.graphics.StrokeJoin.Round))
     }
+}
+
+/** «Pepino IPTV» con «IPTV» en verde pepino. */
+fun BrandName() = androidx.compose.ui.text.buildAnnotatedString {
+    append("Pepino ")
+    pushStyle(androidx.compose.ui.text.SpanStyle(color = Color(0xFFB8F5A6)))
+    append("IPTV")
+    pop()
 }
 
 private var splashShown = false
@@ -94,7 +106,7 @@ fun SplashOverlay() {
                 .background(Color.Black)
                 .background(
                     Brush.radialGradient(
-                        listOf(Color(0x553D2E10), Color.Transparent),
+                        listOf(Color(0x66235C2B), Color.Transparent),
                         radius = 900f,
                     )
                 ),
@@ -112,7 +124,7 @@ fun SplashOverlay() {
                 )
                 Spacer(Modifier.height(26.dp))
                 Text(
-                    "Pepino IPTV",
+                    BrandName(),
                     color = Color.White,
                     fontSize = 40.sp,
                     fontWeight = FontWeight.ExtraBold,

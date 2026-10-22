@@ -95,6 +95,11 @@ private fun TopBar(restoring: Boolean) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Logo(34.dp)
+            Spacer(Modifier.width(10.dp))
+            androidx.compose.material3.Text(
+                BrandName(), color = androidx.compose.ui.graphics.Color.White, fontSize = 19.sp,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold, maxLines = 1,
+            )
             Spacer(Modifier.width(12.dp))
             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 Row(

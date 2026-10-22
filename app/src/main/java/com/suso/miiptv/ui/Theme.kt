@@ -14,15 +14,18 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** Colores sacados de las capturas: negro puro, grises y dorado. */
+/** Paleta «pepino»: fondo casi negro con un toque verde, verde claro de acento y verde intenso de marca. */
 object C {
-    val bg = Color(0xFF000000)
-    val sel = Color(0xFF1E1E1E)
-    val card = Color(0xFF262626)
+    val bg = Color(0xFF050906)
+    val sel = Color(0xFF18221A)
+    val card = Color(0xFF212B23)
     val text2 = Color(0xFFA0A0A0)
     val text3 = Color(0xFFDDDDDD)
-    val gold = Color(0xFFE8C46A)
-    val divider = Color(0xFF3A3A3A)
+    /** Acento (antes dorado): verde pepino claro. */
+    val gold = Color(0xFFB8F5A6)
+    /** Verde intenso de la marca (icono, etiquetas). */
+    val brand = Color(0xFF268332)
+    val divider = Color(0xFF334036)
     val playBtn = Color(0xFFDDF3F2)
     val error = Color(0xFFFF6B6B)
 }

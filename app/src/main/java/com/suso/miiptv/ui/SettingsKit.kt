@@ -55,10 +55,10 @@ import kotlinx.coroutines.delay
 
 /** Superficies de los ajustes. */
 object S {
-    val panel = Color(0xFF0E0E0E)
+    val panel = Color(0xFF0B120C)
     val card = Color(0xFF161616)
     val line = Color(0xFF262626)
-    val ok = Color(0xFF5FD38D)
+    val ok = Color(0xFF3DDC6A)
     val warn = Color(0xFFE8C46A)
     val bad = Color(0xFFFF6B6B)
 }

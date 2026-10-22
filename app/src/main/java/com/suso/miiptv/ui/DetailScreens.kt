@@ -632,7 +632,7 @@ private fun SeasonRow(season: Int, count: Int, expanded: Boolean, onClick: () ->
             .background(
                 when {
                     focused -> C.gold
-                    expanded -> Color(0xFF2A2416)
+                    expanded -> Color(0xFF1A2E1D)
                     else -> Color.Transparent
                 }
             )

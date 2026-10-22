@@ -697,7 +697,7 @@ private fun SubtitlePreview() {
             .fillMaxWidth()
             .height(120.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF2B3A4A), Color(0xFF4A3A2B)))),
+            .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF1B3A20), Color(0xFF268332)))),
         contentAlignment = Alignment.BottomCenter,
     ) {
         val textMod = if (p.subBg == "band") {
@@ -766,7 +766,7 @@ private fun AboutSection() {
     ) {
         Logo(64.dp)
         Spacer(Modifier.height(14.dp))
-        Text("Pepino IPTV", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+        Text(BrandName(), color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
         Text("Versión $version", color = C.gold, fontSize = 15.sp)
         Spacer(Modifier.height(10.dp))
         Text(

@@ -195,7 +195,7 @@ fun HeroCarousel(items: List<Item>) {
                 Column {
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         Pill(if (it2.kind == Kind.SERIES) "SERIE" else "PELÍCULA", Color(0x33FFFFFF), Color.White)
-                        if (isNew(it2)) Pill("NUEVO", C.gold, Color.Black)
+                        if (isNew(it2)) Pill("NUEVO", C.brand, Color.White)
                         qualityOf(it2)?.let { Pill(it, Color(0x33FFFFFF), Color.White) }
                     }
                     Spacer(Modifier.height(10.dp))
