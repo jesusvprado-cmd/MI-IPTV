@@ -96,21 +96,9 @@ fun SideItem(
     onFocused: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
-    val bg by animateColorAsState(
-        when {
-            focused -> Color.White
-            selected -> C.sel
-            else -> Color.Transparent
-        },
-        Motion.focusSpec(),
-        label = "sidebg",
-    )
-    val fg = when {
-        focused -> Color.Black
-        selected -> Color.White
-        else -> C.text2
-    }
-    val bar by animateDpAsState(if (selected && !focused) 3.dp else 0.dp, Motion.focusSpec(), label = "bar")
+    // Sin recuadro: la sección activa (o con el cursor) se marca con el icono en verde y el texto en blanco.
+    val active = focused || selected
+    val fg = if (active) Color.White else C.text2
     Row(
         Modifier
             .fillMaxWidth()
@@ -121,19 +109,23 @@ fun SideItem(
                 if (f) onFocused()
             }
             .tvClick(onClick = onFocused)
-            .clip(RoundedCornerShape(10.dp))
-            .background(bg)
             .height(48.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.width(bar).fillMaxHeight().background(C.gold))
         Spacer(Modifier.width(14.dp))
         Box(Modifier.size(22.dp)) {
-            Icon(icon, contentDescription = null, tint = iconColor ?: if (focused) Color.Black else if (selected) C.gold else C.text2, modifier = Modifier.size(22.dp))
+            Icon(icon, contentDescription = null, tint = iconColor ?: if (active) C.gold else C.text2, modifier = Modifier.size(22.dp))
             if (overlay != null) Icon(overlay, contentDescription = null, tint = overlayColor, modifier = Modifier.size(22.dp))
         }
         Spacer(Modifier.width(14.dp))
-        Text(label, color = fg, fontSize = 16.sp, fontWeight = if (selected || focused) FontWeight.SemiBold else FontWeight.Medium, maxLines = 1)
+        Text(
+            label, color = fg, fontSize = 16.sp, maxLines = 1,
+            fontWeight = when {
+                focused -> FontWeight.ExtraBold
+                selected -> FontWeight.SemiBold
+                else -> FontWeight.Medium
+            },
+        )
     }
 }
 
