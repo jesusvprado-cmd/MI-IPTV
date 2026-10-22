@@ -69,7 +69,7 @@ import java.io.File
 
 private enum class Sec(val label: String, val desc: String) {
     ACCOUNT("Cuenta", "Tu lista IPTV y el estado de la suscripción."),
-    VPN("VPN", "Se conecta cuando tú quieras. En algunas teles la VPN se aplica a todo el equipo mientras está conectada."),
+    VPN("VPN", "Se conecta cuando tú quieras."),
     VIDEO("Vídeo", "Imagen, carga y forma de reproducir."),
     AUDIO("Audio", "Sonido de canales, películas y series."),
     SUBS("Subtítulos", "Idioma y aspecto de los subtítulos."),
@@ -342,6 +342,10 @@ fun SettingsScreen(onChangeList: () -> Unit) {
                     .focusProperties { exit = { d -> if (d == FocusDirection.Left) sideFrs.getValue(sec) else FocusRequester.Default } }
                     .focusGroup(),
             ) {
+                // Solo se desplaza al llegar al borde: al entrar en las opciones la pantalla se queda como está.
+                androidx.compose.runtime.CompositionLocalProvider(
+                    androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides RevealBringIntoView,
+                ) {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().fadeInOnChange(sec),
                     contentPadding = PaddingValues(start = 40.dp, end = 48.dp, top = 30.dp, bottom = 48.dp),
@@ -375,6 +379,7 @@ fun SettingsScreen(onChangeList: () -> Unit) {
                         }
                         Sec.ABOUT -> item(key = "about") { Column { AboutSection() } }
                     }
+                }
                 }
             }
         }
