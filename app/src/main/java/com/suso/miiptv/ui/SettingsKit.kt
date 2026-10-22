@@ -93,11 +93,13 @@ fun SideItem(
     iconColor: Color? = null,
     overlay: ImageVector? = null,
     overlayColor: Color = Color.Unspecified,
+    cursorInMenu: Boolean = false,
     onFocused: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
-    // Sin recuadro: la sección activa (o con el cursor) se marca con el icono en verde y el texto en blanco.
-    val active = focused || selected
+    // Sin recuadro: la sección activa se marca con la línea, el icono en verde y el texto en blanco.
+    // Con el cursor en el menú solo se marca la que tiene el cursor (nunca dos a la vez); si no, la sección abierta.
+    val active = if (cursorInMenu) focused else selected
     val fg = if (active) Color.White else C.text2
     Row(
         Modifier
@@ -113,7 +115,7 @@ fun SideItem(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Línea vertical verde a la izquierda de la sección activa (donde está el cursor).
-        val bar by animateDpAsState(if (active) 3.dp else 0.dp, Motion.focusSpec(), label = "bar")
+        val bar = if (active) 3.dp else 0.dp
         Box(Modifier.width(bar).height(26.dp).clip(RoundedCornerShape(2.dp)).background(C.gold))
         Spacer(Modifier.width(14.dp - bar))
         Box(Modifier.size(22.dp)) {
@@ -124,8 +126,8 @@ fun SideItem(
         Text(
             label, color = fg, fontSize = 16.sp, maxLines = 1,
             fontWeight = when {
-                focused -> FontWeight.ExtraBold
-                selected -> FontWeight.SemiBold
+                active && focused -> FontWeight.ExtraBold
+                active -> FontWeight.SemiBold
                 else -> FontWeight.Medium
             },
         )

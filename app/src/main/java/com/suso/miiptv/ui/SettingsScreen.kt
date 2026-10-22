@@ -305,6 +305,7 @@ fun SettingsScreen(onChangeList: () -> Unit) {
                             Sec.ABOUT -> SIcons.info
                         },
                         selected = sec == s,
+                        cursorInMenu = !inPane && choice == null,
                         focusKey = "set_side_${s.name}",
                         requester = sideFrs.getValue(s),
                         // «Acerca de»: la «i» en rojo si hay una versión nueva por instalar.
