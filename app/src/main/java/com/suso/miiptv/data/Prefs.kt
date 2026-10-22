@@ -237,6 +237,55 @@ class Prefs(ctx: Context) {
         get() = str("pin", "")
         set(v) = putStr("pin", v)
 
+    // ---------- Recordatorios de programas ----------
+
+    data class Reminder(val channel: Item, val title: String, val start: Long) {
+        val id: String get() = "${channel.key}@$start"
+    }
+
+    fun reminders(): List<Reminder> {
+        val l = mutableListOf<Reminder>()
+        runCatching {
+            val a = JSONArray(sp.getString("reminders", "[]"))
+            for (i in 0 until a.length()) {
+                val o = a.optJSONObject(i) ?: continue
+                val ch = runCatching { Item.fromJson(o.getJSONObject("ch")) }.getOrNull() ?: continue
+                l.add(Reminder(ch, o.optString("t"), o.optLong("s")))
+            }
+        }
+        return l
+    }
+
+    private fun saveReminders(l: List<Reminder>) {
+        val a = JSONArray()
+        // Solo los que no han pasado hace más de una hora.
+        val min = System.currentTimeMillis() - 3600_000L
+        l.filter { it.start > min }.forEach { r ->
+            a.put(org.json.JSONObject().put("ch", r.channel.toJson()).put("t", r.title).put("s", r.start))
+        }
+        sp.edit().putString("reminders", a.toString()).apply()
+        bump()
+    }
+
+    fun hasReminder(id: String): Boolean = reminders().any { it.id == id }
+
+    /** Pone o quita el recordatorio. Devuelve true si ha quedado puesto. */
+    fun toggleReminder(r: Reminder): Boolean {
+        val l = reminders().toMutableList()
+        val i = l.indexOfFirst { it.id == r.id }
+        val on = if (i >= 0) {
+            l.removeAt(i)
+            false
+        } else {
+            l.add(r)
+            true
+        }
+        saveReminders(l)
+        return on
+    }
+
+    fun removeReminder(id: String) = saveReminders(reminders().filter { it.id != id })
+
     // ---------- Favoritos ----------
 
     private var favs: MutableList<Item>? = null

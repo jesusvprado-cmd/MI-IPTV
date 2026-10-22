@@ -176,6 +176,37 @@ object Repo {
 
     fun streamUrl(item: Item): String = item.url ?: src().streamUrl(item)
 
+    private val guideCache = HashMap<String, Pair<Long, List<EpgEntry>>>()
+
+    /** Programación para la guía en parrilla: la completa del proveedor (si la da) o, si no, la de siempre. */
+    suspend fun guideEpg(item: Item): List<EpgEntry> {
+        if (!prefs.epgEnabled || item.kind != Kind.LIVE) return emptyList()
+        val now = System.currentTimeMillis()
+        synchronized(guideCache) { guideCache[item.key] }?.let { if (now - it.first < 15 * 60_000L) return it.second }
+        val full = try {
+            if (prefs.epgMode == "external") emptyList() else src().fullEpg(item)
+        } catch (e: Exception) {
+            emptyList()
+        }
+        val shift = prefs.epgOffset * 60_000L
+        val l = (if (full.isNotEmpty()) full.map { it.copy(start = it.start + shift, end = it.end + shift) } else epg(item))
+            .filter { it.end > now - 26 * 3600_000L }
+        synchronized(guideCache) { guideCache[item.key] = now to l }
+        return l
+    }
+
+    /** Dirección para ver un programa ya emitido o empezar uno desde el principio (null si no se puede). */
+    fun catchupUrl(item: Item, e: EpgEntry): String? {
+        val shift = prefs.epgOffset * 60_000L
+        val start = e.start - shift
+        val minutes = ((e.end - e.start) / 60_000L).toInt() + 2
+        return try {
+            src().catchupUrl(item, start, minutes)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     fun playItem(item: Item): PlayItem = PlayItem(
         key = item.key,
         title = item.name,

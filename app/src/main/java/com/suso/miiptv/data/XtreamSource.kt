@@ -87,6 +87,7 @@ class XtreamSource(private val cfg: Config) : Source {
                                 epgId = m["epg_channel_id"].clean(),
                                 num = m["num"]?.toIntOrNull() ?: 0,
                                 added = m["added"]?.toLongOrNull() ?: 0,
+                                archive = if (m["tv_archive"] == "1") (m["tv_archive_duration"]?.toIntOrNull() ?: 1).coerceAtLeast(1) else 0,
                             )
                         }
                         Kind.MOVIE -> m["stream_id"]?.let { id ->
@@ -221,6 +222,32 @@ class XtreamSource(private val cfg: Config) : Source {
             out.add(EpgEntry(b64(e.str("title")) ?: "", b64(e.str("description")), s * 1000, en * 1000))
         }
         out.sortedBy { it.start }
+    }
+
+    override suspend fun fullEpg(item: Item): List<EpgEntry> = io {
+        if (item.kind != Kind.LIVE) return@io emptyList()
+        val o = json(api("get_simple_data_table", "&stream_id=${item.id}"))
+        val arr = o.optJSONArray("epg_listings") ?: return@io emptyList()
+        val out = ArrayList<EpgEntry>()
+        for (i in 0 until arr.length()) {
+            val e = arr.optJSONObject(i) ?: continue
+            val s = e.str("start_timestamp")?.toLongOrNull() ?: continue
+            val en = e.str("stop_timestamp")?.toLongOrNull() ?: continue
+            out.add(
+                EpgEntry(
+                    b64(e.str("title")) ?: "", b64(e.str("description")), s * 1000, en * 1000,
+                    archived = e.optString("has_archive") == "1",
+                )
+            )
+        }
+        out.sortedBy { it.start }.distinctBy { it.start }
+    }
+
+    /** Formato de Xtream: /timeshift/usuario/clave/minutos/AAAA-MM-DD:HH-MM/id.ts (hora del servidor; se usa la local). */
+    override fun catchupUrl(item: Item, start: Long, minutes: Int): String? {
+        if (item.kind != Kind.LIVE || item.archive <= 0) return null
+        val f = java.text.SimpleDateFormat("yyyy-MM-dd:HH-mm", java.util.Locale.US)
+        return "$base/timeshift/$u/$p/${minutes.coerceAtLeast(1)}/${f.format(java.util.Date(start))}/${item.id}.ts"
     }
 
     override fun streamUrl(item: Item): String = when (item.kind) {

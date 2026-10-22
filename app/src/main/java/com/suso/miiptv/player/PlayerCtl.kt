@@ -116,7 +116,8 @@ object PlayQueue {
 @OptIn(UnstableApi::class)
 class PlayerCtl(ctx: Context) {
     private val appCtx: Context = ctx.applicationContext
-    val items: List<PlayItem> = PlayQueue.items
+    var items: List<PlayItem> by mutableStateOf(PlayQueue.items)
+        private set
     var index by mutableIntStateOf(PlayQueue.index)
         private set
     val current: PlayItem get() = items[index]
@@ -511,6 +512,27 @@ class PlayerCtl(ctx: Context) {
         } else {
             onFinished?.invoke()
         }
+    }
+
+    // ---------- Ver desde el principio (programas que el canal guarda) ----------
+
+    /** Lista de canales y canal al que volver al terminar de ver un programa desde el principio. */
+    private var liveBack: Pair<List<PlayItem>, Int>? = null
+
+    /** Reproduce un programa ya emitido (o desde su inicio) dentro del mismo reproductor; Atrás vuelve al directo. */
+    fun playCatchup(pi: PlayItem) {
+        if (liveBack == null) liveBack = items to index
+        items = listOf(pi)
+        play(0, 0)
+    }
+
+    /** Si se está viendo un programa desde el principio, vuelve al directo. Devuelve false si no. */
+    fun backToLive(): Boolean {
+        val b = liveBack ?: return false
+        liveBack = null
+        items = b.first
+        play(b.second, 0)
+        return true
     }
 
     /** Vuelve al canal que se estaba viendo antes. */

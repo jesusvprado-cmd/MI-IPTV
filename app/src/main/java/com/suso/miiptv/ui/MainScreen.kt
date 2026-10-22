@@ -64,18 +64,22 @@ fun MainScreen() {
     Box(Modifier.fillMaxSize().background(C.bg)) {
     // Fondo que toma el color de la carátula con el foco (Inicio, Películas y Series).
     AmbientBackground(enabled = UiState.tab == Tab.HOME || UiState.tab == Tab.MOVIES || UiState.tab == Tab.SERIES)
+    val mainCtx = androidx.compose.ui.platform.LocalContext.current
     Column(Modifier.fillMaxSize()) {
         TopBar(restoring)
         Box(Modifier.fillMaxWidth().weight(1f).fadeInOnChange(UiState.tab)) {
             when (UiState.tab) {
                 Tab.HOME -> HomeScreen()
                 Tab.LIVE -> BrowseScreen(Kind.LIVE)
+                Tab.GUIDE -> GuideScreen()
                 Tab.MOVIES -> BrowseScreen(Kind.MOVIE)
                 Tab.SERIES -> BrowseScreen(Kind.SERIES)
                 Tab.SEARCH -> SearchScreen()
             }
         }
     }
+    // Aviso de programas con recordatorio.
+    ReminderPopup { r -> Actions.playLive(mainCtx, listOf(r.channel), 0) }
     }
 }
 

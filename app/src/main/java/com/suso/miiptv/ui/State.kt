@@ -22,6 +22,7 @@ sealed interface Screen {
 enum class Tab(val label: String) {
     HOME("Inicio"),
     LIVE("TV en directo"),
+    GUIDE("Guía"),
     MOVIES("Películas"),
     SERIES("Series"),
     SEARCH("Buscar"),

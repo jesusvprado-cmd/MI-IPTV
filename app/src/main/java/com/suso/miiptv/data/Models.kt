@@ -18,6 +18,8 @@ data class Item(
     val ext: String? = null,
     val url: String? = null,
     val rating: String? = null,
+    /** Días de programas pasados que guarda el proveedor (0 = no se puede ver lo ya emitido). */
+    val archive: Int = 0,
 ) {
     val key: String get() = "${kind.name}|$id"
 
@@ -33,6 +35,7 @@ data class Item(
         putOpt("ext", ext)
         putOpt("url", url)
         putOpt("rating", rating)
+        if (archive > 0) put("archive", archive)
     }
 
     companion object {
@@ -48,6 +51,7 @@ data class Item(
             ext = o.str("ext"),
             url = o.str("url"),
             rating = o.str("rating"),
+            archive = o.optInt("archive"),
         )
     }
 }
@@ -124,7 +128,7 @@ data class SeriesDetail(
     val seasons: List<Pair<Int, List<Episode>>>,
 )
 
-data class EpgEntry(val title: String, val desc: String?, val start: Long, val end: Long)
+data class EpgEntry(val title: String, val desc: String?, val start: Long, val end: Long, val archived: Boolean = false)
 
 data class AccountInfo(
     val status: String?,
@@ -177,5 +181,9 @@ interface Source {
     suspend fun movieDetail(item: Item): MovieDetail
     suspend fun seriesDetail(item: Item): SeriesDetail
     suspend fun epg(item: Item): List<EpgEntry>
+    /** Programación completa (también lo ya emitido, si el proveedor lo guarda), para la guía en parrilla. */
+    suspend fun fullEpg(item: Item): List<EpgEntry> = epg(item)
     fun streamUrl(item: Item): String
+    /** Dirección para ver un programa ya emitido (o desde el principio); null si el proveedor no lo permite. */
+    fun catchupUrl(item: Item, start: Long, minutes: Int): String? = null
 }

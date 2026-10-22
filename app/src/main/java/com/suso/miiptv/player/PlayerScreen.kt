@@ -91,6 +91,7 @@ import com.suso.miiptv.ui.Clock
 import com.suso.miiptv.ui.LogoTone
 import com.suso.miiptv.data.PlayItem
 import com.suso.miiptv.data.Repo
+import com.suso.miiptv.ui.ReminderPopup
 import com.suso.miiptv.ui.C
 import com.suso.miiptv.ui.fmtTime
 import com.suso.miiptv.ui.hm
@@ -111,6 +112,7 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
     var padOpen by remember { mutableStateOf(false) }
     var typed by remember { mutableStateOf("") }
     var okLong by remember { mutableStateOf(false) }
+    var reminderOpen by remember { mutableStateOf(false) }
     var aspect by remember { mutableStateOf(Repo.prefs.resizeMode) }
     // Permiso de Android para la VPN (solo la primera vez).
     val vpnPerm = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
@@ -188,8 +190,8 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
             ctl.clearNotice()
         }
     }
-    LaunchedEffect(listOpen, tracksOpen, padOpen) {
-        if (!listOpen && !tracksOpen && !padOpen) {
+    LaunchedEffect(listOpen, tracksOpen, padOpen, reminderOpen) {
+        if (!listOpen && !tracksOpen && !padOpen && !reminderOpen) {
             delay(40)
             runCatching { rootFr.requestFocus() }
         }
@@ -204,6 +206,7 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
             ctl.scrubPos != null -> ctl.cancelScrub()
             tracksOpen -> tracksOpen = false
             listOpen -> listOpen = false
+            ctl.backToLive() -> {}
             else -> onExit()
         }
     }
@@ -223,7 +226,7 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
     }
 
     val onKey: (KeyEvent) -> Boolean = handler@{ e ->
-        if (listOpen || tracksOpen || padOpen) return@handler false
+        if (listOpen || tracksOpen || padOpen || reminderOpen) return@handler false
         val isOk = e.key == Key.DirectionCenter || e.key == Key.Enter || e.key == Key.NumPadEnter
         // En directo, OK se decide al soltar: pulsación corta = lo de siempre; mantenido = teclado de números.
         if (isOk && item.live) {
@@ -446,6 +449,12 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
             )
         }
 
+        // Aviso de un programa con recordatorio que empieza ahora.
+        ReminderPopup(onVisible = { reminderOpen = it }) { r ->
+            val i = ctl.items.indexOfFirst { it.channel?.key == r.channel.key }
+            if (i >= 0) ctl.play(i, 0) else ctl.playCatchup(Repo.playItem(r.channel))
+        }
+
         if (tracksOpen) {
             OptionsPanel(
                 ctl,
@@ -453,6 +462,17 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
                 aspect = aspect,
                 onAspect = { aspect = nextAspect(aspect) },
                 onVpn = { toggleVpn() },
+                onStartOver = { ch, e ->
+                    tracksOpen = false
+                    val url = Repo.catchupUrl(ch, e)
+                    if (url == null) {
+                        Toast.makeText(ctx, "Este canal no permite verlo desde el principio", Toast.LENGTH_SHORT).show()
+                    } else {
+                        ctl.playCatchup(
+                            com.suso.miiptv.data.PlayItem("CU|${ch.key}|${e.start}", e.title, ch.name + " · desde el principio", ch.image, url, false)
+                        )
+                    }
+                },
                 onExternal = {
                     tracksOpen = false
                     if (PlayQueue.openExternal(ctx, ctl.current)) ctl.player.pause()
@@ -796,6 +816,7 @@ private fun OptionsPanel(
     aspect: String,
     onAspect: () -> Unit,
     onVpn: () -> Unit,
+    onStartOver: (com.suso.miiptv.data.Item, com.suso.miiptv.data.EpgEntry) -> Unit,
     onExternal: () -> Unit,
     onClose: () -> Unit,
 ) {
@@ -847,6 +868,13 @@ private fun OptionsPanel(
         TrackRow("Formato de imagen: ${aspectLabel(aspect)}", false, requestFocus = false) { onAspect() }
         if (!ctl.current.live) {
             TrackRow("Velocidad: ${speedLabel(ctl.speed)}", false, requestFocus = false) { ctl.nextSpeed() }
+        }
+        // Canal que guarda lo emitido: empezar el programa actual desde el principio (p. ej. un partido ya empezado).
+        val ch = ctl.current.channel
+        val nowMs = System.currentTimeMillis()
+        val cur = ctl.epg.firstOrNull { it.start <= nowMs && it.end > nowMs }
+        if (ctl.current.live && ch != null && ch.archive > 0 && cur != null) {
+            TrackRow("Ver desde el principio: ${cur.title}", false, requestFocus = false) { onStartOver(ch, cur) }
         }
         val vs = VpnManager.state
         val vpnText = when (vs) {
