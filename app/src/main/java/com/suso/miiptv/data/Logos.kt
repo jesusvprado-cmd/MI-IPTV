@@ -324,9 +324,12 @@ object Logos {
             Pick(Regex("^cosmo( tv)?$"), lp("0/05/COSMO_Espa%C3%B1a_2024.svg"), onWhite = true),
             Pick(Regex("^(sy ?fy|sci ?fi)$"), OWN_LOGOS + "syfy.png", onWhite = true),
             Pick(Regex("^real madrid( tv)?$"), OWN_LOGOS + "realmadrid.png", onWhite = true),
+            Pick(Regex("^iberalia( tv)? pesca\\b"), OWN_LOGOS + "iberalia-pesca.png", onWhite = true),
+            Pick(Regex("^iberalia( tv)? caza\\b"), OWN_LOGOS + "iberalia-caza.png", onWhite = true),
             Pick(Regex("^iberalia\\b"), OWN_LOGOS + "iberalia.png", onWhite = true),
+            Pick(Regex("^(canal )?cocina\\b"), OWN_LOGOS + "canalcocina.png", onWhite = true),
             Pick(Regex("^u ?beat( tv)?$"), OWN_LOGOS + "ubeat.png", onWhite = true),
-            Pick(Regex("^discovery( channel)?$"), lp("a/a8/Discovery_Channel_2019.svg")),
+            Pick(Regex("^discovery( channel)?$"), OWN_LOGOS + "discovery.png", onWhite = true),
             Pick(Regex("^dreamworks( channel)?$"), OWN_LOGOS + "dreamworks.png", onWhite = true),
         )
     }
