@@ -89,9 +89,23 @@ object PlayerHolder {
             .build()
         exo.playWhenReady = true
         exo.addListener(previewListener)
+        applyTrackPrefs(exo)
         player = exo
         signature = sig
         return exo
+    }
+
+    /** Idiomas de audio y subtítulos de Ajustes (los mismos en la previsualización y en pantalla completa). */
+    fun applyTrackPrefs(exo: ExoPlayer) {
+        val prefs = Repo.prefs
+        val tb = exo.trackSelectionParameters.buildUpon().clearOverrides()
+        val al = prefs.audioLang ?: "es"
+        if (al != "orig") tb.setPreferredAudioLanguage(al) else tb.setPreferredAudioLanguage(null)
+        val sub = prefs.subLang
+        tb.setPreferredTextLanguage(if (!sub.isNullOrEmpty()) sub else null)
+        tb.setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT, sub == "")
+        val built = tb.build()
+        if (built != exo.trackSelectionParameters) exo.trackSelectionParameters = built
     }
 
     fun currentUrl(): String? = player?.currentMediaItem?.localConfiguration?.uri?.toString()
@@ -120,6 +134,7 @@ object PlayerHolder {
         }
         previewError = null
         triedHls = false
+        applyTrackPrefs(exo)
         load(exo, url, false)
     }
 

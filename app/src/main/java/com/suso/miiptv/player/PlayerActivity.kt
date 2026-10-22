@@ -71,6 +71,12 @@ class PlayerActivity : ComponentActivity() {
         }
     }
 
+    override fun finish() {
+        super.finish()
+        @Suppress("DEPRECATION")
+        overridePendingTransition(0, 0)
+    }
+
     override fun onStart() {
         super.onStart()
         ctl?.onStart()

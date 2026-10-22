@@ -65,7 +65,13 @@ object PlayQueue {
         }
         val i = Intent(ctx, PlayerActivity::class.java)
         if (ctx !is android.app.Activity) i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        // Sin animación de cambio de pantalla: la imagen pasa a pantalla completa al momento.
+        i.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION)
         ctx.startActivity(i)
+        if (ctx is android.app.Activity) {
+            @Suppress("DEPRECATION")
+            ctx.overridePendingTransition(0, 0)
+        }
     }
 
     /** Reproductores de vídeo instalados (nombre, paquete), sin contar esta app. */
@@ -213,14 +219,9 @@ class PlayerCtl(ctx: Context) {
         player.volume = 1f
         player.addListener(listener)
 
-        // Idiomas preferidos: los de Ajustes o el último que eligió el usuario (español por defecto).
-        val tb = player.trackSelectionParameters.buildUpon().clearOverrides()
-        val al = prefs.audioLang ?: "es"
-        if (al != "orig") tb.setPreferredAudioLanguage(al)
-        val sub = prefs.subLang
-        if (!sub.isNullOrEmpty()) tb.setPreferredTextLanguage(sub)
-        tb.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, sub == "")
-        player.trackSelectionParameters = tb.build()
+        // Idiomas preferidos: los mismos que ya usa la previsualización, así al pasar a pantalla completa
+        // no se vuelven a elegir pistas (eso obligaba a recargar el canal).
+        PlayerHolder.applyTrackPrefs(player)
         applyBoost(player.audioSessionId)
     }
 
