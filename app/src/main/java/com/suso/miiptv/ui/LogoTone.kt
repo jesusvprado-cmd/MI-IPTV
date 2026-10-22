@@ -76,6 +76,55 @@ object LogoTone {
 }
 
 /**
+ * Retoca los colores de un logo:
+ *  - «swap»: logos de dos colores (p. ej. rojo con letras blancas) → se intercambian: lo de color pasa a blanco y lo blanco al color.
+ *  - «k»: lo blanco/gris pasa a negro (y lo negro a blanco); lo que tiene color se queda igual.
+ */
+class LogoRecolor(private val mode: String) : coil.transform.Transformation {
+    override val cacheKey: String = "recolor-$mode"
+
+    override suspend fun transform(input: Bitmap, size: coil.size.Size): Bitmap {
+        val w = input.width
+        val h = input.height
+        val px = IntArray(w * h)
+        input.getPixels(px, 0, w, 0, 0, w, h)
+        fun sat(p: Int): Int {
+            val r = (p shr 16) and 0xFF; val g = (p shr 8) and 0xFF; val b = p and 0xFF
+            return maxOf(r, g, b) - minOf(r, g, b)
+        }
+        if (mode == "swap") {
+            // Color principal: la media de los píxeles opacos con color.
+            var n = 0L; var sr = 0L; var sg = 0L; var sb = 0L
+            for (p in px) if ((p ushr 24) > 200 && sat(p) > 80) { n++; sr += (p shr 16) and 0xFF; sg += (p shr 8) and 0xFF; sb += p and 0xFF }
+            if (n == 0L) return input
+            val cr = (sr / n).toInt(); val cg = (sg / n).toInt(); val cb = (sb / n).toInt()
+            val dr = 255 - cr; val dg = 255 - cg; val db = 255 - cb
+            val len = (dr * dr + dg * dg + db * db).toFloat().coerceAtLeast(1f)
+            for (i in px.indices) {
+                val p = px[i]
+                val a = p ushr 24
+                if (a == 0) continue
+                val r = (p shr 16) and 0xFF; val g = (p shr 8) and 0xFF; val b = p and 0xFF
+                // t = 0 en el color, 1 en el blanco.
+                val t = (((r - cr) * dr + (g - cg) * dg + (b - cb) * db) / len).coerceIn(0f, 1f)
+                // Se intercambian: color → blanco, blanco → color.
+                val nr = (255 + (cr - 255) * t).toInt(); val ng = (255 + (cg - 255) * t).toInt(); val nb = (255 + (cb - 255) * t).toInt()
+                px[i] = (a shl 24) or (nr shl 16) or (ng shl 8) or nb
+            }
+        } else if (mode == "k") {
+            for (i in px.indices) {
+                val p = px[i]
+                if ((p ushr 24) == 0 || sat(p) > 60) continue
+                px[i] = (p and 0xFF000000.toInt()) or (p.inv() and 0x00FFFFFF)
+            }
+        } else return input
+        val out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        out.setPixels(px, 0, w, 0, 0, w, h)
+        return out
+    }
+}
+
+/**
  * Imagen de logo de canal que avisa a [LogoTone] para saber si es oscuro.
  * Si el logo de calidad no carga, se usa el de la lista ([fallback]) en lugar de dejar el recuadro vacío.
  */
@@ -101,7 +150,12 @@ fun ChannelLogoImage(url: String, modifier: Modifier = Modifier, fallback: Strin
         }
     Box(Modifier.weight(1f).fillMaxHeight()) {
         AsyncImage(
-            model = remember(model) { ImageRequest.Builder(ctx).data(model).allowHardware(false).build() },
+            model = remember(model) {
+                ImageRequest.Builder(ctx).data(model).allowHardware(false).apply {
+                    // Retoque de color pedido para el logo de la lista (solo al de la URL original).
+                    params["x"]?.let { if (model == clean) transformations(LogoRecolor(it)) }
+                }.build()
+            },
             contentDescription = null,
             contentScale = ContentScale.Fit,
             modifier = Modifier.fillMaxSize(),

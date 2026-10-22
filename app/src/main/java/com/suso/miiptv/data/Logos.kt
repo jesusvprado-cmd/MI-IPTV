@@ -108,7 +108,33 @@ object Logos {
             !ready() -> curated(name) ?: original
             else -> find(name).also { synchronized(cache) { cache[name] = it ?: "" } } ?: original
         }
-        return r?.let { if (onWhiteByName(name) && !hasWhite(it)) white(it) else it }
+        return r?.let { bySection(name, it) }?.let { if (onWhiteByName(name) && !hasWhite(it)) white(it) else it }
+    }
+
+    private val sections = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+    /** Sección (categoría) de cada canal, por nombre. */
+    fun setSections(map: Map<String, String>) {
+        var changed = false
+        for ((k, v) in map) if (v.isNotEmpty() && sections.put(k, v) != v) changed = true
+        if (changed) version++
+    }
+
+    /**
+     * Retoques por sección para los logos de la lista:
+     *  - Liga RFEF: colores invertidos (lo rojo pasa a blanco y lo blanco a rojo) sobre fondo blanco.
+     *  - Fanplay TV: lo blanco/gris («FAN») pasa a negro y el resto igual, sobre fondo blanco.
+     */
+    private fun bySection(name: String, url: String): String {
+        if (hasWhite(url)) return url
+        val sec = Normalizer.normalize(sections[name] ?: return url, Normalizer.Form.NFKD).lowercase()
+            .replace(Regex("\\p{Mn}+"), "")
+        val x = when {
+            Regex("rfef").containsMatchIn(sec) -> "swap"
+            Regex("fan ?play").containsMatchIn(sec) -> "k"
+            else -> return url
+        }
+        return (if (url.contains('#')) "$url&" else "$url#") + "x=$x&w=1"
     }
 
     private fun hasWhite(u: String) = u.substringAfter('#', "").split('&').contains("w=1")

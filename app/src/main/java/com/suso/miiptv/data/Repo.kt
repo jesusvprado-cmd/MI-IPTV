@@ -105,6 +105,11 @@ object Repo {
         val raw = if (cat != null && everything != null) everything.filter { it.categoryId == cat } else src().items(kind, cat)
         // Canales: nombre sin «Movistar» delante de los autonómicos y familias numeradas en orden (1, 2, 3...).
         val l = if (kind == Kind.LIVE) withContext(Dispatchers.Default) { ChannelNames.tidy(raw, sortGroups = cat != null) } else raw
+        // Sección de cada canal: algunos logos se retocan según la sección (Liga RFEF, Fanplay...).
+        if (kind == Kind.LIVE) runCatching {
+            val names = allCategories(kind).associate { it.id to it.name }
+            Logos.setSections(l.associate { it.name to (names[it.categoryId] ?: "") })
+        }
         itemCache[k] = l
         return l
     }
