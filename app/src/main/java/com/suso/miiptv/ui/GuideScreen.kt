@@ -107,6 +107,13 @@ fun GuideScreen() {
     var winStart by remember { mutableLongStateOf(floorHalfHour(System.currentTimeMillis())) }
     var focused by remember { mutableStateOf<Focused?>(null) }
     var catsFocused by remember { mutableStateOf(false) }
+    // Como en TV en directo: la categoría se abre al ponerse encima (con una pausa corta para poder pasar de largo).
+    var pending by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(pending) {
+        val p = pending ?: return@LaunchedEffect
+        delay(350)
+        sel = p
+    }
     val pv = Repo.prefs.version
 
     Row(Modifier.fillMaxSize()) {
@@ -120,7 +127,7 @@ fun GuideScreen() {
                     name = c.name,
                     selected = c.id == sel,
                     focusKey = "guide_cat_${c.id}",
-                    onFocused = {},
+                    onFocused = { pending = c.id },
                     cursorInMenu = catsFocused,
                 ) { sel = c.id }
             }
