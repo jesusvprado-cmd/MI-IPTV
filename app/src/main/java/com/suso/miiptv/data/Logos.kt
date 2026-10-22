@@ -74,7 +74,10 @@ object Logos {
     private lateinit var dir: File
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
+    private var appCtx: Context? = null
+
     fun init(ctx: Context) {
+        appCtx = ctx.applicationContext
         dir = ctx.applicationContext.filesDir
         if (Repo.prefs.hqLogos) ensureLoaded()
     }
@@ -98,8 +101,9 @@ object Logos {
     /** Logo a mostrar para un canal: el de alta calidad si se encuentra, si no el de la lista. */
     fun url(name: String, original: String?): String? {
         if (!Repo.prefs.hqLogos) return original
-        if (!ready()) return original
         synchronized(cache) { cache[name] }?.let { return it.ifEmpty { original } }
+        // Los logos elegidos a mano no dependen de que se haya descargado el índice.
+        if (!ready()) return curated(name) ?: original
         val found = find(name)
         synchronized(cache) { cache[name] = found ?: "" }
         return found ?: original
@@ -114,11 +118,12 @@ object Logos {
     private fun pick(list: List<Pair<String, String>>, folder: String): String =
         (list.firstOrNull { it.first == folder } ?: list.firstOrNull { it.first == "spain" } ?: list.first()).second
 
+    /** Logos elegidos a mano (no necesitan el índice de los bancos). */
+    private fun curated(name: String): String? =
+        movistarLaLiga(name) ?: movistarChampions(name) ?: movistarPlus(name) ?: special(name) ?: picked(name)
+
     private fun find(name: String): String? {
-        movistarLaLiga(name)?.let { return it }
-        movistarChampions(name)?.let { return it }
-        movistarPlus(name)?.let { return it }
-        special(name)?.let { return it }
+        curated(name)?.let { return it }
         // La 1 UHD tiene su propio logo.
         clean(name).let { c -> if ((ALIAS[c.key] ?: c.key) == "tve1" && UHD_WORD.containsMatchIn(name)) return LA1_UHD }
         findOne(clean(name))?.let { return it }
@@ -177,7 +182,7 @@ object Logos {
 
     /** Orden importante: lo más concreto primero («cine español» antes que «cine»). */
     private val MPLUS = listOf(
-        MPlus(Regex("^cine espanol\\b"), "d/d2/Cine_Espa%C3%B1ol_por_Movistar_Plus%2B_2023.svg"),
+        MPlus(Regex("^(cine )?espanol\\b"), "d/d2/Cine_Espa%C3%B1ol_por_Movistar_Plus%2B_2023.svg"),
         MPlus(Regex("^ellas( vamos)?\\b"), "1/1d/Ellas_Vamos_por_Movistar_Plus%2B.svg"),
         MPlus(Regex("^(estrenos|cine)\\b"), "8/88/Estrenos_por_Movistar_Plus%2B_2025.svg", mapOf(2 to "3/31/Estrenos_2_por_Movistar_Plus%2B.svg")),
         MPlus(Regex("^deportes\\b"), "d/d7/Deportes_por_Movistar_Plus%2B_2023.svg"),
@@ -216,9 +221,12 @@ object Logos {
             if (words.first() !in setOf("es", "esp", "spain")) branded = true
             words.removeAt(0)
         }
-        if (!branded && !name.contains("movistar", true)) return null
         val rest = words.filter { it !in QUALITY && it !in FEED }.joinToString(" ").replace("#", "").trim()
+        // «GOLF 2 FHD» sin marca: en las listas españolas es el de Movistar Plus+.
+        if (!branded && !name.contains("movistar", true) && !Regex("^golf( \\d+)?$").matches(rest)) return null
         if (rest.isEmpty() && hashtag) return null
+        // «M.PLUS SAT», «M+ HEVC»: el canal principal de Movistar Plus+.
+        if (rest.isEmpty()) return LOGOPEDIA + "0/07/Movistar_Plus%2B.svg/revision/latest/scale-to-width-down/700"
         for (m in MPLUS) {
             val hit = m.words.find(rest) ?: continue
             val tail = rest.removePrefix(hit.value).trim()
@@ -226,6 +234,51 @@ object Logos {
             val own = num?.let { m.numbered[it] }
             val base = LOGOPEDIA + (own ?: m.main) + "/revision/latest/scale-to-width-down/700"
             return if (num != null && own == null) "$base#b=$num&c=$MPLUS_GREEN" else base
+        }
+        return null
+    }
+
+    // ---------------- Logos pedidos uno a uno ----------------
+
+    /** Logos subidos al propio repositorio de la app (los que el usuario ha pasado). */
+    private const val OWN_LOGOS = "https://raw.githubusercontent.com/jesusvprado-cmd/MI-IPTV/main/logos/"
+    private fun tvl(path: String) = TV_LOGOS_RAW + "countries/spain/" + path
+    private fun lp(path: String, w: Int = 600) = LOGOPEDIA + path + "/revision/latest/scale-to-width-down/$w"
+
+    /** (expresión sobre el nombre limpio, logo, número opcional en ese color). Se prueba en orden. */
+    private class Pick(val re: Regex, val url: String, val numberColor: String? = null)
+
+    private val PICKS by lazy {
+        listOf(
+            Pick(Regex("^amc$"), OWN_LOGOS + "amc.png"),
+            Pick(Regex("^(telecinco|tele 5|t 5)$"), OWN_LOGOS + "telecinco.png"),
+            Pick(Regex("^hbo ?max\\b"), lp("b/b3/HBO_Max_%282025%29.svg")),
+            Pick(Regex("^fl?ix ?ole\\b"), lp("5/5a/FlixOl%C3%A9.svg"), "FFFFFF"),
+            Pick(Regex("^bbc top ?gear\\b|^top ?gear\\b"), lp("b/b1/BBC_TopGear_2021.svg")),
+            Pick(Regex("^bbc (series|history|historia|drama|documentales)$"), lp("d/d7/BBC_2021.svg")),
+            Pick(Regex("^warner( tv)?$"), lp("c/c7/WarnerTV_2021.svg")),
+            Pick(Regex("^(fdf|factoria de ficcion)$"), lp("4/42/Factor%C3%ADa_de_Ficci%C3%B3n.svg")),
+            Pick(Regex("^(a3 ?series|atreseries)$"), lp("8/81/Atreseries_2020.svg")),
+            Pick(Regex("^real madrid( tv)?$"), tvl("real-madrid-tv-es.png")),
+            Pick(Regex("^iberalia\\b"), tvl("iberalia-tv-es.png")),
+            Pick(Regex("^u ?beat$"), tvl("u-beat-es.png")),
+            Pick(Regex("^discovery( channel)?$"), lp("a/a8/Discovery_Channel_2019.svg")),
+            Pick(Regex("^dreamworks( channel)?$"), tvl("dreamworks-channel-es.png")),
+        )
+    }
+
+    private fun picked(name: String): String? {
+        val n = Normalizer.normalize(name, Normalizer.Form.NFKD).lowercase()
+            .replace(Regex("\\p{Mn}+"), "").replace(Regex("[^a-z0-9 ]"), " ")
+            .replace(Regex("([a-z])(\\d)"), "$1 $2").replace(Regex("\\s+"), " ").trim()
+        val words = n.split(' ').filter { it.isNotBlank() }.toMutableList()
+        while (words.isNotEmpty() && words.first() in setOf("es", "esp", "spain", "m", "movistar")) words.removeAt(0)
+        val all = words.filter { it !in QUALITY && it !in FEED && it != "avances" }
+        val num = all.lastOrNull()?.toIntOrNull()
+        val base = (if (num != null) all.dropLast(1) else all).joinToString(" ")
+        for (p in PICKS) {
+            if (!p.re.containsMatchIn(base)) continue
+            return if (num != null && num > 1 && p.numberColor != null) "${p.url}#b=$num&c=${p.numberColor}" else p.url
         }
         return null
     }
@@ -297,7 +350,7 @@ object Logos {
 
     /** Logos elegidos a mano para canales cuyo logo del banco está anticuado. */
     private val OVERRIDE = mapOf(
-        "telecinco" to "https://upload.wikimedia.org/wikipedia/commons/thumb/1/13/Telecinco_2024_Logo.svg/960px-Telecinco_2024_Logo.svg.png",
+        "telecinco" to OWN_LOGOS + "telecinco.png",
         // RTVE estrenó logos en 2026 (Logopedia).
         "tve1" to LOGOPEDIA + "b/b6/La_1_2026.svg/revision/latest/scale-to-width-down/600",
         "tve2" to LOGOPEDIA + "a/aa/La_2_2026.svg/revision/latest/scale-to-width-down/600",
@@ -476,12 +529,9 @@ object Logos {
         val paths = try {
             githubTree()
         } catch (e: Exception) {
-            try {
-                jsdelivrList()
-            } catch (e2: Exception) {
-                emptyList()
-            }
-        }
+            // Con la VPN GitHub suele limitar las consultas: se usa la lista que va dentro de la app.
+            bundledList()
+        }.ifEmpty { bundledList() }
         // Primero los archivos sin «hd», «uhd»...: así se prefiere el logo normal del canal.
         val sorted = paths.filter { it.endsWith(".png", true) }.sortedBy { if (hasQualityWord(it)) 1 else 0 }
         for (p in sorted) {
@@ -511,6 +561,13 @@ object Logos {
         // Si no se pudo leer el banco tv-logos (p. ej. GitHub limita las consultas con la VPN), no se guarda
         // el índice: así se vuelve a intentar al abrir la app otra vez.
         if (tv.isNotEmpty()) writeCache(cacheFile)
+    }
+
+    /** Lista de logos de tv-logos que va incluida en la app (por si GitHub no responde). */
+    private fun bundledList(): List<String> = try {
+        appCtx?.assets?.open("tvlogos.txt")?.bufferedReader()?.use { it.readLines() }?.filter { it.isNotBlank() } ?: emptyList()
+    } catch (e: Exception) {
+        emptyList()
     }
 
     private fun githubTree(): List<String> {
