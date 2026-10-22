@@ -135,7 +135,9 @@ private fun TopBar(restoring: Boolean) {
             Spacer(Modifier.width(12.dp))
             Clock()
             Spacer(Modifier.width(14.dp))
-            TopIcon(Icons.Filled.Settings, "Ajustes", "tab_settings") { UiState.push(Screen.Settings) }
+            // Con la VPN conectada, el círculo del centro de la rueda se pone verde.
+            val vpnOn = com.suso.miiptv.vpn.VpnManager.state == com.suso.miiptv.vpn.VpnManager.State.ON
+            TopIcon(Icons.Filled.Settings, "Ajustes", "tab_settings", centerDot = if (vpnOn) Color(0xFF4FD65A) else null) { UiState.push(Screen.Settings) }
         }
         Box(Modifier.fillMaxWidth().height(1.dp).background(C.divider))
     }
@@ -213,7 +215,7 @@ private fun TopTab(
 
 /** Icono del menú superior (Ajustes) con el mismo estilo que las secciones. */
 @Composable
-private fun TopIcon(icon: ImageVector, label: String, focusKey: String, onClick: () -> Unit) {
+private fun TopIcon(icon: ImageVector, label: String, focusKey: String, centerDot: Color? = null, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     // Igual que las secciones del menú: verde al momento cuando tiene el cursor.
     // El verde claro y el gris tienen casi la misma luminosidad: en un icono fino apenas se nota el cambio.
@@ -232,5 +234,7 @@ private fun TopIcon(icon: ImageVector, label: String, focusKey: String, onClick:
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, contentDescription = label, tint = color, modifier = Modifier.size(26.dp))
+        // Relleno del agujero central de la rueda (el icono mide 24 de lado y el agujero ~7 de diámetro).
+        if (centerDot != null) Box(Modifier.size(26.dp * 7.4f / 24f).clip(androidx.compose.foundation.shape.CircleShape).background(centerDot))
     }
 }
