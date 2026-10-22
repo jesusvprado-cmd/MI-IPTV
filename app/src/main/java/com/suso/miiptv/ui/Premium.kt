@@ -65,13 +65,14 @@ fun Modifier.shimmer(shape: RoundedCornerShape = RoundedCornerShape(8.dp)): Modi
     )
     this
         .clip(shape)
-        .background(Color(0xFF1C1C1C))
+        // Verde oscuro de fondo con un halo verde más claro que lo recorre.
+        .background(Color(0xFF0F2213))
         .drawWithContent {
             drawContent()
             val w = size.width
             drawRect(
                 Brush.linearGradient(
-                    listOf(Color.Transparent, Color(0x22FFFFFF), Color.Transparent),
+                    listOf(Color.Transparent, Color(0x3398E486), Color.Transparent),
                     start = Offset(w * x - w * 0.5f, 0f),
                     end = Offset(w * x + w * 0.5f, size.height),
                 )
