@@ -308,6 +308,9 @@ fun SettingsScreen(onChangeList: () -> Unit) {
                         focusKey = "set_side_${s.name}",
                         requester = sideFrs.getValue(s),
                         // «Acerca de»: la «i» en rojo si hay una versión nueva por instalar.
+                        // VPN conectada: la «v» del escudo en verde.
+                        overlay = if (s == Sec.VPN && VpnManager.state == VpnManager.State.ON) SIcons.shieldCheck else null,
+                        overlayColor = Color(0xFF34C759),
                         iconColor = if (s == Sec.ABOUT && com.suso.miiptv.data.Updater.available != null) Color(0xFFE53935) else null,
                         onFocused = {
                             val now = System.currentTimeMillis()
