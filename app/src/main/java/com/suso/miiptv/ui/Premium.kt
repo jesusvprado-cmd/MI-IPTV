@@ -215,6 +215,16 @@ fun BoxScope.PosterBadges(item: Item?) {
     val q = remember(item.key) { qualityOf(item) }
     val r = remember(item.key, item.rating) { ratingOf(item) }
     val n = remember(item.key, item.added) { isNew(item) }
+    // Ya vista: un ✓ verde discreto arriba a la izquierda.
+    val pv = com.suso.miiptv.data.Repo.prefs.version
+    val seen = remember(item.key, pv) { com.suso.miiptv.data.Repo.prefs.isWatched(item.key) }
+    if (seen) {
+        Box(
+            Modifier.align(Alignment.TopStart).padding(6.dp).size(20.dp)
+                .clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xCC000000)),
+            contentAlignment = Alignment.Center,
+        ) { Text("✓", color = C.gold, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold) }
+    }
     // Novedad: circulito amarillo con una «N», discreto, abajo a la derecha.
     if (n) {
         Box(

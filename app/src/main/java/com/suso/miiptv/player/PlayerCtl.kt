@@ -638,6 +638,22 @@ class PlayerCtl(ctx: Context) {
     private val commitScrubRunnable = Runnable { commitScrub() }
 
     /** Avance: se mueve la marca y se ve el minuto; el salto se hace al parar o con OK. */
+    /** Salta directamente (sin la barra de avance), p. ej. para saltar la intro. */
+    fun skipBy(ms: Long) {
+        val d = player.duration
+        val t = (player.currentPosition + ms).let { if (d > 0) it.coerceAtMost(d - 1000) else it }.coerceAtLeast(0)
+        player.seekTo(t)
+        position = t
+    }
+
+    /** Pasa al siguiente de la lista (siguiente episodio), donde se dejó si ya se había empezado. */
+    fun playNext(): Boolean {
+        if (current.live || index >= items.lastIndex) return false
+        val next = index + 1
+        play(next, Repo.prefs.progress(items[next].key)?.pos ?: 0L)
+        return true
+    }
+
     fun scrubBy(ms: Long) {
         if (current.live) return
         val d = player.duration

@@ -436,6 +436,10 @@ fun MovieDetailScreen(item: Item) {
                                 Actions.toggleFav(ctx, item)
                             }
                             det.trailer?.let { t -> TvButton("Tráiler", "d_trailer") { Actions.openTrailer(ctx, t) } }
+                            val seen = remember(pv) { Repo.prefs.isWatched(item.key) }
+                            TvButton(if (seen) "✓ Vista" else "Marcar vista", "d_seen") {
+                                Repo.prefs.setWatched(item.key, !seen)
+                            }
                         }
                     }
                 }
@@ -598,7 +602,16 @@ fun SeriesDetailScreen(item: Item) {
                             this.itemsIndexed(eps, key = { _, ep -> "e${ep.id}" }) { i, ep ->
                                 val p = Repo.prefs.progress(epKey(item.id, ep))
                                 Box(Modifier.animateItem().fillMaxWidth(0.62f).padding(start = 48.dp, end = 16.dp).then(clearPreview)) {
-                                    EpisodeRow(ep, p, "ep_${ep.id}") { playEpisodes(eps, i) }
+                                    val k = epKey(item.id, ep)
+                                    EpisodeRow(
+                                        ep, p, "ep_${ep.id}",
+                                        watched = remember(pv, k) { Repo.prefs.isWatched(k) },
+                                        onLong = {
+                                            val on = !Repo.prefs.isWatched(k)
+                                            Repo.prefs.setWatched(k, on)
+                                            Actions.toast(ctx, if (on) "Marcado como visto" else "Marcado como no visto")
+                                        },
+                                    ) { playEpisodes(eps, i) }
                                 }
                             }
                         }
@@ -649,7 +662,7 @@ private fun SeasonRow(season: Int, count: Int, expanded: Boolean, onClick: () ->
 }
 
 @Composable
-private fun EpisodeRow(ep: Episode, progress: Prefs.Progress?, focusKey: String, onClick: () -> Unit) {
+private fun EpisodeRow(ep: Episode, progress: Prefs.Progress?, focusKey: String, watched: Boolean = false, onLong: (() -> Unit)? = null, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(6.dp)
     Row(
@@ -657,7 +670,7 @@ private fun EpisodeRow(ep: Episode, progress: Prefs.Progress?, focusKey: String,
             .fillMaxWidth()
             .padding(start = 26.dp)
             .memFocus(focusKey) { focused = it }
-            .tvClick(onClick = onClick)
+            .tvClick(onLongClick = onLong, onClick = onClick)
             .clip(shape)
             .background(if (focused) Color(0xFF2A2A2A) else Color.Transparent)
             .then(if (focused) Modifier.border(1.5.dp, C.gold, shape) else Modifier)
@@ -666,7 +679,10 @@ private fun EpisodeRow(ep: Episode, progress: Prefs.Progress?, focusKey: String,
     ) {
         Text("${ep.number}", color = C.gold, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(38.dp))
         Column(Modifier.weight(1f)) {
-            Text(ep.title, color = Color.White, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(ep.title, color = if (watched) C.text2 else Color.White, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                if (watched) Text("  ✓ visto", color = C.gold, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            }
             if (progress != null && progress.dur > 0) {
                 Spacer(Modifier.height(4.dp))
                 Box(Modifier.fillMaxWidth(0.5f).height(3.dp).background(Color(0xFF444444))) {

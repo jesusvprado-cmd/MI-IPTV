@@ -348,8 +348,27 @@ class Prefs(ctx: Context) {
 
     fun progress(key: String): Progress? = progressList().firstOrNull { it.play.key == key }
 
+    // ---------- Vistos ----------
+
+    private var watchedSet: MutableSet<String>? = null
+
+    private fun watched(): MutableSet<String> =
+        watchedSet ?: (sp.getStringSet("watched", emptySet())?.toMutableSet() ?: mutableSetOf()).also { watchedSet = it }
+
+    fun isWatched(key: String): Boolean = key in watched()
+
+    fun setWatched(key: String, on: Boolean) {
+        val w = watched()
+        if ((key in w) == on) return
+        if (on) w.add(key) else w.remove(key)
+        sp.edit().putStringSet("watched", HashSet(w)).apply()
+        bump()
+    }
+
     fun saveProgress(play: PlayItem, pos: Long, dur: Long) {
         if (play.live || dur <= 0) return
+        // Casi terminado: queda como visto.
+        if (pos >= dur * 0.92) setWatched(play.key, true)
         val l = progressList().filterNot { it.play.key == play.key }.toMutableList()
         if (pos > 30_000 && pos < dur * 0.95) l.add(0, Progress(play, pos, dur, System.currentTimeMillis()))
         while (l.size > 40) l.removeAt(l.lastIndex)

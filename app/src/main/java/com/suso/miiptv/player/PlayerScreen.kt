@@ -199,6 +199,8 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
 
     BackHandler {
         when {
+            showNext -> nextDismissed = true
+            showIntro && !overlay -> introDone = true
             padOpen -> {
                 padOpen = false
                 typed = ""
@@ -213,10 +215,24 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
 
     fun step(repeat: Int): Long = ctl.seekStepMs(repeat)
 
+    // Siguiente episodio: aviso en los últimos 25 segundos (OK lo empieza ya; si no, empieza solo al terminar).
+    val hasNext = !item.live && ctl.index < ctl.items.lastIndex
+    var nextDismissed by remember(ctl.index) { mutableStateOf(false) }
+    val remaining = ctl.duration - ctl.position
+    val showNext = hasNext && !nextDismissed && ctl.duration > 120_000 && remaining in 1..25_000 && ctl.error == null && ctl.scrubPos == null
+    // Saltar la intro: en los episodios, durante los primeros minutos.
+    var introDone by remember(ctl.index) { mutableStateOf(false) }
+    val showIntro = item.key.startsWith("EP|") && !introDone && ctl.position in 5_000..150_000 && ctl.scrubPos == null && ctl.error == null
+
     fun shortOk() {
         when {
             ctl.commitScrub() -> show()
             ctl.error != null -> ctl.retry()
+            showNext -> ctl.playNext()
+            showIntro && !overlay -> {
+                introDone = true
+                ctl.skipBy(85_000)
+            }
             item.live -> if (overlay) toggleFav() else show()
             else -> {
                 ctl.togglePlay()
@@ -406,6 +422,27 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
                 listOpen = false
                 if (i != ctl.index) ctl.play(i, 0)
             }, onClose = { listOpen = false })
+        }
+
+        if (showNext) {
+            val nextTitle = ctl.items[ctl.index + 1].title
+            Column(
+                Modifier.align(Alignment.BottomEnd).padding(end = 40.dp, bottom = if (overlay) 150.dp else 40.dp)
+                    .width(360.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xEE0B140D))
+                    .border(1.dp, C.gold.copy(alpha = 0.5f), RoundedCornerShape(14.dp)).padding(18.dp),
+            ) {
+                Text("Siguiente episodio en ${(remaining / 1000).coerceAtLeast(0)} s", color = C.gold, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                Text(nextTitle, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.height(8.dp))
+                Text("OK: verlo ya  ·  Atrás: quedarse", color = C.text2, fontSize = 13.sp)
+            }
+        } else if (showIntro && !overlay) {
+            Text(
+                "OK · Saltar intro  ⏭", color = Color.Black, fontSize = 16.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 40.dp, bottom = 40.dp)
+                    .clip(RoundedCornerShape(10.dp)).background(C.gold).padding(horizontal = 18.dp, vertical = 10.dp),
+            )
         }
 
         // Número que se está tecleando con el mando.
