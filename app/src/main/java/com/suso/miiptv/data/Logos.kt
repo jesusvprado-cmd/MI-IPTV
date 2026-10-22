@@ -252,6 +252,7 @@ object Logos {
         listOf(
             Pick(Regex("^amc$"), OWN_LOGOS + "amc.png"),
             Pick(Regex("^(telecinco|tele 5|t 5)$"), OWN_LOGOS + "telecinco.png"),
+            Pick(Regex("^aragon( tv| television)?( int| internacional)?$"), OWN_LOGOS + "aragon-tv.png"),
             Pick(Regex("^hbo ?max\\b"), lp("b/b3/HBO_Max_%282025%29.svg")),
             Pick(Regex("^fl?ix ?ole\\b"), lp("5/5a/FlixOl%C3%A9.svg"), "FFFFFF"),
             Pick(Regex("^bbc top ?gear\\b|^top ?gear\\b"), lp("b/b1/BBC_TopGear_2021.svg")),
