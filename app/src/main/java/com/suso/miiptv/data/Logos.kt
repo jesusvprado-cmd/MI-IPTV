@@ -311,7 +311,7 @@ object Logos {
             Pick(Regex("^(sy ?fy|sci ?fi)$"), OWN_LOGOS + "syfy.png", onWhite = true),
             Pick(Regex("^real madrid( tv)?$"), tvl("real-madrid-tv-es.png")),
             Pick(Regex("^iberalia\\b"), tvl("iberalia-tv-es.png")),
-            Pick(Regex("^u ?beat$"), tvl("u-beat-es.png")),
+            Pick(Regex("^u ?beat( tv)?$"), OWN_LOGOS + "ubeat.png", onWhite = true),
             Pick(Regex("^discovery( channel)?$"), lp("a/a8/Discovery_Channel_2019.svg")),
             Pick(Regex("^dreamworks( channel)?$"), tvl("dreamworks-channel-es.png")),
         )
