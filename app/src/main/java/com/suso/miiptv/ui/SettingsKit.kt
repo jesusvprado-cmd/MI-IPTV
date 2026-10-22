@@ -100,7 +100,9 @@ fun SideItem(
     // Sin recuadro: la sección activa se marca con la línea, el icono en verde y el texto en blanco.
     // Con el cursor en el menú solo se marca la que tiene el cursor (nunca dos a la vez); si no, la sección abierta.
     val active = if (cursorInMenu) focused else selected
-    val fg = if (active) Color.White else C.text2
+    val fg = if (active) Color.White else Color(0xFF8A8A8A)
+    // Verde vivo con el cursor en el menú; aún más intenso cuando ya estás dentro de las opciones de esa sección.
+    val accent = if (cursorInMenu) Color(0xFF8FE27C) else Color(0xFF4FD65A)
     Row(
         Modifier
             .fillMaxWidth()
@@ -115,11 +117,11 @@ fun SideItem(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Línea vertical verde a la izquierda de la sección activa (donde está el cursor).
-        val bar = if (active) 3.dp else 0.dp
-        Box(Modifier.width(bar).height(26.dp).clip(RoundedCornerShape(2.dp)).background(C.gold))
+        val bar = if (active) (if (cursorInMenu) 3.dp else 4.dp) else 0.dp
+        Box(Modifier.width(bar).height(26.dp).clip(RoundedCornerShape(2.dp)).background(accent))
         Spacer(Modifier.width(14.dp - bar))
         Box(Modifier.size(22.dp)) {
-            Icon(icon, contentDescription = null, tint = iconColor ?: if (active) C.gold else C.text2, modifier = Modifier.size(22.dp))
+            Icon(icon, contentDescription = null, tint = iconColor ?: if (active) accent else Color(0xFF8A8A8A), modifier = Modifier.size(22.dp))
             if (overlay != null) Icon(overlay, contentDescription = null, tint = overlayColor, modifier = Modifier.size(22.dp))
         }
         Spacer(Modifier.width(14.dp))
