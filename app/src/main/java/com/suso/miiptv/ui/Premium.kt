@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -213,8 +214,15 @@ fun BoxScope.PosterBadges(item: Item?) {
     val q = remember(item.key) { qualityOf(item) }
     val r = remember(item.key, item.rating) { ratingOf(item) }
     val n = remember(item.key, item.added) { isNew(item) }
-    Column(Modifier.align(Alignment.TopStart).padding(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        if (n) Pill("NUEVO", C.gold, Color.Black)
+    // Novedad: circulito amarillo con una «N», discreto, abajo a la derecha.
+    if (n) {
+        Box(
+            Modifier.align(Alignment.BottomEnd).padding(6.dp).size(18.dp)
+                .clip(androidx.compose.foundation.shape.CircleShape).background(C.gold),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("N", color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 11.sp)
+        }
     }
     if (q != null) Pill(q, Color(0xCC000000), Color.White, Modifier.align(Alignment.TopEnd).padding(6.dp))
     if (r != null) Pill("★ $r", Color(0xCC000000), C.gold, Modifier.align(Alignment.BottomStart).padding(6.dp))
