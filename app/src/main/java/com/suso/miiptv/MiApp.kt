@@ -13,6 +13,8 @@ import com.suso.miiptv.vpn.VpnManager
 class MiApp : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
+        com.suso.miiptv.data.ErrorLog.init(this)
+        com.suso.miiptv.data.Perf.init(this)
         Repo.init(this)
         VpnManager.init(this)
         VpnManager.autoStart()
@@ -33,7 +35,8 @@ class MiApp : Application(), ImageLoaderFactory {
                     }
                 }.build()
             }
-            .crossfade(true)
+            // En modo ligero, sin fundido al cargar las imágenes.
+            .crossfade(!com.suso.miiptv.data.Perf.light)
             .respectCacheHeaders(false)
             .memoryCache { MemoryCache.Builder(this).maxSizePercent(0.20).build() }
             .diskCache {

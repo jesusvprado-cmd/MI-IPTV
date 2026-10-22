@@ -499,6 +499,7 @@ class PlayerCtl(ctx: Context) {
             }, 2000L * retries)
             return
         }
+        com.suso.miiptv.data.ErrorLog.add("Reproducción («${it.title}»): ${e.errorCodeName} (${e.message ?: "sin detalle"})")
         // Directo que no hay manera de abrir: plan B con la VPN antes de dar el error.
         if (it.live && code in 2000..2999 && tryVpnFallback()) return
         buffering = false

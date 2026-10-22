@@ -63,7 +63,7 @@ fun MainScreen() {
     val restoring = remember { FocusMemory.restore != null }
     Box(Modifier.fillMaxSize().background(C.bg)) {
     // Fondo que toma el color de la carátula con el foco (Inicio, Películas y Series).
-    AmbientBackground(enabled = UiState.tab == Tab.HOME || UiState.tab == Tab.MOVIES || UiState.tab == Tab.SERIES)
+    AmbientBackground(enabled = !com.suso.miiptv.data.Perf.light && (UiState.tab == Tab.HOME || UiState.tab == Tab.MOVIES || UiState.tab == Tab.SERIES))
     val mainCtx = androidx.compose.ui.platform.LocalContext.current
     Column(Modifier.fillMaxSize()) {
         TopBar(restoring)

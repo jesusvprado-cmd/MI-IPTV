@@ -100,6 +100,11 @@ class Prefs(ctx: Context) {
         saveProfiles(profiles().filter { it.id != id })
     }
 
+    /** Modo ligero (menos animaciones): auto, on, off. Se aplica al volver a abrir la app. */
+    var lightMode: String
+        get() = str("light_mode", "auto")
+        set(v) = putStr("light_mode", v)
+
     /** Preguntar «¿Quién está viendo?» al abrir la app (si hay más de un perfil). */
     var askProfile: Boolean
         get() = sp.getBoolean("ask_profile", true)

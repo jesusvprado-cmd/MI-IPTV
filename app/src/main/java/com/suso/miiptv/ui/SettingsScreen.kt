@@ -104,6 +104,7 @@ private val SUB_SIZE = listOf("Pequeño" to "s", "Normal" to "m", "Grande" to "l
 private val SUB_COLOR = listOf("Blanco" to "white", "Amarillo" to "yellow")
 private val SUB_BG = listOf("Sin fondo (contorno)" to "none", "Franja oscura" to "band")
 private val VPN_MODE = listOf("Desactivada" to "off", "WARP de Cloudflare" to "warp", "Mi WireGuard (.conf)" to "wg")
+private val LIGHT = listOf("Automático" to "auto", "Activado" to "on", "Desactivado" to "off")
 private val LIVE_FMT = listOf("TS (recomendado)" to "ts", "HLS (m3u8)" to "m3u8")
 
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
@@ -197,6 +198,59 @@ fun SettingsScreen(onChangeList: () -> Unit) {
     var urlDialog by remember { mutableStateOf(false) }
     var epgUrlDialog by remember { mutableStateOf(false) }
     var nameDialog by remember { mutableStateOf<Int?>(null) }
+    var logOpen by remember { mutableStateOf(false) }
+
+    // ---- Copia de seguridad ----
+    fun doBackup() {
+        scope.launch {
+            try {
+                val f = io { com.suso.miiptv.data.Backup.export(ctx) }
+                Actions.toast(ctx, "Copia guardada en Download/${f.name}")
+            } catch (e: Exception) {
+                Actions.toast(ctx, "No se pudo guardar la copia: ${e.message ?: "error"}")
+            }
+        }
+    }
+    val writePerm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        if (ok) doBackup() else Actions.toast(ctx, "Sin permiso no se puede guardar en la carpeta Download")
+    }
+    fun backup() {
+        if (Build.VERSION.SDK_INT <= 28 &&
+            ContextCompat.checkSelfPermission(ctx, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
+        ) writePerm.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE) else doBackup()
+    }
+    fun doRestore() {
+        val d = com.suso.miiptv.data.Backup.date()
+        if (d == null) {
+            Actions.toast(ctx, "No hay ninguna copia en la carpeta Download")
+            return
+        }
+        val fecha = java.text.SimpleDateFormat("d/M/yyyy HH:mm", java.util.Locale("es", "ES")).format(java.util.Date(d))
+        ask("¿Restaurar la copia del $fecha?", listOf("Sí, restaurar (la app se reinicia)" to true, "No" to false), false) { yes ->
+            if (!yes) return@ask
+            try {
+                com.suso.miiptv.data.Backup.restore(ctx)
+                val i = ctx.packageManager.getLaunchIntentForPackage(ctx.packageName)
+                    ?.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                if (i != null) ctx.startActivity(i)
+                Runtime.getRuntime().exit(0)
+            } catch (e: Exception) {
+                Actions.toast(ctx, e.message ?: "No se pudo restaurar la copia")
+            }
+        }
+    }
+    val readPerm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        if (ok) doRestore() else Actions.toast(ctx, "Sin permiso no se puede leer la carpeta Download")
+    }
+    fun restore() {
+        if (Build.VERSION.SDK_INT <= 32 &&
+            ContextCompat.checkSelfPermission(ctx, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
+        ) readPerm.launch(Manifest.permission.READ_EXTERNAL_STORAGE) else doRestore()
+    }
+    if (logOpen) {
+        ErrorLogView { logOpen = false }
+        return
+    }
     val openDoc = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) {
             scope.launch {
@@ -404,7 +458,9 @@ fun SettingsScreen(onChangeList: () -> Unit) {
                         Sec.EPG -> item(key = "epg") {
                             EpgSection(ask = { t, o, sel, f -> ask(t, o, sel, f) }, onUrl = { epgUrlDialog = true })
                         }
-                        Sec.ABOUT -> item(key = "about") { Column { AboutSection() } }
+                        Sec.ABOUT -> item(key = "about") {
+                            Column { AboutSection(onLog = { logOpen = true }, onBackup = { backup() }, onRestore = { restore() }) }
+                        }
                     }
                 }
                 }
@@ -633,6 +689,14 @@ private fun VideoSection(ask: Ask) {
             "Ajustar la frecuencia de la pantalla", "set_afr", p.afr,
             subtitle = "Cambia a 24, 25, 50 o 60 Hz según el vídeo, si tu tele lo permite",
         ) { p.afr = it }
+        SettingRow(
+            "Modo ligero", "set_light",
+            subtitle = "Menos animaciones y efectos para que vaya más fluida en aparatos modestos. Se aplica al volver a abrir la app" +
+                if (p.lightMode == "auto") (if (com.suso.miiptv.data.Perf.isWeak(LocalContext.current)) " (este aparato: activado)" else " (este aparato: desactivado)") else "",
+            value = label(LIGHT, p.lightMode),
+        ) {
+            ask.of("Modo ligero", LIGHT, p.lightMode) { p.lightMode = it }
+        }
         GroupLabel("Reproducción")
         SettingRow("Búfer", "set_buf", subtitle = "Más alto: menos cortes, pero tarda más en arrancar", value = label(BUFFER, p.bufferMode)) {
             ask.of("Búfer", BUFFER, p.bufferMode) { p.bufferMode = it }
@@ -778,7 +842,7 @@ private fun ContentSection() {
 }
 
 @Composable
-private fun AboutSection() {
+private fun AboutSection(onLog: () -> Unit, onBackup: () -> Unit, onRestore: () -> Unit) {
     val ctx = LocalContext.current
     val version = remember {
         try {
@@ -826,6 +890,56 @@ private fun AboutSection() {
             checking = false
             if (has) com.suso.miiptv.data.Updater.dismissed = false
             else Actions.toast(ctx, "Ya tienes la última versión")
+        }
+    }
+    GroupLabel("Copia de seguridad")
+    val last = remember { com.suso.miiptv.data.Backup.date() }
+    SettingRow(
+        "Guardar copia de seguridad", "set_backup",
+        subtitle = "Lista, ajustes, perfiles, favoritos y vistos en Download/${com.suso.miiptv.data.Backup.FILE_NAME}",
+        chevron = false,
+    ) { onBackup() }
+    SettingRow(
+        "Restaurar copia de seguridad", "set_restore",
+        subtitle = last?.let { "Copia del " + java.text.SimpleDateFormat("d/M/yyyy HH:mm", java.util.Locale("es", "ES")).format(java.util.Date(it)) }
+            ?: "Busca la copia en la carpeta Download",
+        chevron = false,
+    ) { onRestore() }
+    GroupLabel("Problemas")
+    SettingRow("Registro de errores", "set_log", subtitle = "Lo último que ha fallado, para poder enseñármelo") { onLog() }
+}
+
+/** Pantalla con el registro de errores. */
+@Composable
+private fun ErrorLogView(onClose: () -> Unit) {
+    val text = remember { com.suso.miiptv.data.ErrorLog.read() }
+    val fr = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        delay(80)
+        runCatching { fr.requestFocus() }
+    }
+    BackHandler { onClose() }
+    Column(Modifier.fillMaxSize().background(C.bg).padding(40.dp)) {
+        Text("Registro de errores", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Text(com.suso.miiptv.data.ErrorLog.device(), color = C.text2, fontSize = 13.sp)
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            TvButton("Cerrar", "log_close", focusRequester = fr) { onClose() }
+            TvButton("Borrar registro", "log_clear") {
+                com.suso.miiptv.data.ErrorLog.clear()
+                onClose()
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+        Box(
+            Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(10.dp)).background(S.panel)
+                .verticalScroll(rememberScrollState(Int.MAX_VALUE)).padding(16.dp)
+        ) {
+            Text(
+                text.ifBlank { "No hay errores registrados." },
+                color = Color(0xFFDDDDDD), fontSize = 12.sp, lineHeight = 16.sp,
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+            )
         }
     }
 }

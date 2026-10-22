@@ -150,6 +150,15 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
     val pv = Repo.prefs.version
     val fav = remember(pv, ctl.index) { ctl.isFavorite() }
 
+    // Siguiente episodio: aviso en los últimos 25 segundos (OK lo empieza ya; si no, empieza solo al terminar).
+    val hasNext = !item.live && ctl.index < ctl.items.lastIndex
+    var nextDismissed by remember(ctl.index) { mutableStateOf(false) }
+    val remaining = ctl.duration - ctl.position
+    val showNext = hasNext && !nextDismissed && ctl.duration > 120_000 && remaining in 1..25_000 && ctl.error == null && ctl.scrubPos == null
+    // Saltar la intro: en los episodios, durante los primeros minutos.
+    var introDone by remember(ctl.index) { mutableStateOf(false) }
+    val showIntro = item.key.startsWith("EP|") && !introDone && ctl.position in 5_000..150_000 && ctl.scrubPos == null && ctl.error == null
+
     fun show() {
         overlay = true
         overlayTick++
@@ -222,15 +231,6 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
     }
 
     fun step(repeat: Int): Long = ctl.seekStepMs(repeat)
-
-    // Siguiente episodio: aviso en los últimos 25 segundos (OK lo empieza ya; si no, empieza solo al terminar).
-    val hasNext = !item.live && ctl.index < ctl.items.lastIndex
-    var nextDismissed by remember(ctl.index) { mutableStateOf(false) }
-    val remaining = ctl.duration - ctl.position
-    val showNext = hasNext && !nextDismissed && ctl.duration > 120_000 && remaining in 1..25_000 && ctl.error == null && ctl.scrubPos == null
-    // Saltar la intro: en los episodios, durante los primeros minutos.
-    var introDone by remember(ctl.index) { mutableStateOf(false) }
-    val showIntro = item.key.startsWith("EP|") && !introDone && ctl.position in 5_000..150_000 && ctl.scrubPos == null && ctl.error == null
 
     fun shortOk() {
         when {

@@ -57,6 +57,8 @@ import java.util.Locale
 
 /** Recuadro gris con un brillo que lo recorre, mientras se carga algo. */
 fun Modifier.shimmer(shape: RoundedCornerShape = RoundedCornerShape(8.dp)): Modifier = composed {
+    // Modo ligero: recuadro quieto, sin animación.
+    if (com.suso.miiptv.data.Perf.light) return@composed this.clip(shape).background(Color(0xFF0F2213))
     val t = rememberInfiniteTransition(label = "shimmer")
     val x by t.animateFloat(
         initialValue = -1f, targetValue = 2f,
