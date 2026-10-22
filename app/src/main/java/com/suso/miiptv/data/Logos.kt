@@ -300,6 +300,7 @@ object Logos {
     private val PICKS by lazy {
         listOf(
             Pick(Regex("^amc$"), OWN_LOGOS + "amc2.png", onWhite = true),
+            Pick(Regex("^(canal )?crimen(es)? reales?\\b"), OWN_LOGOS + "crimenesreales.png", onWhite = true),
             Pick(Regex("^bbc food$"), lp("5/51/BBC-FOOD.svg", 800), onWhite = true),
             Pick(Regex("^(canal )?hollywood\\b"), OWN_LOGOS + "hollywood.png", onWhite = true),
             Pick(Regex("^(nickelodeon|nick)$"), OWN_LOGOS + "nickelodeon.png", onWhite = true),
