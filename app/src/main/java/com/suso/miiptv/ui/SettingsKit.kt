@@ -88,6 +88,7 @@ fun SideItem(
     selected: Boolean,
     focusKey: String,
     requester: FocusRequester,
+    iconColor: Color? = null,
     onFocused: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
@@ -123,7 +124,7 @@ fun SideItem(
     ) {
         Box(Modifier.width(bar).fillMaxHeight().background(C.gold))
         Spacer(Modifier.width(14.dp))
-        Icon(icon, contentDescription = null, tint = if (focused) Color.Black else if (selected) C.gold else C.text2, modifier = Modifier.size(22.dp))
+        Icon(icon, contentDescription = null, tint = iconColor ?: if (focused) Color.Black else if (selected) C.gold else C.text2, modifier = Modifier.size(22.dp))
         Spacer(Modifier.width(14.dp))
         Text(label, color = fg, fontSize = 16.sp, fontWeight = if (selected || focused) FontWeight.SemiBold else FontWeight.Medium, maxLines = 1)
     }

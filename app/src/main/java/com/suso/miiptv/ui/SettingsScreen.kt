@@ -304,11 +304,11 @@ fun SettingsScreen(onChangeList: () -> Unit) {
                         selected = sec == s,
                         focusKey = "set_side_${s.name}",
                         requester = sideFrs.getValue(s),
+                        // «Acerca de»: la «i» en rojo si hay una versión nueva por instalar.
+                        iconColor = if (s == Sec.ABOUT && com.suso.miiptv.data.Updater.available != null) Color(0xFFE53935) else null,
                         onFocused = { if (System.currentTimeMillis() > ignoreSideUntil) pending = s },
                     )
                 }
-                Spacer(Modifier.weight(1f))
-                Text("◀ ▶ moverse  ·  OK elegir", color = Color(0xFF666666), fontSize = 12.sp, modifier = Modifier.padding(start = 8.dp))
             }
 
             // ---------------- Opciones de la sección ----------------
