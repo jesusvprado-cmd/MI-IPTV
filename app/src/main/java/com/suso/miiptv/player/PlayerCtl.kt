@@ -645,7 +645,9 @@ private fun badgesOf(video: Format?, audio: Format?): List<String> {
         }
         val m = audio.sampleMimeType ?: ""
         when {
-            m.contains("eac3", true) || m.contains("ac3", true) || m.contains("ac4", true) -> out += "Dolby"
+            m.contains("eac3-joc", true) -> out += "ATMOS"
+            m.contains("eac3", true) -> out += "DD+"
+            m.contains("ac3", true) || m.contains("ac4", true) -> out += "DOLBY"
             m.contains("dts", true) -> out += "DTS"
         }
     }

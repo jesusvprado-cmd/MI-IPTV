@@ -345,46 +345,6 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
             else VodOverlay(ctl, item)
         }
 
-        if (overlay) {
-            Box(
-                Modifier
-                    .align(Alignment.TopStart)
-                    .padding(20.dp)
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(Color(0x66000000))
-                    .focusProperties { canFocus = false }
-                    .clickable { onExit() },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Icons.Filled.Close, contentDescription = "Salir", tint = Color.White)
-            }
-            Row(
-                Modifier.align(Alignment.TopEnd).padding(top = 24.dp, end = 24.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    "Opciones",
-                    color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0x88000000))
-                        .focusProperties { canFocus = false }
-                        .clickable { tracksOpen = true }
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                )
-                if (item.live) {
-                    Text(
-                        hm(System.currentTimeMillis()),
-                        color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Color(0x88000000))
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                    )
-                }
-            }
-        }
-
         if (listOpen) {
             ChannelListPanel(ctl, onPick = { i ->
                 listOpen = false
@@ -416,7 +376,6 @@ private fun LiveOverlay(ctl: PlayerCtl, item: PlayItem, fav: Boolean, onFav: () 
     val next = ctl.epg.firstOrNull { it.start >= (cur?.end ?: now) }
     val number = item.channel?.num?.takeIf { it > 0 } ?: (ctl.index + 1)
     Box(Modifier.fillMaxSize()) {
-        TopInfo(ctl)
         Box(
             Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(280.dp)
                 .background(Brush.verticalGradient(0f to Color.Transparent, 0.35f to Color(0x99000000), 1f to Color(0xF2000000)))
@@ -441,6 +400,7 @@ private fun LiveOverlay(ctl: PlayerCtl, item: PlayItem, fav: Boolean, onFav: () 
                     Text("$number", color = C.gold, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.width(12.dp))
                     Text(item.title, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                    StreamBadges(ctl.streamBadges)
                     Spacer(Modifier.width(10.dp))
                     Icon(
                         if (fav) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
@@ -485,7 +445,6 @@ private fun LiveOverlay(ctl: PlayerCtl, item: PlayItem, fav: Boolean, onFav: () 
 @Composable
 private fun VodOverlay(ctl: PlayerCtl, item: PlayItem) {
     Box(Modifier.fillMaxSize()) {
-        TopInfo(ctl)
         Box(
             Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(320.dp)
                 .background(Brush.verticalGradient(0f to Color.Transparent, 0.35f to Color(0x99000000), 1f to Color(0xF2000000)))
@@ -504,7 +463,10 @@ private fun VodOverlay(ctl: PlayerCtl, item: PlayItem) {
                 Spacer(Modifier.width(22.dp))
             }
             Column(Modifier.weight(1f)) {
-                Text(item.title, color = C.gold, fontSize = 26.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(item.title, color = C.gold, fontSize = 26.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                    StreamBadges(ctl.streamBadges)
+                }
                 item.subtitle?.let {
                     Text(it, color = Color(0xFFDDDDDD), fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
@@ -833,26 +795,25 @@ private fun TrackRow(label: String, selected: Boolean, requestFocus: Boolean, on
     }
 }
 
-/** Parte de arriba del reproductor: calidad real de la emisión y la hora. */
+/** Etiquetas pequeñas junto al título (FHD, 5.1, DOLBY...): borde fino y texto blanco suave, legibles sobre cualquier imagen. */
 @Composable
-private fun TopInfo(ctl: PlayerCtl) {
-    Box(Modifier.fillMaxWidth().height(120.dp).background(Brush.verticalGradient(listOf(Color(0xAA000000), Color.Transparent))))
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 40.dp, vertical = 24.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.End,
-    ) {
-        ctl.streamBadges.forEach { b ->
-            val gold = b == "4K" || b == "HDR" || b == "Dolby"
+private fun StreamBadges(badges: List<String>) {
+    if (badges.isEmpty()) return
+    Row(Modifier.padding(start = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        badges.forEach { b ->
+            val sound = b == "DOLBY" || b == "DD+" || b == "ATMOS" || b == "DTS"
             Box(
-                Modifier.padding(end = 8.dp).clip(RoundedCornerShape(5.dp))
-                    .background(if (gold) C.gold else Color(0x33FFFFFF))
-                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                Modifier
+                    .clip(RoundedCornerShape(4.dp))
+                    .border(1.dp, Color.White.copy(alpha = 0.55f), RoundedCornerShape(4.dp))
+                    .padding(horizontal = 6.dp, vertical = 1.dp),
             ) {
-                Text(b, color = if (gold) Color.Black else Color.White, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+                Text(
+                    b, color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp,
+                    fontWeight = if (sound) FontWeight.ExtraBold else FontWeight.Bold,
+                    letterSpacing = if (sound) 1.sp else 0.5.sp,
+                )
             }
         }
-        Spacer(Modifier.width(10.dp))
-        Clock(26)
     }
 }
