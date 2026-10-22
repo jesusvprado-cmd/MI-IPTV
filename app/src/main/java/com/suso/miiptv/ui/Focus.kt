@@ -19,6 +19,8 @@ import kotlinx.coroutines.delay
  */
 object FocusMemory {
     var last: String? = null
+    /** El que tenía el foco antes de [last]. */
+    var prev: String? = null
     var restore: String? = null
 
     /** Elementos con [memFocus] que están en pantalla, por su clave (para devolverles el foco). */
@@ -49,7 +51,10 @@ fun Modifier.memFocus(key: String, onFocus: ((Boolean) -> Unit)? = null): Modifi
     return this
         .focusRequester(fr)
         .onFocusChanged { s ->
-            if (s.isFocused) FocusMemory.last = key
+            if (s.isFocused && FocusMemory.last != key) {
+                FocusMemory.prev = FocusMemory.last
+                FocusMemory.last = key
+            }
             onFocus?.invoke(s.isFocused)
         }
 }

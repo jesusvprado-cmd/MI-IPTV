@@ -131,6 +131,9 @@ fun SettingsScreen(onChangeList: () -> Unit) {
         }
     }
     var inPane by remember { mutableStateOf(false) }
+    // Momento en que el foco salió de las opciones: si justo después cae en otra sección del menú
+    // (porque desapareció la fila en la que estabas), no se cambia de sección.
+    var paneLeftAt by remember { mutableStateOf(0L) }
     var choice by remember { mutableStateOf<Choice<*>?>(null) }
 
     // Fila desde la que se abrió la ventana de elección: al cerrarla, el foco vuelve a ella.
@@ -306,7 +309,19 @@ fun SettingsScreen(onChangeList: () -> Unit) {
                         requester = sideFrs.getValue(s),
                         // «Acerca de»: la «i» en rojo si hay una versión nueva por instalar.
                         iconColor = if (s == Sec.ABOUT && com.suso.miiptv.data.Updater.available != null) Color(0xFFE53935) else null,
-                        onFocused = { if (System.currentTimeMillis() > ignoreSideUntil) pending = s },
+                        onFocused = {
+                            val now = System.currentTimeMillis()
+                            when {
+                                now <= ignoreSideUntil -> {}
+                                // Salto involuntario desde las opciones (◀ y Atrás siempre llevan a la sección actual).
+                                s != sec && now - paneLeftAt < 400 -> scope.launch {
+                                    delay(30)
+                                    val back = FocusMemory.prev?.takeIf { !it.startsWith("set_side_") }
+                                    if (!FocusMemory.focus(back)) runCatching { sideFrs.getValue(sec).requestFocus() }
+                                }
+                                else -> pending = s
+                            }
+                        },
                     )
                 }
             }
@@ -316,7 +331,10 @@ fun SettingsScreen(onChangeList: () -> Unit) {
                 Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .onFocusChanged { inPane = it.hasFocus }
+                    .onFocusChanged {
+                        if (inPane && !it.hasFocus) paneLeftAt = System.currentTimeMillis()
+                        inPane = it.hasFocus
+                    }
                     // ◀ desde las opciones vuelve a la sección en la que estabas, no a la que quede a la misma altura.
                     .focusProperties { exit = { d -> if (d == FocusDirection.Left) sideFrs.getValue(sec) else FocusRequester.Default } }
                     .focusGroup(),
@@ -468,10 +486,10 @@ private fun VpnSection(onMode: () -> Unit, onConnect: () -> Unit, onFile: () -> 
             subtitle = "Desactivado: la VPN solo se conecta cuando tú lo pidas",
         ) { p.vpnAuto = it }
         if (p.vpnMode != "off") {
-            if (vs == VpnManager.State.ON || vs == VpnManager.State.CONNECTING) {
-                SettingRow("Desconectar", "set_vpn_toggle", chevron = false) { VpnManager.disconnect() }
-            } else {
-                SettingRow("Conectar", "set_vpn_toggle", chevron = false) { onConnect() }
+            // Una sola fila que cambia de texto: así el foco se queda en ella al conectar o desconectar.
+            val connected = vs == VpnManager.State.ON || vs == VpnManager.State.CONNECTING
+            SettingRow(if (connected) "Desconectar" else "Conectar", "set_vpn_toggle", chevron = false) {
+                if (connected) VpnManager.disconnect() else onConnect()
             }
         }
         if (vs == VpnManager.State.ON) {
