@@ -310,19 +310,14 @@ fun ChannelCard(
 
 /** Fila de la columna de categorías de la izquierda. */
 @Composable
-fun CategoryRow(name: String, selected: Boolean, focusKey: String, onFocused: () -> Unit, onClick: () -> Unit) {
+fun CategoryRow(name: String, selected: Boolean, focusKey: String, onFocused: () -> Unit, cursorInMenu: Boolean = false, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
-    val rowBg by animateColorAsState(
-        when {
-            focused -> Color.White
-            selected -> C.sel
-            else -> Color.Transparent
-        },
-        Motion.focusSpec(),
-        label = "catbg",
-    )
-    val shape = RoundedCornerShape(8.dp)
-    Box(
+    // Como en Ajustes: sin recuadro, con una línea verde a la izquierda. Con el cursor en la lista solo se marca
+    // la categoría con el cursor (nunca dos a la vez); si estás en la cuadrícula, la categoría abierta, en verde más intenso.
+    val active = if (cursorInMenu) focused else selected
+    val accent = if (cursorInMenu) Color(0xFF8FE27C) else Color(0xFF4FD65A)
+    val bar = if (active) (if (cursorInMenu) 3.dp else 4.dp) else 0.dp
+    Row(
         Modifier
             .fillMaxWidth()
             .padding(vertical = 2.dp)
@@ -331,19 +326,20 @@ fun CategoryRow(name: String, selected: Boolean, focusKey: String, onFocused: ()
                 if (it) onFocused()
             }
             .tvClick(onClick = onClick)
-            .clip(shape)
-            .background(rowBg)
-            .padding(horizontal = 16.dp, vertical = 13.dp)
+            .height(46.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
+        Box(Modifier.width(bar).height(24.dp).clip(RoundedCornerShape(2.dp)).background(accent))
+        Spacer(Modifier.width(14.dp - bar))
         Text(
             name,
-            color = when {
-                focused -> Color.Black
-                selected -> Color.White
-                else -> Color(0xFFCFCFCF)
-            },
+            color = if (active) Color.White else Color(0xFF9A9A9A),
             fontSize = 15.sp,
-            fontWeight = if (selected || focused) FontWeight.SemiBold else FontWeight.Medium,
+            fontWeight = when {
+                active && focused -> FontWeight.ExtraBold
+                active -> FontWeight.SemiBold
+                else -> FontWeight.Medium
+            },
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )

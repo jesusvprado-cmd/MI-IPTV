@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -132,12 +133,15 @@ fun BrowseScreen(kind: Kind) {
         return i?.let { st.reqs[it] } ?: FocusRequester.Default
     }
 
+    // ¿Está el cursor en la lista de categorías? (para marcar solo una categoría a la vez)
+    var catsFocused by remember { mutableStateOf(false) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val narrow = maxWidth < 700.dp
         Row(Modifier.fillMaxSize()) {
             LazyColumn(
                 state = st.cats,
-                modifier = Modifier.width(if (narrow) 140.dp else 290.dp).fillMaxHeight(),
+                modifier = Modifier.width(if (narrow) 140.dp else 290.dp).fillMaxHeight()
+                    .onFocusChanged { catsFocused = it.hasFocus },
                 contentPadding = PaddingValues(start = if (narrow) 6.dp else 22.dp, end = 6.dp, top = 14.dp, bottom = 24.dp),
             ) {
                 itemsIndexed(allCats, key = { i, c -> "$i:${c.id}" }) { _, c ->
@@ -152,6 +156,7 @@ fun BrowseScreen(kind: Kind) {
                         selected = c.id == sel,
                         focusKey = "cat_${kind.name}_${c.id}",
                         onFocused = { pending = c.id },
+                        cursorInMenu = catsFocused,
                     ) {
                         pending = null
                         st.selected = c.id
