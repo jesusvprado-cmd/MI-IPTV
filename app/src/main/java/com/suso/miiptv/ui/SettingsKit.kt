@@ -205,11 +205,15 @@ fun ToggleRow(title: String, focusKey: String, checked: Boolean, subtitle: Strin
 @Composable
 private fun Switch(checked: Boolean, focused: Boolean) {
     // Minimalista: el mismo carril gris siempre; círculo blanco a la izquierda (apagado) o verde a la derecha (encendido).
-    val track = if (focused) Color(0xFF9E9E9E) else Color(0xFF555555)
+    val track = if (focused) Color(0xFFB5B5B5) else Color(0xFF6E6E6E)
     val knob by animateColorAsState(if (checked) C.fav else Color.White, Motion.focusSpec(), label = "knobc")
     val x by animateDpAsState(if (checked) 20.dp else 0.dp, Motion.focusSpec(), label = "knob")
     Box(Modifier.width(44.dp).height(24.dp).clip(RoundedCornerShape(12.dp)).background(track).padding(3.dp)) {
-        Box(Modifier.offset(x = x).size(18.dp).clip(CircleShape).background(knob))
+        // Borde fino para que el círculo se vea entero también sobre la fila blanca (con el cursor encima).
+        Box(
+            Modifier.offset(x = x).size(18.dp).clip(CircleShape).background(knob)
+                .border(1.dp, Color.Black.copy(alpha = if (focused) 0.28f else 0.12f), CircleShape)
+        )
     }
 }
 
