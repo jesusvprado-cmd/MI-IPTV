@@ -137,6 +137,13 @@ private fun TopBar(restoring: Boolean) {
                 }
             }
             Spacer(Modifier.width(12.dp))
+            // Perfil en uso (solo si hay varios).
+            val profPv = com.suso.miiptv.data.Repo.prefs.version
+            val profs = remember(profPv) { com.suso.miiptv.data.Repo.prefs.profiles() }
+            if (profs.size > 1) {
+                ProfileAvatar(com.suso.miiptv.data.Repo.prefs.currentProfile(), 26.dp)
+                Spacer(Modifier.width(12.dp))
+            }
             Clock()
             Spacer(Modifier.width(14.dp))
             // Con la VPN conectada, el círculo del centro de la rueda se pone verde.

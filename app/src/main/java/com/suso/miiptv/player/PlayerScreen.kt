@@ -171,6 +171,14 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
     LaunchedEffect(Unit) {
         while (true) {
             ctl.tick()
+            // Temporizador de apagado.
+            val end = SleepTimer.endAt
+            if (end > 0 && System.currentTimeMillis() >= end) {
+                SleepTimer.endAt = 0L
+                ctl.player.pause()
+                Toast.makeText(ctx, "Temporizador: reproducción detenida", Toast.LENGTH_LONG).show()
+                onExit()
+            }
             delay(500)
         }
     }
@@ -906,6 +914,11 @@ private fun OptionsPanel(
         if (!ctl.current.live) {
             TrackRow("Velocidad: ${speedLabel(ctl.speed)}", false, requestFocus = false) { ctl.nextSpeed() }
         }
+        val left = SleepTimer.minutesLeft()
+        TrackRow(
+            "Temporizador de apagado: " + if (left > 0) "quedan $left min" else "desactivado",
+            false, requestFocus = false,
+        ) { SleepTimer.cycle() }
         // Canal que guarda lo emitido: empezar el programa actual desde el principio (p. ej. un partido ya empezado).
         val ch = ctl.current.channel
         val nowMs = System.currentTimeMillis()

@@ -39,6 +39,23 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.util.Locale
 
+/** Temporizador de apagado: a la hora indicada se para la reproducción. */
+object SleepTimer {
+    var endAt by mutableLongStateOf(0L)
+
+    /** Minutos que quedan (0 si está desactivado). */
+    fun minutesLeft(): Int = if (endAt <= 0) 0 else (((endAt - System.currentTimeMillis()) + 59_999) / 60_000).toInt().coerceAtLeast(0)
+
+    /** Desactivado → 30 → 60 → 90 → 120 min → desactivado. */
+    fun cycle() {
+        val steps = listOf(30, 60, 90, 120)
+        val left = minutesLeft()
+        val next = steps.firstOrNull { it > left + 1 }
+        endAt = if (endAt <= 0) System.currentTimeMillis() + 30 * 60_000L
+        else if (next == null) 0L else System.currentTimeMillis() + next * 60_000L
+    }
+}
+
 /** Cola de reproducción que se pasa del menú al reproductor. */
 object PlayQueue {
     var items: List<PlayItem> = emptyList()

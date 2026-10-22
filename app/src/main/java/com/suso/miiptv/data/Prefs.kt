@@ -28,9 +28,84 @@ class Prefs(ctx: Context) {
     }
 
     var lastLive: String?
-        get() = sp.getString("lastLive", null)
+        get() = sp.getString(pk("lastLive"), null)
         set(v) {
-            sp.edit().putString("lastLive", v).apply()
+            sp.edit().putString(pk("lastLive"), v).apply()
+        }
+
+    // ---------- Perfiles (cada uno con sus favoritos, «Continuar viendo», vistos, recordatorios e idiomas) ----------
+
+    data class Profile(val id: Int, val name: String, val color: Long)
+
+    private val PROFILE_COLORS = listOf(0xFF4FD65AL, 0xFF4FA3F7L, 0xFFF2994AL, 0xFFE0579CL, 0xFFB57BF2L, 0xFFF2D04AL)
+
+    /** Perfil activo (0 = el principal, que usa los datos de siempre). */
+    var profileId: Int = sp.getInt("profile", 0)
+        private set
+
+    /** Clave de un dato propio del perfil activo. */
+    private fun pk(k: String): String = if (profileId == 0) k else "p${profileId}_$k"
+
+    fun profiles(): List<Profile> {
+        val l = mutableListOf<Profile>()
+        runCatching {
+            val a = JSONArray(sp.getString("profiles", "[]"))
+            for (i in 0 until a.length()) {
+                val o = a.optJSONObject(i) ?: continue
+                l.add(Profile(o.optInt("id"), o.optString("name"), o.optLong("color")))
+            }
+        }
+        if (l.none { it.id == 0 }) l.add(0, Profile(0, "Principal", PROFILE_COLORS[0]))
+        return l
+    }
+
+    private fun saveProfiles(l: List<Profile>) {
+        val a = JSONArray()
+        l.forEach { a.put(JSONObject().put("id", it.id).put("name", it.name).put("color", it.color)) }
+        sp.edit().putString("profiles", a.toString()).apply()
+        settingsVersion++
+        bump()
+    }
+
+    fun currentProfile(): Profile = profiles().firstOrNull { it.id == profileId } ?: profiles().first()
+
+    fun switchProfile(id: Int) {
+        profileId = id
+        sp.edit().putInt("profile", id).apply()
+        favs = null
+        prog = null
+        watchedSet = null
+        settingsVersion++
+        bump()
+    }
+
+    fun addProfile(name: String): Profile {
+        val l = profiles().toMutableList()
+        val id = (l.maxOfOrNull { it.id } ?: 0) + 1
+        val p = Profile(id, name, PROFILE_COLORS[l.size % PROFILE_COLORS.size])
+        l.add(p)
+        saveProfiles(l)
+        return p
+    }
+
+    fun renameProfile(id: Int, name: String) = saveProfiles(profiles().map { if (it.id == id) it.copy(name = name) else it })
+
+    fun deleteProfile(id: Int) {
+        if (id == 0) return
+        val prefix = "p${id}_"
+        val e = sp.edit()
+        sp.all.keys.filter { it.startsWith(prefix) }.forEach { e.remove(it) }
+        e.apply()
+        if (profileId == id) switchProfile(0)
+        saveProfiles(profiles().filter { it.id != id })
+    }
+
+    /** Preguntar «¿Quién está viendo?» al abrir la app (si hay más de un perfil). */
+    var askProfile: Boolean
+        get() = sp.getBoolean("ask_profile", true)
+        set(v) {
+            sp.edit().putBoolean("ask_profile", v).apply()
+            settingsVersion++
         }
 
     // ---------- Ajustes ----------
@@ -52,8 +127,8 @@ class Prefs(ctx: Context) {
 
     /** Lo elegido para [key] (o, si es un episodio, para la serie): "a" audio y "t" subtítulos ("off" = sin subtítulos). */
     fun trackChoice(key: String): JSONObject? {
-        val own = sp.getString("tracks_$key", null)
-        val series = if (key.startsWith("EP|")) sp.getString("tracks_" + key.substringBeforeLast('|'), null) else null
+        val own = sp.getString(pk("tracks_$key"), null)
+        val series = if (key.startsWith("EP|")) sp.getString(pk("tracks_" + key).substringBeforeLast('|'), null) else null
         return (own ?: series)?.let { runCatching { JSONObject(it) }.getOrNull() }
     }
 
@@ -62,9 +137,9 @@ class Prefs(ctx: Context) {
         if (key.startsWith("EP|")) keys += key.substringBeforeLast('|')
         val e = sp.edit()
         for (k in keys) {
-            val o = sp.getString("tracks_$k", null)?.let { runCatching { JSONObject(it) }.getOrNull() } ?: JSONObject()
+            val o = sp.getString(pk("tracks_$k"), null)?.let { runCatching { JSONObject(it) }.getOrNull() } ?: JSONObject()
             o.put(field, value)
-            e.putString("tracks_$k", o.toString())
+            e.putString(pk("tracks_$k"), o.toString())
         }
         e.apply()
     }
@@ -76,13 +151,13 @@ class Prefs(ctx: Context) {
 
     /** Idioma de audio preferido (código ISO, p. ej. "es"). "orig" = sin preferencia. null = español. */
     var audioLang: String?
-        get() = sp.getString("audioLang", null)
-        set(v) = putStr("audioLang", v)
+        get() = sp.getString(pk("audioLang"), null)
+        set(v) = putStr(pk("audioLang"), v)
 
     /** Idioma de subtítulos preferido. "" = desactivados, null = nunca elegido. */
     var subLang: String?
-        get() = sp.getString("subLang", null)
-        set(v) = putStr("subLang", v)
+        get() = sp.getString(pk("subLang"), null)
+        set(v) = putStr(pk("subLang"), v)
 
     /** fit, zoom, fill, 16:9, 4:3 */
     var resizeMode: String
@@ -246,7 +321,7 @@ class Prefs(ctx: Context) {
     fun reminders(): List<Reminder> {
         val l = mutableListOf<Reminder>()
         runCatching {
-            val a = JSONArray(sp.getString("reminders", "[]"))
+            val a = JSONArray(sp.getString(pk("reminders"), "[]"))
             for (i in 0 until a.length()) {
                 val o = a.optJSONObject(i) ?: continue
                 val ch = runCatching { Item.fromJson(o.getJSONObject("ch")) }.getOrNull() ?: continue
@@ -263,7 +338,7 @@ class Prefs(ctx: Context) {
         l.filter { it.start > min }.forEach { r ->
             a.put(org.json.JSONObject().put("ch", r.channel.toJson()).put("t", r.title).put("s", r.start))
         }
-        sp.edit().putString("reminders", a.toString()).apply()
+        sp.edit().putString(pk("reminders"), a.toString()).apply()
         bump()
     }
 
@@ -294,7 +369,7 @@ class Prefs(ctx: Context) {
         favs?.let { return it }
         val l = mutableListOf<Item>()
         runCatching {
-            val a = JSONArray(sp.getString("favs", "[]"))
+            val a = JSONArray(sp.getString(pk("favs"), "[]"))
             for (i in 0 until a.length()) {
                 val o = a.optJSONObject(i) ?: continue
                 runCatching { Item.fromJson(o) }.getOrNull()?.let { l.add(it) }
@@ -320,7 +395,7 @@ class Prefs(ctx: Context) {
         favs = l
         val a = JSONArray()
         l.forEach { a.put(it.toJson()) }
-        sp.edit().putString("favs", a.toString()).apply()
+        sp.edit().putString(pk("favs"), a.toString()).apply()
         bump()
         return added
     }
@@ -333,7 +408,7 @@ class Prefs(ctx: Context) {
         prog?.let { return it }
         val l = mutableListOf<Progress>()
         runCatching {
-            val a = JSONArray(sp.getString("prog", "[]"))
+            val a = JSONArray(sp.getString(pk("prog"), "[]"))
             for (i in 0 until a.length()) {
                 val o = a.optJSONObject(i) ?: continue
                 val p = o.optJSONObject("p") ?: continue
@@ -353,7 +428,7 @@ class Prefs(ctx: Context) {
     private var watchedSet: MutableSet<String>? = null
 
     private fun watched(): MutableSet<String> =
-        watchedSet ?: (sp.getStringSet("watched", emptySet())?.toMutableSet() ?: mutableSetOf()).also { watchedSet = it }
+        watchedSet ?: (sp.getStringSet(pk("watched"), emptySet())?.toMutableSet() ?: mutableSetOf()).also { watchedSet = it }
 
     fun isWatched(key: String): Boolean = key in watched()
 
@@ -361,7 +436,7 @@ class Prefs(ctx: Context) {
         val w = watched()
         if ((key in w) == on) return
         if (on) w.add(key) else w.remove(key)
-        sp.edit().putStringSet("watched", HashSet(w)).apply()
+        sp.edit().putStringSet(pk("watched"), HashSet(w)).apply()
         bump()
     }
 
@@ -383,7 +458,7 @@ class Prefs(ctx: Context) {
         l.forEach {
             a.put(JSONObject().put("p", it.play.toJson()).put("pos", it.pos).put("dur", it.dur).put("ts", it.ts))
         }
-        sp.edit().putString("prog", a.toString()).apply()
+        sp.edit().putString(pk("prog"), a.toString()).apply()
         bump()
     }
 }

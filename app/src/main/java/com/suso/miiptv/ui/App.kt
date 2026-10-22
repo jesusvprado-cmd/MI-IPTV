@@ -25,6 +25,10 @@ fun AppRoot(activity: Activity) {
       CompositionLocalProvider(LocalBringIntoViewSpec provides TvBringIntoView) {
         var configured by remember { mutableStateOf(Repo.source != null) }
         var editing by remember { mutableStateOf(false) }
+        // Varios perfiles: se pregunta quién está viendo al abrir la app.
+        var picking by remember {
+            mutableStateOf(!ProfileSession.chosen && Repo.prefs.askProfile && Repo.prefs.profiles().size > 1)
+        }
         // Al abrir la app mira si hay versión nueva (como mucho cada 6 horas).
         val ctx = androidx.compose.ui.platform.LocalContext.current
         androidx.compose.runtime.LaunchedEffect(Unit) {
@@ -35,6 +39,10 @@ fun AppRoot(activity: Activity) {
             when {
                 !configured -> SetupScreen(canCancel = false, onDone = { configured = true }, onCancel = {})
                 editing -> SetupScreen(canCancel = true, onDone = { editing = false }, onCancel = { editing = false })
+                picking -> {
+                    BackHandler { activity.finish() }
+                    ProfilePicker { picking = false }
+                }
                 else -> {
                     val top = UiState.stack.lastOrNull()
                     BackHandler {
@@ -57,7 +65,7 @@ fun AppRoot(activity: Activity) {
                     }
                 }
             }
-            if (configured && !editing) UpdateDialog()
+            if (configured && !editing && !picking) UpdateDialog()
             SplashOverlay()
         }
       }

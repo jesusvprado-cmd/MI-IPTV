@@ -69,6 +69,7 @@ import java.io.File
 
 private enum class Sec(val label: String, val desc: String) {
     ACCOUNT("Cuenta", "Tu lista IPTV y el estado de la suscripción."),
+    PROFILES("Perfiles", "Cada persona con sus favoritos, lo que está viendo, vistos e idiomas."),
     VPN("VPN", "Se conecta cuando tú quieras."),
     VIDEO("Vídeo", "Imagen, carga y forma de reproducir."),
     AUDIO("Audio", "Sonido de canales, películas y series."),
@@ -195,6 +196,7 @@ fun SettingsScreen(onChangeList: () -> Unit) {
     var downloadsList by remember { mutableStateOf<List<File>?>(null) }
     var urlDialog by remember { mutableStateOf(false) }
     var epgUrlDialog by remember { mutableStateOf(false) }
+    var nameDialog by remember { mutableStateOf<Int?>(null) }
     val openDoc = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) {
             scope.launch {
@@ -241,6 +243,25 @@ fun SettingsScreen(onChangeList: () -> Unit) {
                     null
                 }
                 if (t == null) Actions.toast(ctx, "No se pudo leer ${f.name}") else useConf(t, f.name)
+            }
+        }
+        return
+    }
+    // Nombre de perfil: -1 = nuevo; si no, el id del perfil a renombrar.
+    val nd = nameDialog
+    if (nd != null) {
+        val old = if (nd >= 0) p.profiles().firstOrNull { it.id == nd }?.name.orEmpty() else ""
+        UrlEntry(
+            title = if (nd < 0) "Nombre del nuevo perfil" else "Nuevo nombre del perfil",
+            button = "Guardar", initial = old, hint = "Nombre", text = true,
+            onCancel = { nameDialog = null },
+        ) { name ->
+            nameDialog = null
+            if (nd < 0) {
+                val np = p.addProfile(name.trim())
+                Actions.toast(ctx, "Perfil «${np.name}» creado")
+            } else {
+                p.renameProfile(nd, name.trim())
             }
         }
         return
@@ -303,6 +324,7 @@ fun SettingsScreen(onChangeList: () -> Unit) {
                             Sec.SUBS -> SIcons.subs
                             Sec.CONTENT -> SIcons.content
                             Sec.EPG -> SIcons.guide
+                            Sec.PROFILES -> SIcons.people
                             Sec.ABOUT -> SIcons.info
                         },
                         selected = sec == s,
@@ -373,6 +395,12 @@ fun SettingsScreen(onChangeList: () -> Unit) {
                         Sec.AUDIO -> item(key = "audio") { AudioSection { t, o, s, f -> ask(t, o, s, f) } }
                         Sec.SUBS -> item(key = "subs") { SubsSection { t, o, s, f -> ask(t, o, s, f) } }
                         Sec.CONTENT -> item(key = "content") { ContentSection() }
+                        Sec.PROFILES -> item(key = "profiles") {
+                            ProfilesSection(
+                                ask = { t, o, sel, f -> ask(t, o, sel, f) },
+                                onName = { id -> nameDialog = id },
+                            )
+                        }
                         Sec.EPG -> item(key = "epg") {
                             EpgSection(ask = { t, o, sel, f -> ask(t, o, sel, f) }, onUrl = { epgUrlDialog = true })
                         }
@@ -830,6 +858,8 @@ private fun UrlEntry(
     title: String = "Dirección web del archivo .conf",
     button: String = "Cargar",
     initial: String = "",
+    hint: String = "https://…",
+    text: Boolean = false,
     onCancel: () -> Unit,
     onDone: (String) -> Unit,
 ) {
@@ -847,10 +877,10 @@ private fun UrlEntry(
             Text(title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
             OutlinedTextField(
                 value = value,
-                onValueChange = { value = it.trim() },
+                onValueChange = { value = if (text) it.take(20) else it.trim() },
                 singleLine = true,
-                label = { Text("https://…") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
+                label = { Text(hint) },
+                keyboardOptions = KeyboardOptions(keyboardType = if (text) KeyboardType.Text else KeyboardType.Uri, imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { if (value.isNotBlank()) onDone(value) }),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = C.gold,
@@ -865,5 +895,54 @@ private fun UrlEntry(
                 TvButton("Cancelar", "url_cancel") { onCancel() }
             }
         }
+    }
+}
+
+
+/** Ajustes → Perfiles: usar, añadir, renombrar y borrar perfiles. */
+@Composable
+private fun ProfilesSection(
+    ask: (String, List<Pair<String, String>>, String, (String) -> Unit) -> Unit,
+    onName: (Int) -> Unit,
+) {
+    @Suppress("UNUSED_VARIABLE")
+    val sv = Repo.prefs.settingsVersion
+    val p = Repo.prefs
+    val ctx = LocalContext.current
+    val list = p.profiles()
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        GroupLabel("Perfiles")
+        list.forEach { pr ->
+            val active = pr.id == p.profileId
+            SettingRow(
+                pr.name, "set_prof_${pr.id}",
+                subtitle = if (active) "En uso" else null,
+                value = if (active) "✓" else null,
+            ) {
+                val opts = buildList {
+                    if (!active) add("Usar este perfil" to "use")
+                    add("Cambiar el nombre" to "rename")
+                    if (pr.id != 0) add("Borrar el perfil" to "delete")
+                }
+                ask(pr.name, opts, "") { a ->
+                    when (a) {
+                        "use" -> {
+                            p.switchProfile(pr.id)
+                            Actions.toast(ctx, "Ahora estás en el perfil «${pr.name}»")
+                        }
+                        "rename" -> onName(pr.id)
+                        "delete" -> {
+                            p.deleteProfile(pr.id)
+                            Actions.toast(ctx, "Perfil borrado")
+                        }
+                    }
+                }
+            }
+        }
+        if (list.size < 6) SettingRow("Añadir perfil", "set_prof_add", chevron = false) { onName(-1) }
+        ToggleRow(
+            "Preguntar quién ve al abrir la app", "set_prof_ask", p.askProfile,
+            subtitle = "Solo si hay más de un perfil",
+        ) { p.askProfile = it }
     }
 }
