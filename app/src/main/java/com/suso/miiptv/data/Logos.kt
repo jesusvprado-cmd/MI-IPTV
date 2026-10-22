@@ -131,7 +131,8 @@ object Logos {
             .replace(Regex("\\p{Mn}+"), "")
         val x = when {
             Regex("rfef").containsMatchIn(sec) -> "swap"
-            Regex("fan ?play").containsMatchIn(sec) -> "k"
+            // Fanplay: logo rehecho en alta calidad (misma forma y colores).
+            Regex("fan ?play").containsMatchIn(sec) -> return OWN_LOGOS + "fanplay.png#w=1"
             else -> return url
         }
         var extra = "x=$x&w=1"
