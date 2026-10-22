@@ -81,7 +81,7 @@ object LogoTone {
  *  - «k»: lo blanco/gris pasa a negro (y lo negro a blanco); lo que tiene color se queda igual.
  */
 class LogoRecolor(private val mode: String) : coil.transform.Transformation {
-    override val cacheKey: String = "recolor-$mode"
+    override val cacheKey: String = "recolor2-$mode"
 
     override suspend fun transform(input: Bitmap, size: coil.size.Size): Bitmap {
         val w = input.width
@@ -112,10 +112,36 @@ class LogoRecolor(private val mode: String) : coil.transform.Transformation {
                 px[i] = (a shl 24) or (nr shl 16) or (ng shl 8) or nb
             }
         } else if (mode == "k") {
+            // Fondo del logo (el color más repetido en el borde): se quita, para que quede solo el logo sobre el blanco.
+            val border = HashMap<Int, Int>()
+            for (x in 0 until w) { border.merge(px[x] or 0x0F0F0F, 1, Int::plus); border.merge(px[(h - 1) * w + x] or 0x0F0F0F, 1, Int::plus) }
+            for (y in 0 until h) { border.merge(px[y * w] or 0x0F0F0F, 1, Int::plus); border.merge(px[y * w + w - 1] or 0x0F0F0F, 1, Int::plus) }
+            val bg = border.maxByOrNull { it.value }?.key ?: 0
+            val bgOpaque = (bg ushr 24) > 200
+            val br = (bg shr 16) and 0xFF; val bgG = (bg shr 8) and 0xFF; val bb = bg and 0xFF
             for (i in px.indices) {
                 val p = px[i]
-                if ((p ushr 24) == 0 || sat(p) > 60) continue
+                if ((p ushr 24) < 40) { px[i] = 0; continue }
+                val r = (p shr 16) and 0xFF; val g = (p shr 8) and 0xFF; val b = p and 0xFF
+                if (bgOpaque && kotlin.math.abs(r - br) + kotlin.math.abs(g - bgG) + kotlin.math.abs(b - bb) < 60) { px[i] = 0; continue }
+                if (sat(p) > 60) continue
+                // Blanco/gris → negro.
                 px[i] = (p and 0xFF000000.toInt()) or (p.inv() and 0x00FFFFFF)
+            }
+            // Se recorta al logo para que se vea más grande.
+            var x0 = w; var y0 = h; var x1 = -1; var y1 = -1
+            for (y in 0 until h) for (x in 0 until w) {
+                val p = px[y * w + x]
+                if ((p ushr 24) < 40) continue
+                if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y
+            }
+            if (x1 > x0 && y1 > y0) {
+                val m = ((x1 - x0) * 0.03f).toInt()
+                x0 = (x0 - m).coerceAtLeast(0); y0 = (y0 - m).coerceAtLeast(0)
+                x1 = (x1 + m).coerceAtMost(w - 1); y1 = (y1 + m).coerceAtMost(h - 1)
+                val full = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+                full.setPixels(px, 0, w, 0, 0, w, h)
+                return Bitmap.createBitmap(full, x0, y0, x1 - x0 + 1, y1 - y0 + 1)
             }
         } else return input
         val out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
