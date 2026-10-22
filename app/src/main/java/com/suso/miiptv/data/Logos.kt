@@ -295,12 +295,14 @@ object Logos {
     private fun lp(path: String, w: Int = 600) = LOGOPEDIA + path + "/revision/latest/scale-to-width-down/$w"
 
     /** (expresión sobre el nombre limpio, logo, número opcional en ese color). Se prueba en orden. */
-    private class Pick(val re: Regex, val url: String, val numberColor: String? = null, val onWhite: Boolean = false)
+    private class Pick(val re: Regex, val url: String, val numberColor: String? = null, val onWhite: Boolean = false, val alwaysNumber: Boolean = false)
 
     private val PICKS by lazy {
         listOf(
             Pick(Regex("^amc$"), OWN_LOGOS + "amc2.png", onWhite = true),
             Pick(Regex("^(canal )?crimen(es)? reales?\\b"), OWN_LOGOS + "crimenesreales.png", onWhite = true),
+            // Liga RFEF: emblema rojo sobre blanco con el número del canal en rojo.
+            Pick(Regex("^((la ?)?liga )?rfef( tv)?$"), lp("6/61/RFEF_icon_%282021%29.svg", 500), "E4002B", onWhite = true, alwaysNumber = true),
             Pick(Regex("^bbc food$"), lp("5/51/BBC-FOOD.svg", 800), onWhite = true),
             Pick(Regex("^(canal )?hollywood\\b"), OWN_LOGOS + "hollywood.png", onWhite = true),
             Pick(Regex("^(nickelodeon|nick)$"), OWN_LOGOS + "nickelodeon.png", onWhite = true),
@@ -348,7 +350,7 @@ object Logos {
             val whole = p.numberColor == null && p.re.containsMatchIn(full)
             if (!whole && !p.re.containsMatchIn(base)) continue
             var u = p.url
-            if (!whole && num != null && num > 1 && p.numberColor != null) u = "$u#b=$num&c=${p.numberColor}"
+            if (!whole && num != null && (num > 1 || p.alwaysNumber) && p.numberColor != null) u = "$u#b=$num&c=${p.numberColor}"
             return if (p.onWhite) white(u) else u
         }
         return null
@@ -381,7 +383,7 @@ object Logos {
         if (HYPERMOTION.containsMatchIn(n)) {
             val num = Regex("(?i)hypermotion\\s*(\\d{1,2})(?!\\d)").find(n)?.groupValues?.get(1)?.toIntOrNull()
             val file = num?.let { HYPERMOTION_N[it] } ?: "b/b5/LaLiga_TV_Hypermotion.svg"
-            return LOGOPEDIA + file + "/revision/latest/scale-to-width-down/600"
+            return white(LOGOPEDIA + file + "/revision/latest/scale-to-width-down/600")
         }
         if (DAZN_LALIGA.containsMatchIn(n)) {
             // Logos actuales (2024) de Logopedia: el de DAZN LaLiga 2 lleva el «2» en blanco sobre fondo negro.
