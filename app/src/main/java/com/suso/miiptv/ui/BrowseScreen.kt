@@ -171,7 +171,7 @@ fun BrowseScreen(kind: Kind) {
             }
             Column(Modifier.weight(1f).fillMaxHeight()) {
                 if (chips) CategoryChips(allCats, sel) { id -> st.selected = id }
-                if (kind == Kind.LIVE && !narrow) LiveHeader(st.focused)
+                if (kind == Kind.LIVE && !narrow && !com.suso.miiptv.data.Device.touch) LiveHeader(st.focused) // en táctil, sin previsualización: más sitio para los canales
                 val its = content
                 val ie = contentErr
                 when {
