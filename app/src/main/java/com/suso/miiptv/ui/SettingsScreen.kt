@@ -48,6 +48,9 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -126,6 +129,10 @@ fun SettingsScreen(onChangeList: () -> Unit) {
     val sideFrs = remember { Sec.values().associateWith { FocusRequester() } }
     // Primera opción de la sección abierta (la lista de la derecha): al entrar con ▶ se va ahí.
     val paneFr = remember { FocusRequester() }
+    val paneList = androidx.compose.foundation.lazy.rememberLazyListState()
+    val firstKey = remember { mutableMapOf<Sec, String?>() }
+    var enteringRight by remember { mutableStateOf(false) }
+    LaunchedEffect(sec) { runCatching { paneList.scrollToItem(0) } }
     val restoring = remember { FocusMemory.restore != null }
     LaunchedEffect(Unit) {
         if (!restoring) {
@@ -414,12 +421,38 @@ fun SettingsScreen(onChangeList: () -> Unit) {
                     .onFocusChanged {
                         if (inPane && !it.hasFocus) paneLeftAt = System.currentTimeMillis()
                         inPane = it.hasFocus
+                        // Al entrar con ▶: se apunta cuál es la primera opción y se enseña la sección desde arriba.
+                        if (it.hasFocus && enteringRight) {
+                            enteringRight = false
+                            scope.launch {
+                                delay(40)
+                                firstKey[sec] = FocusMemory.last
+                                paneList.scrollToItem(0)
+                            }
+                        }
+                    }
+                    // Al subir hasta la primera opción, vuelve a verse la parte de arriba (título y datos).
+                    .onPreviewKeyEvent { e ->
+                        if (e.type == androidx.compose.ui.input.key.KeyEventType.KeyDown && e.key == androidx.compose.ui.input.key.Key.DirectionUp) {
+                            scope.launch {
+                                delay(60)
+                                if (FocusMemory.last != null && FocusMemory.last == firstKey[sec]) paneList.animateScrollToItem(0)
+                            }
+                        }
+                        false
                     }
                     // ◀ desde las opciones vuelve a la sección en la que estabas, no a la que quede a la misma altura.
                     .focusProperties {
                         exit = { d -> if (d == FocusDirection.Left) sideFrs.getValue(sec) else FocusRequester.Default }
                         // ▶ desde el menú lateral entra siempre por la primera opción de arriba.
-                        enter = { d -> if (d == FocusDirection.Right) paneFr else FocusRequester.Default }
+                        enter = { d ->
+                            if (d == FocusDirection.Right) {
+                                enteringRight = true
+                                paneFr
+                            } else {
+                                FocusRequester.Default
+                            }
+                        }
                     }
                     .focusGroup(),
             ) {
@@ -428,6 +461,7 @@ fun SettingsScreen(onChangeList: () -> Unit) {
                     androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides RevealBringIntoView,
                 ) {
                 LazyColumn(
+                    state = paneList,
                     modifier = Modifier.fillMaxSize().fadeInOnChange(sec).focusRequester(paneFr),
                     contentPadding = PaddingValues(start = 40.dp, end = 48.dp, top = 30.dp, bottom = 48.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
