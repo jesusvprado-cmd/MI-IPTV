@@ -203,6 +203,8 @@ private fun TopTab(
     val color = when {
         focused -> C.gold
         selected && !menuFocused -> C.gold
+        // La lupa: abierta Buscar, se queda en verde aunque el cursor pase al campo de texto.
+        icon != null && selected -> C.gold
         else -> Color(0xFFB4B4B4)
     }
     Box(
