@@ -132,7 +132,7 @@ fun TvButton(
     var focused by remember { mutableStateOf(false) }
     @Suppress("UNUSED_VARIABLE") val principal = filled // «Reproducir» se comporta como los demás.
     // Verde vivo para el botón con el cursor (el verde pastel se veía apagado sobre fondo oscuro).
-    val fg = if (focused) Color(0xFF7CF08A) else Color(0xFFBDBDBD)
+    val fg = if (focused) Color(0xFF4FD65A) else Color(0xFFBDBDBD) // mismo verde que la sección abierta en Ajustes
     Row(
         modifier
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
