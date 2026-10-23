@@ -276,12 +276,9 @@ fun ChannelCard(
     var shownLogo by remember(logo) { mutableStateOf(logo) }
     val darkLogo = LogoTone.isDark(shownLogo)
     val whiteLogo = LogoTone.wantsWhite(logo) && shownLogo?.substringBefore('#') == logo?.substringBefore('#')
-    // En el móvil todos los logos van sobre blanco (el gris de la tarjeta se ve mal en las pantallas OLED);
-    // los que son blancos se pasan a oscuro.
-    val touchWhite = com.suso.miiptv.data.Device.touch
     val cardBg by animateColorAsState(
         when {
-            whiteLogo || touchWhite -> Color.White
+            whiteLogo -> Color.White
             darkLogo -> LogoTone.light
             else -> C.card
         },
@@ -300,11 +297,11 @@ fun ChannelCard(
                 .tvClick(onLong, onClick)
                 .clip(shape)
                 .background(cardBg)
-                .border(2.dp, if ((darkLogo || whiteLogo || touchWhite) && focused) androidx.compose.ui.graphics.SolidColor(C.gold) else focusFrame(borderA), shape),
+                .border(2.dp, if ((darkLogo || whiteLogo) && focused) androidx.compose.ui.graphics.SolidColor(C.gold) else focusFrame(borderA), shape),
             contentAlignment = Alignment.Center,
         ) {
             if (logo != null) {
-                ChannelLogoImage(logo, Modifier.fillMaxSize().padding(10.dp), fallback = image, onWhite = touchWhite && !whiteLogo && LogoTone.known(shownLogo) && !darkLogo) { shownLogo = it }
+                ChannelLogoImage(logo, Modifier.fillMaxSize().padding(10.dp), fallback = image) { shownLogo = it }
             } else {
                 Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Color(0xFF4A4A4A), modifier = Modifier.size(40.dp))
             }

@@ -36,15 +36,12 @@ import kotlin.math.pow
  * para ponerles detrás un fondo claro.
  */
 object LogoTone {
-    /** Fondo para los logos oscuros: blanco, como el resto de logos sobre blanco (antes gris claro). */
-    val light = Color.White
+    /** Fondo claro para los logos oscuros. */
+    val light = Color(0xFFECECEF)
 
     private val dark = mutableStateMapOf<String, Boolean>()
 
     fun isDark(url: String?): Boolean = url != null && dark[url.substringBefore('#')] == true
-
-    /** ¿Ya se sabe si este logo es oscuro o claro? */
-    fun known(url: String?): Boolean = url != null && dark.containsKey(url.substringBefore('#'))
 
     /** Logos marcados para verse sobre fondo blanco («…#w=1»). */
     fun wantsWhite(url: String?): Boolean = url != null && url.substringAfter('#', "").split('&').contains("w=1")
@@ -82,8 +79,6 @@ object LogoTone {
  * Retoca los colores de un logo:
  *  - «swap»: logos de dos colores (p. ej. rojo con letras blancas) → se intercambian: lo de color pasa a blanco y lo blanco al color.
  *  - «k»: lo blanco/gris pasa a negro (y lo negro a blanco); lo que tiene color se queda igual.
- *  - «d»: solo lo blanco/gris claro pasa a oscuro (lo oscuro y lo de color se quedan): para poner sobre blanco
- *    logos pensados para fondo oscuro (TCM, AXN, Star Channel...).
  */
 class LogoRecolor(private val mode: String) : coil.transform.Transformation {
     override val cacheKey: String = "recolor2-$mode"
@@ -116,7 +111,7 @@ class LogoRecolor(private val mode: String) : coil.transform.Transformation {
                 val nr = (255 + (cr - 255) * t).toInt(); val ng = (255 + (cg - 255) * t).toInt(); val nb = (255 + (cb - 255) * t).toInt()
                 px[i] = (a shl 24) or (nr shl 16) or (ng shl 8) or nb
             }
-        } else if (mode == "k" || mode == "d") {
+        } else if (mode == "k") {
             // Fondo del logo (el color más repetido en el borde): se quita, para que quede solo el logo sobre el blanco.
             val border = HashMap<Int, Int>()
             for (x in 0 until w) { border.merge(px[x] or 0x0F0F0F, 1, Int::plus); border.merge(px[(h - 1) * w + x] or 0x0F0F0F, 1, Int::plus) }
@@ -130,7 +125,6 @@ class LogoRecolor(private val mode: String) : coil.transform.Transformation {
                 val r = (p shr 16) and 0xFF; val g = (p shr 8) and 0xFF; val b = p and 0xFF
                 if (bgOpaque && kotlin.math.abs(r - br) + kotlin.math.abs(g - bgG) + kotlin.math.abs(b - bb) < 60) { px[i] = 0; continue }
                 if (sat(p) > 60) continue
-                if (mode == "d" && r + g + b < 3 * 128) continue
                 // Blanco/gris → negro.
                 px[i] = (p and 0xFF000000.toInt()) or (p.inv() and 0x00FFFFFF)
             }
@@ -161,7 +155,7 @@ class LogoRecolor(private val mode: String) : coil.transform.Transformation {
  * Si el logo de calidad no carga, se usa el de la lista ([fallback]) en lugar de dejar el recuadro vacío.
  */
 @Composable
-fun ChannelLogoImage(url: String, modifier: Modifier = Modifier, fallback: String? = null, onWhite: Boolean = false, onModel: (String) -> Unit = {}) {
+fun ChannelLogoImage(url: String, modifier: Modifier = Modifier, fallback: String? = null, onModel: (String) -> Unit = {}) {
     val ctx = LocalContext.current
     // Detrás de «#» van ajustes de la app: b=número a dibujar, c=color del número, w=1 fondo blanco.
     val params = remember(url) {
@@ -171,14 +165,9 @@ fun ChannelLogoImage(url: String, modifier: Modifier = Modifier, fallback: Strin
     val badgeColor = remember(url) { params["c"]?.takeIf { it.length == 6 }?.toLongOrNull(16)?.let { Color(0xFF000000 or it) } }
     val clean = remember(url) { url.substringBefore('#') }
     var model by remember(url) { mutableStateOf(clean) }
-    // Copia del mismo logo en otro servidor (jsDelivr): algunas redes (p. ej. datos móviles en días de fútbol)
-    // bloquean raw.githubusercontent.com y el logo bueno no carga.
-    val mirror = remember(url) { githubMirror(clean) }
-    // ¿Se está mostrando el logo bueno (original o su copia), o el de la lista?
-    val primary = model == clean || model == mirror
     // Número de color (Liga de Campeones): va a la izquierda del logo, sin taparlo.
     val cornerNumber = params["p"] == "br"
-    val sideNumber = badge != null && badgeColor != null && primary && !cornerNumber
+    val sideNumber = badge != null && badgeColor != null && model == clean && !cornerNumber
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         if (sideNumber) {
             Text(
@@ -188,15 +177,10 @@ fun ChannelLogoImage(url: String, modifier: Modifier = Modifier, fallback: Strin
         }
     Box(Modifier.weight(1f).fillMaxHeight()) {
         AsyncImage(
-            model = remember(model, onWhite) {
+            model = remember(model) {
                 ImageRequest.Builder(ctx).data(model).allowHardware(false).apply {
                     // Retoque de color pedido para el logo de la lista (solo al de la URL original).
-                    val x = params["x"]?.takeIf { model == clean || model == mirror }
-                    when {
-                        x != null -> transformations(LogoRecolor(x))
-                        // Sobre fondo blanco (móvil): lo blanco del logo pasa a oscuro para que se vea.
-                        onWhite -> transformations(LogoRecolor("d"))
-                    }
+                    params["x"]?.let { if (model == clean) transformations(LogoRecolor(it)) }
                 }.build()
             },
             contentDescription = null,
@@ -204,32 +188,21 @@ fun ChannelLogoImage(url: String, modifier: Modifier = Modifier, fallback: Strin
             modifier = Modifier.fillMaxSize(),
             onSuccess = { s ->
                 val d = s.result.drawable
-                val key = if (model == mirror) clean else model
-                // Se analiza el logo tal cual (no el pasado a oscuro para el fondo blanco).
-                val recolored = onWhite && params["x"]?.takeIf { model == clean || model == mirror } == null
-                if (d is BitmapDrawable && !recolored) d.bitmap?.let { LogoTone.analyze(key, it) }
-                onModel(key)
+                if (d is BitmapDrawable) d.bitmap?.let { LogoTone.analyze(model, it) }
+                onModel(model)
             },
-            onError = { err ->
-                // Una vez por servidor: queda en el registro de errores qué servidor de logos no responde.
-                val host = runCatching { android.net.Uri.parse(model).host }.getOrNull()
-                if (host != null && logoHostsFailed.add(host)) {
-                    com.suso.miiptv.data.ErrorLog.add("Logo sin cargar desde $host: ${err.result.throwable.message ?: err.result.throwable.javaClass.simpleName}")
-                }
-                when {
-                    model == clean && mirror != null -> model = mirror
-                    (model == clean || model == mirror) && fallback != null && fallback != clean -> model = fallback
-                }
+            onError = {
+                if (model == clean && fallback != null && fallback != clean) model = fallback
             },
         )
-        if (badge != null && primary && badgeColor != null && cornerNumber) {
+        if (badge != null && model == clean && badgeColor != null && cornerNumber) {
             // Número de color en la esquina inferior derecha, sin recuadro (Liga RFEF).
             Text(
                 badge, color = badgeColor, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 18.sp,
                 modifier = Modifier.align(Alignment.BottomEnd),
             )
         }
-        if (badge != null && primary && badgeColor == null) {
+        if (badge != null && model == clean && badgeColor == null) {
             run {
                 Box(
                     Modifier
@@ -246,12 +219,3 @@ fun ChannelLogoImage(url: String, modifier: Modifier = Modifier, fallback: Strin
     }
     }
 }
-
-/** Misma imagen de GitHub servida por jsDelivr (por si la red bloquea raw.githubusercontent.com). */
-internal fun githubMirror(url: String): String? {
-    val m = Regex("^https://raw\\.githubusercontent\\.com/([^/]+)/([^/]+)/([^/]+)/(.+)$").find(url) ?: return null
-    val (user, repo, branch, path) = m.destructured
-    return "https://cdn.jsdelivr.net/gh/$user/$repo@$branch/$path"
-}
-
-private val logoHostsFailed = java.util.Collections.synchronizedSet(HashSet<String>())

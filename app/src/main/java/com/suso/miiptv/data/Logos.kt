@@ -632,9 +632,8 @@ object Logos {
     // ---------------- Carga de los índices ----------------
 
     private fun load() {
-        // Índice 6: los logos de Wikimedia vienen ya dentro de la app (iguales en la tele y en el móvil).
-        val cacheFile = File(dir, "logos_index6.tsv")
-        for (old in listOf("logos_index.tsv", "logos_index2.tsv", "logos_index3.tsv", "logos_index4.tsv", "logos_index5.tsv")) File(dir, old).delete()
+        val cacheFile = File(dir, "logos_index4.tsv")
+        for (old in listOf("logos_index.tsv", "logos_index2.tsv", "logos_index3.tsv")) File(dir, old).delete()
         if (cacheFile.exists() && System.currentTimeMillis() - cacheFile.lastModified() < MAX_AGE) {
             readCache(cacheFile)
             if (ready()) return
@@ -918,35 +917,9 @@ object Logos {
         }
     }
 
-    /**
-     * Logos de Wikimedia Commons (canales españoles). La lista de archivos viene dentro de la app (se genera al
-     * compilar): así la tele y el móvil tienen exactamente los mismos logos y no depende de que Wikimedia responda.
-     * Si no estuviera, se recorre la categoría por internet como antes.
-     */
-    private fun commonsIndex(): Map<String, String> {
-        val bundled = try {
-            appCtx?.assets?.open("commons_titles.txt")?.bufferedReader()?.use { it.readLines() }?.filter { it.isNotBlank() }
-        } catch (e: Exception) {
-            null
-        }
-        return commonsFromTitles(if (!bundled.isNullOrEmpty()) bundled else commonsTitlesOnline())
-    }
-
-    /** Elige, por canal, el logo más reciente de entre los archivos (en el orden en que los da Commons). */
-    private fun commonsFromTitles(titles: List<String>): Map<String, String> {
-        val best = HashMap<String, Pair<Int, String>>()
-        for (t in titles) {
-            if (!t.endsWith(".svg", true) && !t.endsWith(".png", true)) continue
-            val (k, sc) = commonsKey(t) ?: continue
-            val cur = best[k]
-            if (cur == null || sc > cur.first) best[k] = sc to commonsThumb(t)
-        }
-        return best.mapValues { it.value.second }
-    }
-
     /** Recorre la categoría de logos de canales españoles (y sus subcategorías) de Wikimedia Commons. */
-    private fun commonsTitlesOnline(): List<String> {
-        val out = ArrayList<String>()
+    private fun commonsIndex(): Map<String, String> {
+        val best = HashMap<String, Pair<Int, String>>()
         val seen = HashSet<String>()
         var level = listOf(COMMONS_ROOT)
         var depth = 0
@@ -967,7 +940,11 @@ object Logos {
                             val t = m.optString("title")
                             when (m.optInt("ns")) {
                                 14 -> next += t
-                                6 -> out += t
+                                6 -> if (t.endsWith(".svg", true) || t.endsWith(".png", true)) {
+                                    val (k, sc) = commonsKey(t) ?: continue
+                                    val cur = best[k]
+                                    if (cur == null || sc > cur.first) best[k] = sc to commonsThumb(t)
+                                }
                             }
                         }
                     }
@@ -977,6 +954,6 @@ object Logos {
             level = next
             depth++
         }
-        return out
+        return best.mapValues { it.value.second }
     }
 }
