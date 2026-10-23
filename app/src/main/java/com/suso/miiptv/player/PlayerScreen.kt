@@ -973,6 +973,14 @@ private fun OptionsPanel(
             Repo.prefs.afr = !Repo.prefs.afr
             ctl.reapplyFrameRate()
         }
+        // Película o episodio: quitar o poner la ✓ de «ya visto».
+        val wk = ctl.current.key
+        if (!ctl.current.live && !wk.startsWith("CU|")) {
+            val seen = remember(Repo.prefs.version, wk) { Repo.prefs.isWatched(wk) }
+            TrackRow(if (seen) "Vista ✓ (quitar la marca)" else "Marcar como vista", false, requestFocus = false) {
+                Repo.prefs.setWatched(wk, !seen)
+            }
+        }
         val left = SleepTimer.minutesLeft()
         TrackRow(
             "Temporizador de apagado: " + if (left > 0) "quedan $left min" else "desactivado",
