@@ -647,29 +647,24 @@ fun SeriesDetailScreen(item: Item) {
 
 @Composable
 private fun SeasonRow(season: Int, count: Int, expanded: Boolean, onClick: () -> Unit) {
+    // Como los menús que bajan: línea verde a la izquierda con el cursor; la temporada abierta en verde.
     var focused by remember { mutableStateOf(false) }
-    val fg = if (focused) Color.Black else Color.White
     Row(
         Modifier
             .fillMaxWidth()
             .memFocus("season_$season") { focused = it }
             .tvClick(onClick = onClick)
-            .clip(RoundedCornerShape(6.dp))
-            .background(
-                when {
-                    focused -> C.gold
-                    expanded -> Color(0xFF1A2E1D)
-                    else -> Color.Transparent
-                }
-            )
-            .then(if (expanded && !focused) Modifier.border(1.dp, C.gold.copy(alpha = 0.6f), RoundedCornerShape(6.dp)) else Modifier)
-            .padding(horizontal = 12.dp, vertical = 9.dp),
+            .padding(end = 12.dp, top = 9.dp, bottom = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        val tc = if (expanded && !focused) C.gold else fg
+        FocusBar(focused)
+        val tc = if (expanded) C.gold else Color.White
         Text(if (expanded) "▾" else "▸", color = tc, fontSize = 16.sp, modifier = Modifier.width(22.dp))
-        Text("Temporada $season", color = tc, fontSize = 19.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-        Text("$count episodios", color = if (focused) Color.Black else C.text2, fontSize = 13.sp)
+        Text(
+            "Temporada $season", color = tc, fontSize = 19.sp,
+            fontWeight = if (focused) FontWeight.ExtraBold else FontWeight.SemiBold, modifier = Modifier.weight(1f),
+        )
+        Text("$count episodios", color = C.text2, fontSize = 13.sp)
     }
 }
 
@@ -683,16 +678,14 @@ private fun EpisodeRow(ep: Episode, progress: Prefs.Progress?, focusKey: String,
             .padding(start = 26.dp)
             .memFocus(focusKey) { focused = it }
             .tvClick(onLongClick = onLong, onClick = onClick)
-            .clip(shape)
-            .background(if (focused) Color(0xFF2A2A2A) else Color.Transparent)
-            .then(if (focused) Modifier.border(1.5.dp, C.gold, shape) else Modifier)
-            .padding(horizontal = 12.dp, vertical = 9.dp),
+            .padding(end = 12.dp, top = 9.dp, bottom = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        FocusBar(focused, height = 22.dp)
         Text("${ep.number}", color = C.gold, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(38.dp))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(ep.title, color = if (watched) C.text2 else Color.White, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                Text(ep.title, color = if (watched) C.text2 else Color.White, fontSize = 15.sp, fontWeight = if (focused) FontWeight.Bold else FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                 if (watched) Text("  ✓ visto", color = C.gold, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             }
             if (progress != null && progress.dur > 0) {

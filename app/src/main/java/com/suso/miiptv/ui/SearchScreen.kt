@@ -39,25 +39,6 @@ fun SearchScreen() {
     var q by remember { mutableStateOf(UiState.searchQuery) }
     var res by remember { mutableStateOf<SearchResult?>(null) }
     var loading by remember { mutableStateOf(false) }
-    val ctx = androidx.compose.ui.platform.LocalContext.current
-    // Búsqueda por voz (micrófono del mando o del sistema).
-    val voice = androidx.activity.compose.rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
-    ) { r ->
-        val said = r.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
-        if (!said.isNullOrBlank()) q = said
-    }
-    fun listen() {
-        val i = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
-            .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "es-ES")
-            .putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Di qué quieres buscar")
-        try {
-            voice.launch(i)
-        } catch (e: android.content.ActivityNotFoundException) {
-            Actions.toast(ctx, "Este aparato no tiene búsqueda por voz")
-        }
-    }
 
     LaunchedEffect(q, dv) {
         UiState.searchQuery = q
@@ -96,11 +77,10 @@ fun SearchScreen() {
                     cursorColor = C.gold,
                 ),
                 modifier = Modifier
-                    .padding(start = 40.dp, end = 14.dp)
+                    .padding(start = 40.dp)
                     .weight(1f)
                     .memFocus("search_field"),
             )
-            TvButton("Voz", "search_voice", icon = SIcons.mic) { listen() }
           }
             Spacer(Modifier.height(20.dp))
         }

@@ -966,18 +966,17 @@ private fun TrackRow(label: String, selected: Boolean, requestFocus: Boolean, on
             .focusRequester(fr)
             .onFocusChanged { focused = it.isFocused }
             .tvClick(onClick = onClick)
-            .clip(RoundedCornerShape(6.dp))
-            .background(if (focused) Color.White else Color.Transparent)
-            .padding(horizontal = 10.dp, vertical = 10.dp),
+            .padding(end = 10.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        com.suso.miiptv.ui.FocusBar(focused, height = 22.dp)
         Text(
             if (selected) "✓" else "",
-            color = if (focused) Color.Black else C.gold,
+            color = C.gold,
             fontSize = 16.sp, fontWeight = FontWeight.Bold,
             modifier = Modifier.width(26.dp),
         )
-        Text(label, color = if (focused) Color.Black else Color.White, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(label, color = Color.White, fontSize = 15.sp, fontWeight = if (focused) FontWeight.Bold else FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

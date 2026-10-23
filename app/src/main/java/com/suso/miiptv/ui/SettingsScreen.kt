@@ -959,7 +959,7 @@ private fun FilePickList(files: List<File>, onCancel: () -> Unit, onPick: (File)
         Text("Elige el archivo WireGuard", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
         Text("Archivos .conf de la carpeta Download", color = C.text2, fontSize = 14.sp)
         files.forEachIndexed { i, f ->
-            TvButton(f.name, "conf_$i", focusRequester = if (i == 0) fr else null) { onPick(f) }
+            TvButton(f.name, "conf_$i", focusRequester = if (i == 0) fr else null, vertical = true) { onPick(f) }
         }
         Spacer(Modifier.height(8.dp))
         TvButton("Cancelar", "conf_cancel") { onCancel() }

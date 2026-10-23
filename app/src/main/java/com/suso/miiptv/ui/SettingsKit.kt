@@ -150,33 +150,34 @@ fun SettingRow(
     trailing: (@Composable (focused: Boolean) -> Unit)? = null,
     onClick: () -> Unit,
 ) {
+    // Sin fondo blanco: con el cursor, línea verde a la izquierda y el título en negrita.
     var focused by remember { mutableStateOf(false) }
-    val bg by animateColorAsState(if (focused) Color.White else S.card, Motion.focusSpec(), label = "rowbg")
-    val scale by animateFloatAsState(if (focused) 1.015f else 1f, Motion.focusSpec(), label = "rowscale")
     Row(
         Modifier
             .fillMaxWidth()
-            .graphicsLayer { scaleX = scale; scaleY = scale; alpha = if (enabled) 1f else 0.45f }
+            .graphicsLayer { alpha = if (enabled) 1f else 0.45f }
             .memFocus(focusKey) { focused = it }
             .tvClick { if (enabled) onClick() }
             .clip(RoundedCornerShape(12.dp))
-            .background(bg)
+            .background(S.card)
             .heightIn(min = 60.dp)
-            .padding(horizontal = 20.dp, vertical = 12.dp),
+            .padding(end = 20.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        FocusBar(focused, height = 30.dp)
+        Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
-            Text(title, color = if (focused) Color.Black else Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            Text(title, color = Color.White, fontSize = 16.sp, fontWeight = if (focused) FontWeight.ExtraBold else FontWeight.Medium)
             if (subtitle != null) {
                 Spacer(Modifier.height(2.dp))
-                Text(subtitle, color = if (focused) Color(0xFF555555) else C.text2, fontSize = 13.sp, lineHeight = 17.sp)
+                Text(subtitle, color = C.text2, fontSize = 13.sp, lineHeight = 17.sp)
             }
         }
         if (value != null) {
             Spacer(Modifier.width(16.dp))
             Text(
                 value,
-                color = if (focused) Color.Black else C.gold,
+                color = C.gold,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
@@ -189,7 +190,7 @@ fun SettingRow(
             trailing(focused)
         } else if (chevron) {
             Spacer(Modifier.width(10.dp))
-            Text("›", color = if (focused) Color.Black else C.text2, fontSize = 22.sp)
+            Text("›", color = if (focused) C.gold else C.text2, fontSize = 22.sp)
         }
     }
 }
@@ -314,7 +315,6 @@ fun <T> ChoiceDialog(
 @Composable
 private fun ChoiceItem(label: String, selected: Boolean, fr: FocusRequester, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
-    val bg by animateColorAsState(if (focused) Color.White else Color.Transparent, Motion.focusSpec(), label = "chbg")
     Row(
         Modifier
             .fillMaxWidth()
@@ -322,22 +322,22 @@ private fun ChoiceItem(label: String, selected: Boolean, fr: FocusRequester, onC
             .focusRequester(fr)
             .memFocus("choice_$label") { focused = it }
             .tvClick(onClick = onClick)
-            .clip(RoundedCornerShape(10.dp))
-            .background(bg)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(end = 14.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        FocusBar(focused)
+        Spacer(Modifier.width(4.dp))
         // Botón de opción: círculo, relleno si está elegida.
         Box(
             Modifier
                 .size(20.dp)
                 .clip(CircleShape)
-                .border(2.dp, if (focused) Color.Black else if (selected) C.gold else C.text2, CircleShape),
+                .border(2.dp, if (selected) C.gold else C.text2, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
-            if (selected) Box(Modifier.size(10.dp).clip(CircleShape).background(if (focused) Color.Black else C.gold))
+            if (selected) Box(Modifier.size(10.dp).clip(CircleShape).background(C.gold))
         }
         Spacer(Modifier.width(14.dp))
-        Text(label, color = if (focused) Color.Black else Color.White, fontSize = 16.sp)
+        Text(label, color = Color.White, fontSize = 16.sp, fontWeight = if (focused) FontWeight.ExtraBold else FontWeight.Medium)
     }
 }

@@ -123,15 +123,16 @@ fun TvButton(
     iconTint: Color? = null,
     filled: Boolean = false,
     focusRequester: FocusRequester? = null,
+    vertical: Boolean = false,
     onClick: () -> Unit,
 ) {
-    // Sin recuadros: como en los menús, el cursor se marca con una línea verde a la izquierda y el texto en blanco y negrita.
-    // El botón principal (p. ej. «Reproducir») va en verde para distinguirlo.
+    // Sin recuadros. Botones en fila (horizontal): como el menú de arriba, con el cursor el texto se pone verde y en negrita.
+    // Botones en columna (vertical): línea verde a la izquierda, como los menús que bajan.
+    // El principal («Reproducir») siempre en verde; con el cursor, un verde más vivo y en negrita.
     var focused by remember { mutableStateOf(false) }
-    val accent = Color(0xFF8FE27C)
     val fg = when {
-        filled -> C.gold // El principal («Reproducir») siempre en verde, también con el cursor.
-        focused -> Color.White
+        filled -> if (focused) C.gold else Color(0xFF7FC172)
+        focused -> if (vertical) Color.White else C.gold
         else -> Color(0xFFBDBDBD)
     }
     Row(
@@ -142,10 +143,8 @@ fun TvButton(
             .height(46.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        val bar = if (focused) 3.dp else 0.dp
-        Box(Modifier.width(bar).height(26.dp).clip(RoundedCornerShape(2.dp)).background(accent))
-        Spacer(Modifier.width(10.dp - bar))
-        if (icon != null) Icon(icon, contentDescription = text, tint = iconTint ?: if (focused) accent else fg, modifier = Modifier.size(24.dp))
+        if (vertical) FocusBar(focused) else Spacer(Modifier.width(10.dp))
+        if (icon != null) Icon(icon, contentDescription = text, tint = iconTint ?: if (focused) C.gold else fg, modifier = Modifier.size(24.dp))
         if (icon != null && text != null) Spacer(Modifier.width(8.dp))
         if (text != null) {
             Box {
@@ -156,6 +155,14 @@ fun TvButton(
         }
         Spacer(Modifier.width(10.dp))
     }
+}
+
+/** Línea verde vertical que marca dónde está el cursor en los menús que bajan (ocupa siempre 10 dp de ancho). */
+@Composable
+fun FocusBar(active: Boolean, height: androidx.compose.ui.unit.Dp = 26.dp) {
+    val bar = if (active) 3.dp else 0.dp
+    Box(Modifier.width(bar).height(height).clip(RoundedCornerShape(2.dp)).background(Color(0xFF8FE27C)))
+    Spacer(Modifier.width(10.dp - bar))
 }
 
 /** Carátula vertical de película o serie. */
