@@ -304,7 +304,7 @@ fun ChannelCard(
             contentAlignment = Alignment.Center,
         ) {
             if (logo != null) {
-                ChannelLogoImage(logo, Modifier.fillMaxSize().padding(10.dp), fallback = image, onWhite = touchWhite && !whiteLogo && !darkLogo) { shownLogo = it }
+                ChannelLogoImage(logo, Modifier.fillMaxSize().padding(10.dp), fallback = image, onWhite = touchWhite && !whiteLogo && LogoTone.known(shownLogo) && !darkLogo) { shownLogo = it }
             } else {
                 Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Color(0xFF4A4A4A), modifier = Modifier.size(40.dp))
             }

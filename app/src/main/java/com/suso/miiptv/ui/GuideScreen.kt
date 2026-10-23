@@ -329,7 +329,7 @@ private fun GuideRow(
             ) {
                 if (logo != null) ChannelLogoImage(
                     logo, Modifier.fillMaxSize().padding(5.dp), fallback = ch.image,
-                    onWhite = com.suso.miiptv.data.Device.touch && !LogoTone.wantsWhite(logo) && !LogoTone.isDark(logo),
+                    onWhite = com.suso.miiptv.data.Device.touch && !LogoTone.wantsWhite(logo) && LogoTone.known(logo) && !LogoTone.isDark(logo),
                 )
             }
             Spacer(Modifier.width(if (compact) 6.dp else 8.dp))

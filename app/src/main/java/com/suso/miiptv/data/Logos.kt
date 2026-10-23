@@ -632,8 +632,9 @@ object Logos {
     // ---------------- Carga de los índices ----------------
 
     private fun load() {
-        val cacheFile = File(dir, "logos_index4.tsv")
-        for (old in listOf("logos_index.tsv", "logos_index2.tsv", "logos_index3.tsv")) File(dir, old).delete()
+        // Índice 5: el 4 podía quedarse guardado a medias (sin los logos de Wikimedia) una semana entera.
+        val cacheFile = File(dir, "logos_index5.tsv")
+        for (old in listOf("logos_index.tsv", "logos_index2.tsv", "logos_index3.tsv", "logos_index4.tsv")) File(dir, old).delete()
         if (cacheFile.exists() && System.currentTimeMillis() - cacheFile.lastModified() < MAX_AGE) {
             readCache(cacheFile)
             if (ready()) return
@@ -662,8 +663,9 @@ object Logos {
         } catch (e: Exception) {
             emptyMap()
         }
+        var comComplete = false
         val com = try {
-            commonsIndex()
+            commonsIndex().also { comComplete = it.second }.first
         } catch (e: Exception) {
             emptyMap()
         }
@@ -674,7 +676,8 @@ object Logos {
         commons = com
         // Si no se pudo leer el banco tv-logos (p. ej. GitHub limita las consultas con la VPN), no se guarda
         // el índice: así se vuelve a intentar al abrir la app otra vez.
-        if (tv.isNotEmpty()) writeCache(cacheFile)
+        // Tampoco si los logos de Wikimedia no se cargaron enteros (red lenta, móvil...): se reintenta la próxima vez.
+        if (tv.isNotEmpty() && comComplete) writeCache(cacheFile)
     }
 
     /** Lista de logos de tv-logos que va incluida en la app (por si GitHub no responde). */
@@ -918,16 +921,22 @@ object Logos {
     }
 
     /** Recorre la categoría de logos de canales españoles (y sus subcategorías) de Wikimedia Commons. */
-    private fun commonsIndex(): Map<String, String> {
+    /** Logos de Wikimedia Commons; el segundo valor dice si se recorrieron todas las categorías (no se cortó a medias). */
+    private fun commonsIndex(): Pair<Map<String, String>, Boolean> {
         val best = HashMap<String, Pair<Int, String>>()
         val seen = HashSet<String>()
         var level = listOf(COMMONS_ROOT)
         var depth = 0
         val started = System.currentTimeMillis()
+        var cut = false
         while (level.isNotEmpty() && depth <= 2) {
             val next = ArrayList<String>()
             for (cat in level) {
-                if (!seen.add(cat) || seen.size > 120 || System.currentTimeMillis() - started > 60_000) continue
+                if (!seen.add(cat)) continue
+                if (seen.size > 120 || System.currentTimeMillis() - started > 120_000) {
+                    cut = true
+                    continue
+                }
                 var cont: String? = null
                 do {
                     val q = "action=query&list=categorymembers&cmtype=file|subcat&cmlimit=500&cmtitle=" +
@@ -954,6 +963,6 @@ object Logos {
             level = next
             depth++
         }
-        return best.mapValues { it.value.second }
+        return best.mapValues { it.value.second } to (!cut && best.isNotEmpty())
     }
 }

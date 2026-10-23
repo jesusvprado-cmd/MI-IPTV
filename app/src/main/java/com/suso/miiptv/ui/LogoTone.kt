@@ -43,6 +43,9 @@ object LogoTone {
 
     fun isDark(url: String?): Boolean = url != null && dark[url.substringBefore('#')] == true
 
+    /** ¿Ya se sabe si este logo es oscuro o claro? */
+    fun known(url: String?): Boolean = url != null && dark.containsKey(url.substringBefore('#'))
+
     /** Logos marcados para verse sobre fondo blanco («…#w=1»). */
     fun wantsWhite(url: String?): Boolean = url != null && url.substringAfter('#', "").split('&').contains("w=1")
 
@@ -185,7 +188,7 @@ fun ChannelLogoImage(url: String, modifier: Modifier = Modifier, fallback: Strin
         }
     Box(Modifier.weight(1f).fillMaxHeight()) {
         AsyncImage(
-            model = remember(model) {
+            model = remember(model, onWhite) {
                 ImageRequest.Builder(ctx).data(model).allowHardware(false).apply {
                     // Retoque de color pedido para el logo de la lista (solo al de la URL original).
                     val x = params["x"]?.takeIf { model == clean || model == mirror }
@@ -202,7 +205,9 @@ fun ChannelLogoImage(url: String, modifier: Modifier = Modifier, fallback: Strin
             onSuccess = { s ->
                 val d = s.result.drawable
                 val key = if (model == mirror) clean else model
-                if (d is BitmapDrawable) d.bitmap?.let { LogoTone.analyze(key, it) }
+                // Se analiza el logo tal cual (no el pasado a oscuro para el fondo blanco).
+                val recolored = onWhite && params["x"]?.takeIf { model == clean || model == mirror } == null
+                if (d is BitmapDrawable && !recolored) d.bitmap?.let { LogoTone.analyze(key, it) }
                 onModel(key)
             },
             onError = { err ->
