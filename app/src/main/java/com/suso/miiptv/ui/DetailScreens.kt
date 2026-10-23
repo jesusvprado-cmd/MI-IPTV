@@ -502,13 +502,15 @@ fun SeriesDetailScreen(item: Item) {
     val lastEp: Prefs.Progress? = remember(pv) { Repo.prefs.progressList().firstOrNull { it.play.key.startsWith("EP|${item.id}|") } }
     val firstFr = remember { FocusRequester() }
     val restoring = remember { FocusMemory.restore != null }
+    val hs = rememberHeaderState(item.key)
+    // Cursor al entrar: en el primer botón de la fila («Continuar» si hay un episodio a medias; si no, «Leer más»; si no, ♥).
     LaunchedEffect(det != null) {
         if (det != null && !restoring) {
-            delay(60)
-            runCatching { firstFr.requestFocus() }
+            delay(160) // da tiempo a saber si la sinopsis cabe entera (y por tanto si hay «Leer más»)
+            val target = if (lastEp == null && hs.overflow) hs.moreFr else firstFr
+            runCatching { target.requestFocus() }
         }
     }
-    val hs = rememberHeaderState(item.key)
     val own = det?.header() ?: basicHeader(item)
     val shown = hs.previewInfo ?: own
     val previewing = hs.previewInfo != null

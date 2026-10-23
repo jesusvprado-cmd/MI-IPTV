@@ -125,6 +125,8 @@ fun SettingsScreen(onChangeList: () -> Unit) {
         lastSec = s
     }
     val sideFrs = remember { Sec.values().associateWith { FocusRequester() } }
+    // Primera opción de la sección abierta (la lista de la derecha): al entrar con ▶ se va ahí.
+    val paneFr = remember { FocusRequester() }
     val restoring = remember { FocusMemory.restore != null }
     LaunchedEffect(Unit) {
         if (!restoring) {
@@ -414,7 +416,11 @@ fun SettingsScreen(onChangeList: () -> Unit) {
                         inPane = it.hasFocus
                     }
                     // ◀ desde las opciones vuelve a la sección en la que estabas, no a la que quede a la misma altura.
-                    .focusProperties { exit = { d -> if (d == FocusDirection.Left) sideFrs.getValue(sec) else FocusRequester.Default } }
+                    .focusProperties {
+                        exit = { d -> if (d == FocusDirection.Left) sideFrs.getValue(sec) else FocusRequester.Default }
+                        // ▶ desde el menú lateral entra siempre por la primera opción de arriba.
+                        enter = { d -> if (d == FocusDirection.Right) paneFr else FocusRequester.Default }
+                    }
                     .focusGroup(),
             ) {
                 // Solo se desplaza al llegar al borde: al entrar en las opciones la pantalla se queda como está.
@@ -422,7 +428,7 @@ fun SettingsScreen(onChangeList: () -> Unit) {
                     androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides RevealBringIntoView,
                 ) {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize().fadeInOnChange(sec),
+                    modifier = Modifier.fillMaxSize().fadeInOnChange(sec).focusRequester(paneFr),
                     contentPadding = PaddingValues(start = 40.dp, end = 48.dp, top = 30.dp, bottom = 48.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
