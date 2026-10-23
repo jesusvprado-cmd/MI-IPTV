@@ -115,10 +115,12 @@ private fun TopBar(restoring: Boolean) {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box {
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
                             Tab.values().forEach { t ->
                                 TopTab(
                                     text = t.label,
+                                    // Buscar: solo la lupa.
+                                    icon = if (t == Tab.SEARCH) androidx.compose.material.icons.Icons.Filled.Search else null,
                                     selected = UiState.tab == t,
                                     menuFocused = hovered != null,
                                     focusKey = "tab_${t.name}",
@@ -144,7 +146,8 @@ private fun TopBar(restoring: Boolean) {
                 ProfileAvatar(com.suso.miiptv.data.Repo.prefs.currentProfile(), 26.dp)
                 Spacer(Modifier.width(12.dp))
             }
-            Clock()
+            // Hora discreta: más pequeña y en gris tenue.
+            Clock(fontSize = 14, color = Color(0xFF7C7C7C))
             Spacer(Modifier.width(14.dp))
             // Con la VPN conectada, el círculo del centro de la rueda se pone verde.
             val vpnOn = com.suso.miiptv.vpn.VpnManager.state == com.suso.miiptv.vpn.VpnManager.State.ON
@@ -156,7 +159,7 @@ private fun TopBar(restoring: Boolean) {
 
 /** Hora en la esquina, como en las apps de TV. */
 @Composable
-fun Clock(fontSize: Int = 17) {
+fun Clock(fontSize: Int = 17, color: androidx.compose.ui.graphics.Color = androidx.compose.ui.graphics.Color(0xFFB4B4B4)) {
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -166,7 +169,7 @@ fun Clock(fontSize: Int = 17) {
     }
     androidx.compose.material3.Text(
         // Mismo estilo que las secciones del menú (Inicio, TV en directo...).
-        hm(now), color = androidx.compose.ui.graphics.Color(0xFFB4B4B4), fontSize = fontSize.sp,
+        hm(now), color = color, fontSize = fontSize.sp,
         fontWeight = androidx.compose.ui.text.font.FontWeight.Medium, fontFamily = Manrope, maxLines = 1,
     )
 }
@@ -178,6 +181,7 @@ fun Clock(fontSize: Int = 17) {
 @Composable
 private fun TopTab(
     text: String,
+    icon: ImageVector? = null,
     selected: Boolean,
     menuFocused: Boolean,
     focusKey: String,
@@ -211,16 +215,23 @@ private fun TopTab(
             .padding(horizontal = 14.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
-        // Texto invisible en negrita: reserva el ancho para que el menú no se mueva al cambiar el grosor.
-        Text(text, color = Color.Transparent, fontSize = 17.sp, maxLines = 1, fontWeight = FontWeight.ExtraBold)
-        Text(
-            text, color = color, fontSize = 17.sp, maxLines = 1,
-            fontWeight = when {
-                focused -> FontWeight.ExtraBold
-                selected && !menuFocused -> FontWeight.SemiBold
-                else -> FontWeight.Medium
-            },
-        )
+        if (icon != null) {
+            // Hueco fijo: el menú no se mueve aunque la lupa crezca un poco con el cursor.
+            Box(Modifier.size(28.dp), contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = text, tint = color, modifier = Modifier.size(if (focused) 28.dp else 25.dp))
+            }
+        } else {
+            // Texto invisible en negrita: reserva el ancho para que el menú no se mueva al cambiar el grosor.
+            Text(text, color = Color.Transparent, fontSize = 17.sp, maxLines = 1, fontWeight = FontWeight.ExtraBold)
+            Text(
+                text, color = color, fontSize = 17.sp, maxLines = 1,
+                fontWeight = when {
+                    focused -> FontWeight.ExtraBold
+                    selected && !menuFocused -> FontWeight.SemiBold
+                    else -> FontWeight.Medium
+                },
+            )
+        }
     }
 }
 
