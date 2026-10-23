@@ -218,13 +218,49 @@ private fun HeaderText(
                 Text("★ $it", color = C.gold, fontSize = 15.sp)
             }
             Spacer(Modifier.height(10.dp))
-            h.plot?.let { p -> FittingPlot(p, Modifier.weight(1f, fill = false), maxPlotLines) { o -> onPlotOverflow(h.key, o) } }
-            h.director?.let {
-                Spacer(Modifier.height(6.dp))
-                Text("Dirección: $it", color = C.text2, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            PlotAndCredits(h, maxPlotLines, Modifier.weight(1f, fill = false)) { o -> onPlotOverflow(h.key, o) }
+        }
+    }
+}
+
+/**
+ * Sinopsis y, debajo, dirección y reparto. La sinopsis tiene preferencia: si el hueco es justo (p. ej. un título de dos líneas),
+ * se quitan dirección y reparto para que se vean al menos un par de líneas de sinopsis; todo sigue en «Leer más».
+ */
+@Composable
+private fun PlotAndCredits(h: HeaderInfo, maxPlotLines: Int, modifier: Modifier, onOverflow: (Boolean) -> Unit) {
+    BoxWithConstraints(modifier) {
+        val base = androidx.compose.material3.LocalTextStyle.current
+        val plotStyle = base.merge(androidx.compose.ui.text.TextStyle(color = Color(0xFFE6E6E6), fontSize = 15.sp, lineHeight = 21.sp))
+        val creditStyle = base.merge(androidx.compose.ui.text.TextStyle(color = C.text2, fontSize = 13.sp))
+        val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+        val p1 = remember(plotStyle) { measurer.measure("Ág", plotStyle, maxLines = 1).size.height }
+        val p2 = remember(plotStyle) { measurer.measure("Ág\nÁg", plotStyle, maxLines = 2).size.height }
+        val per = (p2 - p1).coerceAtLeast(1)
+        val c1 = remember(creditStyle) { measurer.measure("Ág", creditStyle, maxLines = 1).size.height }
+        val gap = with(LocalDensity.current) { 6.dp.roundToPx() }
+        val credits = listOfNotNull(h.director?.let { "Dirección: $it" }, h.cast?.let { "Reparto: $it" })
+        val creditsH = if (credits.isEmpty()) 0 else gap + credits.size * c1
+        val plot = h.plot
+        // Líneas que ocupa la sinopsis entera con este ancho.
+        val fullLines = remember(plot, constraints.maxWidth) {
+            if (plot.isNullOrBlank()) 0 else measurer.measure(plot, plotStyle, constraints = androidx.compose.ui.unit.Constraints(maxWidth = constraints.maxWidth)).lineCount
+        }
+        fun fit(space: Int): Int = if (space < p1) 0 else 1 + (space - p1) / per
+        val maxH = if (constraints.hasBoundedHeight) constraints.maxHeight else Int.MAX_VALUE / 2
+        // Se muestran dirección y reparto solo si aun así caben al menos 3 líneas de sinopsis (o la sinopsis entera).
+        val wantPlot = minOf(fullLines, 3)
+        val showCredits = credits.isNotEmpty() && fit(maxH - creditsH) >= wantPlot
+        val lines = minOf(fit(maxH - if (showCredits) creditsH else 0), maxPlotLines, fullLines)
+        val overflow = lines < fullLines || (credits.isNotEmpty() && !showCredits)
+        LaunchedEffect(h.key, overflow) { onOverflow(overflow) }
+        Column {
+            if (plot != null && lines > 0) {
+                Text(plot, style = plotStyle, maxLines = lines, overflow = TextOverflow.Ellipsis)
             }
-            h.cast?.let {
-                Text("Reparto: $it", color = C.text2, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (showCredits) {
+                Spacer(Modifier.height(6.dp))
+                credits.forEach { Text(it, style = creditStyle, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             }
         }
     }
