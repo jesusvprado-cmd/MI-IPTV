@@ -34,6 +34,13 @@ android {
         }
     }
 
+    // Los logos hechos a mano (carpeta «logos») van dentro de la app, en assets/logos/.
+    sourceSets {
+        getByName("main") {
+            assets.srcDirs("src/main/assets", "build/generated/ownLogos")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -93,3 +100,10 @@ dependencies {
     implementation("androidx.tvprovider:tvprovider:1.0.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 }
+
+// Copia la carpeta «logos» del proyecto a assets/logos/ dentro del APK.
+val copyOwnLogos by tasks.registering(Copy::class) {
+    from(rootProject.file("logos"))
+    into(file("build/generated/ownLogos/logos"))
+}
+tasks.named("preBuild") { dependsOn(copyOwnLogos) }

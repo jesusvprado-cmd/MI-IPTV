@@ -326,7 +326,8 @@ object Logos {
     // ---------------- Logos pedidos uno a uno ----------------
 
     /** Logos subidos al propio repositorio de la app (los que el usuario ha pasado). */
-    private const val OWN_LOGOS = "https://raw.githubusercontent.com/jesusvprado-cmd/MI-IPTV/main/logos/"
+    /** Logos hechos a mano (carpeta «logos» del proyecto): van dentro de la app, no se descargan. */
+    private const val OWN_LOGOS = "file:///android_asset/logos/"
     private fun tvl(path: String) = TV_LOGOS_RAW + "countries/spain/" + path
     private fun lp(path: String, w: Int = 600) = LOGOPEDIA + path + "/revision/latest/scale-to-width-down/$w"
 
@@ -631,21 +632,55 @@ object Logos {
 
     // ---------------- Carga de los índices ----------------
 
+    /**
+     * true mientras todo el índice salga de los datos que van dentro de la app. Si algo hubo que pedirlo por
+     * internet (porque faltaba), el índice no se guarda: así un fallo de red nunca deja los logos mal guardados.
+     */
+    @Volatile
+    private var allBundled = true
+
+    /** Abre un archivo de datos que va dentro de la app o, si no está, lo pide a internet. */
+    private fun <T> openData(asset: String, url: String, block: (java.io.InputStream) -> T): T {
+        val a = try {
+            appCtx?.assets?.open(asset)
+        } catch (e: Exception) {
+            null
+        }
+        if (a != null) return a.use(block)
+        allBundled = false
+        return Http.open(url).use { r -> block(r.body!!.byteStream()) }
+    }
+
+    private fun appVersion(): Long = try {
+        val ctx = appCtx!!
+        val pi = ctx.packageManager.getPackageInfo(ctx.packageName, 0)
+        if (android.os.Build.VERSION.SDK_INT >= 28) pi.longVersionCode else @Suppress("DEPRECATION") pi.versionCode.toLong()
+    } catch (e: Exception) {
+        0L
+    }
+
     private fun load() {
-        val cacheFile = File(dir, "logos_index4.tsv")
-        for (old in listOf("logos_index.tsv", "logos_index2.tsv", "logos_index3.tsv")) File(dir, old).delete()
-        if (cacheFile.exists() && System.currentTimeMillis() - cacheFile.lastModified() < MAX_AGE) {
+        // El índice de logos se construye con los datos que van dentro de la app (se descargan al compilarla),
+        // así es idéntico en la tele y en el móvil y no depende de que GitHub o Wikimedia respondan ese día.
+        // Uno por versión de la app: al actualizar se rehace con los datos nuevos.
+        val cacheFile = File(dir, "logos_index_b${appVersion()}.tsv")
+        dir.listFiles()?.forEach { f -> if (f.name.startsWith("logos_index") && f.name != cacheFile.name) f.delete() }
+        if (cacheFile.exists()) {
             readCache(cacheFile)
             if (ready()) return
         }
+        allBundled = true
         val tv = LinkedHashMap<String, MutableList<Pair<String, String>>>()
         val loose = LinkedHashMap<String, MutableList<Pair<String, String>>>()
-        val paths = try {
-            githubTree()
-        } catch (e: Exception) {
-            // Con la VPN GitHub suele limitar las consultas: se usa la lista que va dentro de la app.
-            bundledList()
-        }.ifEmpty { bundledList() }
+        // Lista de tv-logos que va dentro de la app; solo si faltara se pide a GitHub.
+        val paths = bundledList().ifEmpty {
+            allBundled = false
+            try {
+                githubTree()
+            } catch (e: Exception) {
+                emptyList()
+            }
+        }
         // Primero los archivos sin «hd», «uhd»...: así se prefiere el logo normal del canal.
         val sorted = paths.filter { it.endsWith(".png", true) }.sortedBy { if (hasQualityWord(it)) 1 else 0 }
         for (p in sorted) {
@@ -672,9 +707,8 @@ object Logos {
         tvLoose = loose
         iptvOrg = org
         commons = com
-        // Si no se pudo leer el banco tv-logos (p. ej. GitHub limita las consultas con la VPN), no se guarda
-        // el índice: así se vuelve a intentar al abrir la app otra vez.
-        if (tv.isNotEmpty()) writeCache(cacheFile)
+        // Solo se guarda si todo salió de los datos de la app y no falta nada.
+        if (allBundled && tv.isNotEmpty() && org.isNotEmpty() && com.isNotEmpty()) writeCache(cacheFile)
     }
 
     /** Lista de logos de tv-logos que va incluida en la app (por si GitHub no responde). */
@@ -747,8 +781,8 @@ object Logos {
     private fun iptvOrgIndex(): Map<String, String> {
         // 1) Logos por id de canal, quedándonos con el más grande.
         val best = HashMap<String, Pair<Int, String>>()
-        Http.open(IPTV_LOGOS).use { r ->
-            JsonReader(InputStreamReader(r.body!!.byteStream(), Charsets.UTF_8)).use { j ->
+        openData("iptv_logos.json", IPTV_LOGOS) { input ->
+            JsonReader(InputStreamReader(input, Charsets.UTF_8)).use { j ->
                 j.beginArray()
                 while (j.hasNext()) {
                     var ch: String? = null
@@ -776,8 +810,8 @@ object Logos {
         }
         // 2) Nombres y nombres alternativos de cada canal → logo.
         val out = HashMap<String, String>()
-        Http.open(IPTV_CHANNELS).use { r ->
-            JsonReader(InputStreamReader(r.body!!.byteStream(), Charsets.UTF_8)).use { j ->
+        openData("iptv_channels.json", IPTV_CHANNELS) { input ->
+            JsonReader(InputStreamReader(input, Charsets.UTF_8)).use { j ->
                 j.beginArray()
                 while (j.hasNext()) {
                     var id: String? = null
@@ -920,6 +954,22 @@ object Logos {
     /** Recorre la categoría de logos de canales españoles (y sus subcategorías) de Wikimedia Commons. */
     private fun commonsIndex(): Map<String, String> {
         val best = HashMap<String, Pair<Int, String>>()
+        // Lista de archivos que va dentro de la app (en el mismo orden en que los da Commons).
+        val bundled = try {
+            appCtx?.assets?.open("commons_titles.txt")?.bufferedReader()?.use { it.readLines() }?.filter { it.isNotBlank() }
+        } catch (e: Exception) {
+            null
+        }
+        if (!bundled.isNullOrEmpty()) {
+            for (t in bundled) {
+                if (!t.endsWith(".svg", true) && !t.endsWith(".png", true)) continue
+                val (k, sc) = commonsKey(t) ?: continue
+                val cur = best[k]
+                if (cur == null || sc > cur.first) best[k] = sc to commonsThumb(t)
+            }
+            return best.mapValues { it.value.second }
+        }
+        allBundled = false
         val seen = HashSet<String>()
         var level = listOf(COMMONS_ROOT)
         var depth = 0
