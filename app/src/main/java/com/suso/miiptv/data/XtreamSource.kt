@@ -283,11 +283,14 @@ class XtreamSource(private val cfg: Config) : Source {
             return f.format(java.util.Date(start))
         }
         val times = listOfNotNull(serverOffset[base]?.let { fmt(it) }, fmt(null)).distinct()
+        // Programa que aún se está emitiendo: algunos servidores solo aceptan la parte ya grabada (hasta ahora).
+        val elapsed = ((System.currentTimeMillis() - start) / 60_000L).toInt()
+        val durations = if (elapsed in 1 until min) listOf(min, elapsed) else listOf(min)
         val out = ArrayList<String>()
-        for (t in times) {
-            out += "$base/timeshift/$u/$p/$min/$t/${item.id}.ts"
-            out += "$base/streaming/timeshift.php?username=$u&password=$p&stream=${item.id}&start=$t&duration=$min"
-            out += "$base/timeshift/$u/$p/$min/$t/${item.id}.m3u8"
+        for (d in durations) for (t in times) {
+            out += "$base/timeshift/$u/$p/$d/$t/${item.id}.ts"
+            out += "$base/streaming/timeshift.php?username=$u&password=$p&stream=${item.id}&start=$t&duration=$d"
+            out += "$base/timeshift/$u/$p/$d/$t/${item.id}.m3u8"
         }
         return out
     }

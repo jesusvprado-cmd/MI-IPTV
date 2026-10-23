@@ -540,6 +540,9 @@ class PlayerCtl(ctx: Context) {
         }
         // Programa emitido / desde el principio: cada proveedor usa un formato distinto; se prueba el siguiente.
         if (it.key.startsWith("CU|") && code in 2000..3999) {
+            // Se apunta cada intento (sin usuario ni contraseña) para ver en Ajustes qué responde el servidor.
+            val http = (e.cause as? HttpDataSource.InvalidResponseCodeException)?.responseCode
+            com.suso.miiptv.data.ErrorLog.add("Desde el principio: ${http?.let { c -> "HTTP $c" } ?: e.errorCodeName} en ${maskUrl(it.url)}")
             val next = Repo.nextCatchup(it.url)
             if (next != null) {
                 val n = it.copy(url = next)
@@ -868,3 +871,9 @@ private fun badgesOf(video: Format?, audio: Format?): List<String> {
     }
     return out
 }
+
+/** Dirección sin usuario ni contraseña, para el registro de errores. */
+internal fun maskUrl(url: String): String = url
+    .replace(Regex("^https?://[^/]+"), "")
+    .replace(Regex("/timeshift/[^/]+/[^/]+/"), "/timeshift/*/*/")
+    .replace(Regex("username=[^&]*&password=[^&]*"), "username=*&password=*")
