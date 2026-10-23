@@ -632,9 +632,9 @@ object Logos {
     // ---------------- Carga de los índices ----------------
 
     private fun load() {
-        // Índice 5: el 4 podía quedarse guardado a medias (sin los logos de Wikimedia) una semana entera.
-        val cacheFile = File(dir, "logos_index5.tsv")
-        for (old in listOf("logos_index.tsv", "logos_index2.tsv", "logos_index3.tsv", "logos_index4.tsv")) File(dir, old).delete()
+        // Índice 6: los logos de Wikimedia vienen ya dentro de la app (iguales en la tele y en el móvil).
+        val cacheFile = File(dir, "logos_index6.tsv")
+        for (old in listOf("logos_index.tsv", "logos_index2.tsv", "logos_index3.tsv", "logos_index4.tsv", "logos_index5.tsv")) File(dir, old).delete()
         if (cacheFile.exists() && System.currentTimeMillis() - cacheFile.lastModified() < MAX_AGE) {
             readCache(cacheFile)
             if (ready()) return
@@ -663,9 +663,8 @@ object Logos {
         } catch (e: Exception) {
             emptyMap()
         }
-        var comComplete = false
         val com = try {
-            commonsIndex().also { comComplete = it.second }.first
+            commonsIndex()
         } catch (e: Exception) {
             emptyMap()
         }
@@ -676,8 +675,7 @@ object Logos {
         commons = com
         // Si no se pudo leer el banco tv-logos (p. ej. GitHub limita las consultas con la VPN), no se guarda
         // el índice: así se vuelve a intentar al abrir la app otra vez.
-        // Tampoco si los logos de Wikimedia no se cargaron enteros (red lenta, móvil...): se reintenta la próxima vez.
-        if (tv.isNotEmpty() && comComplete) writeCache(cacheFile)
+        if (tv.isNotEmpty()) writeCache(cacheFile)
     }
 
     /** Lista de logos de tv-logos que va incluida en la app (por si GitHub no responde). */
@@ -920,23 +918,43 @@ object Logos {
         }
     }
 
-    /** Recorre la categoría de logos de canales españoles (y sus subcategorías) de Wikimedia Commons. */
-    /** Logos de Wikimedia Commons; el segundo valor dice si se recorrieron todas las categorías (no se cortó a medias). */
-    private fun commonsIndex(): Pair<Map<String, String>, Boolean> {
+    /**
+     * Logos de Wikimedia Commons (canales españoles). La lista de archivos viene dentro de la app (se genera al
+     * compilar): así la tele y el móvil tienen exactamente los mismos logos y no depende de que Wikimedia responda.
+     * Si no estuviera, se recorre la categoría por internet como antes.
+     */
+    private fun commonsIndex(): Map<String, String> {
+        val bundled = try {
+            appCtx?.assets?.open("commons_titles.txt")?.bufferedReader()?.use { it.readLines() }?.filter { it.isNotBlank() }
+        } catch (e: Exception) {
+            null
+        }
+        return commonsFromTitles(if (!bundled.isNullOrEmpty()) bundled else commonsTitlesOnline())
+    }
+
+    /** Elige, por canal, el logo más reciente de entre los archivos (en el orden en que los da Commons). */
+    private fun commonsFromTitles(titles: List<String>): Map<String, String> {
         val best = HashMap<String, Pair<Int, String>>()
+        for (t in titles) {
+            if (!t.endsWith(".svg", true) && !t.endsWith(".png", true)) continue
+            val (k, sc) = commonsKey(t) ?: continue
+            val cur = best[k]
+            if (cur == null || sc > cur.first) best[k] = sc to commonsThumb(t)
+        }
+        return best.mapValues { it.value.second }
+    }
+
+    /** Recorre la categoría de logos de canales españoles (y sus subcategorías) de Wikimedia Commons. */
+    private fun commonsTitlesOnline(): List<String> {
+        val out = ArrayList<String>()
         val seen = HashSet<String>()
         var level = listOf(COMMONS_ROOT)
         var depth = 0
         val started = System.currentTimeMillis()
-        var cut = false
         while (level.isNotEmpty() && depth <= 2) {
             val next = ArrayList<String>()
             for (cat in level) {
-                if (!seen.add(cat)) continue
-                if (seen.size > 120 || System.currentTimeMillis() - started > 120_000) {
-                    cut = true
-                    continue
-                }
+                if (!seen.add(cat) || seen.size > 120 || System.currentTimeMillis() - started > 60_000) continue
                 var cont: String? = null
                 do {
                     val q = "action=query&list=categorymembers&cmtype=file|subcat&cmlimit=500&cmtitle=" +
@@ -949,11 +967,7 @@ object Logos {
                             val t = m.optString("title")
                             when (m.optInt("ns")) {
                                 14 -> next += t
-                                6 -> if (t.endsWith(".svg", true) || t.endsWith(".png", true)) {
-                                    val (k, sc) = commonsKey(t) ?: continue
-                                    val cur = best[k]
-                                    if (cur == null || sc > cur.first) best[k] = sc to commonsThumb(t)
-                                }
+                                6 -> out += t
                             }
                         }
                     }
@@ -963,6 +977,6 @@ object Logos {
             level = next
             depth++
         }
-        return best.mapValues { it.value.second } to (!cut && best.isNotEmpty())
+        return out
     }
 }

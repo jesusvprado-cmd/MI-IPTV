@@ -28,6 +28,9 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      - name: Lista de logos de Wikimedia (va dentro de la app)
+        run: python3 .github/scripts/commons_titles.py
+
       - name: Compilar
         run: |
           chmod +x gradlew
