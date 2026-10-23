@@ -917,6 +917,13 @@ private fun OptionsPanel(
     val subs = remember(v, ctl.index) { ctl.trackOptions(MC.TRACK_TYPE_TEXT) }
     val subsOff = remember(v, ctl.index) { ctl.subtitlesOff() }
     val focusIdx = audio.indexOfFirst { it.selected }.coerceAtLeast(0)
+    // El cursor solo se coloca al abrir el panel: si luego se recarga el canal (p. ej. al cambiar el formato de
+    // emisión) y vuelven a aparecer las pistas, el cursor se queda en la opción que estabas tocando.
+    var opening by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) {
+        delay(400)
+        opening = false
+    }
     Column(
         modifier
             .fillMaxHeight()
@@ -938,13 +945,13 @@ private fun OptionsPanel(
             Text("No hay pistas de audio", color = C.text2, fontSize = 14.sp, modifier = Modifier.padding(start = 10.dp))
         }
         audio.forEachIndexed { i, o ->
-            TrackRow(o.label, o.selected, requestFocus = i == focusIdx) {
+            TrackRow(o.label, o.selected, requestFocus = opening && i == focusIdx) {
                 ctl.selectTrack(MC.TRACK_TYPE_AUDIO, o)
             }
         }
         Spacer(Modifier.height(22.dp))
         Text("Subtítulos", color = C.gold, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 10.dp, bottom = 8.dp))
-        TrackRow("Desactivados", subsOff, requestFocus = audio.isEmpty()) {
+        TrackRow("Desactivados", subsOff, requestFocus = opening && audio.isEmpty()) {
             ctl.selectTrack(MC.TRACK_TYPE_TEXT, null)
         }
         if (subs.isEmpty()) {
