@@ -36,8 +36,8 @@ import kotlin.math.pow
  * para ponerles detrás un fondo claro.
  */
 object LogoTone {
-    /** Fondo claro para los logos oscuros. */
-    val light = Color(0xFFECECEF)
+    /** Fondo para los logos oscuros: blanco, como el resto de logos sobre blanco (antes gris claro). */
+    val light = Color.White
 
     private val dark = mutableStateMapOf<String, Boolean>()
 

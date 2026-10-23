@@ -320,10 +320,11 @@ private fun GuideRow(
     Row(Modifier.fillMaxWidth().height(58.dp).padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
         // Canal: logo y nombre
         Row(Modifier.width(chW).fillMaxHeight().padding(start = if (compact) 8.dp else 14.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            val white = LogoTone.wantsWhite(logo)
+            // Igual que en la lista de canales: blanco para los marcados y para los logos oscuros; si no, el fondo de tarjeta.
+            val white = LogoTone.wantsWhite(logo) || LogoTone.isDark(logo)
             Box(
                 Modifier.width(if (compact) 48.dp else 62.dp).fillMaxHeight().clip(RoundedCornerShape(6.dp))
-                    .background(if (white) Color.White else Color(0x22FFFFFF)),
+                    .background(if (white) Color.White else C.card),
                 contentAlignment = Alignment.Center,
             ) {
                 if (logo != null) ChannelLogoImage(logo, Modifier.fillMaxSize().padding(5.dp), fallback = ch.image)
