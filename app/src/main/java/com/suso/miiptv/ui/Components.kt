@@ -240,7 +240,7 @@ fun PosterCard(
         Text(
             title,
             color = if (focused) Color.White else C.text3,
-            fontSize = 14.sp,
+            fontSize = 13.sp,
             fontWeight = FontWeight.Medium,
             maxLines = 1,
             overflow = if (focused) TextOverflow.Clip else TextOverflow.Ellipsis,
@@ -301,7 +301,7 @@ fun ChannelCard(
             contentAlignment = Alignment.Center,
         ) {
             if (logo != null) {
-                ChannelLogoImage(logo, Modifier.fillMaxSize().padding(14.dp), fallback = image) { shownLogo = it }
+                ChannelLogoImage(logo, Modifier.fillMaxSize().padding(10.dp), fallback = image) { shownLogo = it }
             } else {
                 Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Color(0xFF4A4A4A), modifier = Modifier.size(40.dp))
             }
