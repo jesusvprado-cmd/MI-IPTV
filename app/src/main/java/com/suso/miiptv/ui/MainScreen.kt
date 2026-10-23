@@ -91,6 +91,9 @@ private fun TopBar(restoring: Boolean) {
     var hovered by remember { mutableStateOf<Tab?>(null) }
     LaunchedEffect(hovered) {
         val h = hovered ?: return@LaunchedEffect
+        // Buscar no se abre solo al pasar por encima (su campo de texto se quedaba el cursor y la lupa volvía a gris):
+        // se abre con OK. Así, con el cursor encima, la lupa se queda en verde.
+        if (h == Tab.SEARCH) return@LaunchedEffect
         delay(260)
         if (UiState.tab != h) UiState.tab = h
     }
