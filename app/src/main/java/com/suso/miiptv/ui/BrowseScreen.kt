@@ -218,6 +218,7 @@ fun BrowseScreen(kind: Kind) {
                                     item = x,
                                     onFocus = { f -> if (f) st.lastIdx = i },
                                     onLong = { Actions.toggleFav(ctx, x) },
+                                    favBadge = sel != FAV,
                                 ) { Actions.open(x) }
                             }
                         }

@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -212,7 +213,7 @@ fun Pill(text: String, bg: Color, fg: Color, modifier: Modifier = Modifier) {
 
 /** Insignias sobre una carátula: NUEVO, calidad y nota. */
 @Composable
-fun BoxScope.PosterBadges(item: Item?) {
+fun BoxScope.PosterBadges(item: Item?, favBadge: Boolean = true) {
     if (item == null) return
     val q = remember(item.key) { qualityOf(item) }
     val r = remember(item.key, item.rating) { ratingOf(item) }
@@ -237,6 +238,21 @@ fun BoxScope.PosterBadges(item: Item?) {
             Text("N", color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 11.sp)
         }
     }
-    if (q != null) Pill(q, Color(0xCC000000), Color.White, Modifier.align(Alignment.TopEnd).padding(6.dp))
+    // En favoritos: corazón verde arriba a la derecha (no en la propia pestaña de Favoritos).
+    val fav = favBadge && remember(item.key, pv) { com.suso.miiptv.data.Repo.prefs.isFavorite(item.key) }
+    if (fav) {
+        Box(
+            Modifier.align(Alignment.TopEnd).padding(6.dp).size(22.dp)
+                .clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xCC000000)),
+            contentAlignment = Alignment.Center,
+        ) {
+            androidx.compose.material3.Icon(
+                androidx.compose.material.icons.Icons.Filled.Favorite, contentDescription = null,
+                tint = C.fav, modifier = Modifier.size(13.dp),
+            )
+        }
+    }
+    // Calidad arriba a la derecha (debajo del corazón si lo hay).
+    if (q != null) Pill(q, Color(0xCC000000), Color.White, Modifier.align(Alignment.TopEnd).padding(end = 6.dp, top = if (fav) 32.dp else 6.dp))
     if (r != null) Pill("★ $r", Color(0xCC000000), C.gold, Modifier.align(Alignment.BottomStart).padding(6.dp))
 }

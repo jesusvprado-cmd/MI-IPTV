@@ -176,6 +176,7 @@ fun PosterCard(
     item: Item? = null,
     onFocus: ((Boolean) -> Unit)? = null,
     onLong: (() -> Unit)? = null,
+    favBadge: Boolean = true,
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
@@ -223,7 +224,7 @@ fun PosterCard(
                     modifier = Modifier.align(Alignment.Center).padding(8.dp),
                 )
             }
-            PosterBadges(item)
+            PosterBadges(item, favBadge)
             if (progress != null) {
                 Box(
                     Modifier

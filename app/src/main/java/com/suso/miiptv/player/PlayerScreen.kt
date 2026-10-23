@@ -878,7 +878,7 @@ fun styleSubtitles(v: SubtitleView?) {
     v.setStyle(style)
     v.setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * scale)
     // Lo más abajo posible (Netflix deja un margen pequeño).
-    v.setBottomPaddingFraction(0.045f)
+    v.setBottomPaddingFraction(0.02f)
 }
 
 /**
