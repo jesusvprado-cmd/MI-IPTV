@@ -338,7 +338,7 @@ private fun FullPlotPanel(info: HeaderInfo, onClose: () -> Unit) {
                 .focusable()
                 .verticalScroll(scroll),
         ) {
-            Text(info.title, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold, lineHeight = 34.sp)
+            Text(info.title, color = C.gold, fontSize = 28.sp, fontWeight = FontWeight.Bold, lineHeight = 34.sp)
             if (info.meta.isNotBlank()) {
                 Spacer(Modifier.height(6.dp))
                 Text(info.meta, color = C.text2, fontSize = 15.sp)
