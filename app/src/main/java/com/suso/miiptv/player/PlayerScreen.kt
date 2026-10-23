@@ -866,6 +866,8 @@ private fun OptionsPanel(
     onClose: () -> Unit,
 ) {
     val v = ctl.tracksVersion
+    @Suppress("UNUSED_VARIABLE")
+    val sv = Repo.prefs.settingsVersion // se redibuja al cambiar un ajuste (p. ej. la frecuencia de la pantalla)
     val audio = remember(v, ctl.index) { ctl.trackOptions(MC.TRACK_TYPE_AUDIO) }
     val subs = remember(v, ctl.index) { ctl.trackOptions(MC.TRACK_TYPE_TEXT) }
     val subsOff = remember(v, ctl.index) { ctl.subtitlesOff() }
@@ -913,6 +915,18 @@ private fun OptionsPanel(
         TrackRow("Formato de imagen: ${aspectLabel(aspect)}", false, requestFocus = false) { onAspect() }
         if (!ctl.current.live) {
             TrackRow("Velocidad: ${speedLabel(ctl.speed)}", false, requestFocus = false) { ctl.nextSpeed() }
+        }
+        // Si un canal va a saltos: probar el otro formato de emisión o ajustar la frecuencia de la pantalla al vídeo.
+        if (ctl.current.live) {
+            TrackRow("Formato de emisión: ${ctl.liveFormatLabel()} (cambiar)", false, requestFocus = false) { ctl.toggleLiveFormat() }
+        }
+        val fps = ctl.videoFormat?.frameRate?.takeIf { it > 0f }?.let { " · vídeo a ${"%.0f".format(it)} fps" } ?: ""
+        TrackRow(
+            "Ajustar frecuencia de la pantalla: " + (if (Repo.prefs.afr) "sí" else "no") + fps,
+            false, requestFocus = false,
+        ) {
+            Repo.prefs.afr = !Repo.prefs.afr
+            ctl.reapplyFrameRate()
         }
         val left = SleepTimer.minutesLeft()
         TrackRow(
