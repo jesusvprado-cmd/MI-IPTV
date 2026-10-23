@@ -125,30 +125,36 @@ fun TvButton(
     focusRequester: FocusRequester? = null,
     onClick: () -> Unit,
 ) {
+    // Sin recuadros: como en los menús, el cursor se marca con una línea verde a la izquierda y el texto en blanco y negrita.
+    // El botón principal (p. ej. «Reproducir») va en verde para distinguirlo.
     var focused by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(8.dp)
-    val bg = when {
+    val accent = Color(0xFF8FE27C)
+    val fg = when {
         focused -> Color.White
-        filled -> C.playBtn
-        else -> Color.Transparent
+        filled -> C.gold
+        else -> Color(0xFFBDBDBD)
     }
-    val fg = if (focused || filled) Color.Black else Color.White
-    val scale by animateFloatAsState(if (focused) 1.05f else 1f, Motion.focusSpec(), label = "btn")
     Row(
         modifier
-            .graphicsLayer { scaleX = scale; scaleY = scale }
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .memFocus(focusKey) { focused = it }
             .tvClick(onClick = onClick)
-            .clip(shape)
-            .background(bg)
-            .then(if (!filled && !focused) Modifier.border(2.dp, Color.White.copy(alpha = 0.85f), shape) else Modifier)
-            .padding(horizontal = if (text == null) 14.dp else 20.dp, vertical = 11.dp),
+            .height(46.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (icon != null) Icon(icon, contentDescription = text, tint = iconTint ?: fg, modifier = Modifier.size(24.dp))
+        val bar = if (focused) 3.dp else 0.dp
+        Box(Modifier.width(bar).height(26.dp).clip(RoundedCornerShape(2.dp)).background(accent))
+        Spacer(Modifier.width(10.dp - bar))
+        if (icon != null) Icon(icon, contentDescription = text, tint = iconTint ?: if (focused) accent else fg, modifier = Modifier.size(24.dp))
         if (icon != null && text != null) Spacer(Modifier.width(8.dp))
-        if (text != null) Text(text.uppercase(), color = fg, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1)
+        if (text != null) {
+            Box {
+                // Texto invisible en negrita: reserva el ancho para que los botones no se muevan al pasar el cursor.
+                Text(text, color = Color.Transparent, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, maxLines = 1)
+                Text(text, color = fg, fontWeight = if (focused) FontWeight.ExtraBold else FontWeight.SemiBold, fontSize = 16.sp, maxLines = 1)
+            }
+        }
+        Spacer(Modifier.width(10.dp))
     }
 }
 

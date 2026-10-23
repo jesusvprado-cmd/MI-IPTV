@@ -436,10 +436,6 @@ fun MovieDetailScreen(item: Item) {
                                 Actions.toggleFav(ctx, item)
                             }
                             det.trailer?.let { t -> TvButton("Tráiler", "d_trailer") { Actions.openTrailer(ctx, t) } }
-                            val seen = remember(pv) { Repo.prefs.isWatched(item.key) }
-                            TvButton(if (seen) "✓ Vista" else "Marcar vista", "d_seen") {
-                                Repo.prefs.setWatched(item.key, !seen)
-                            }
                         }
                     }
                 }
