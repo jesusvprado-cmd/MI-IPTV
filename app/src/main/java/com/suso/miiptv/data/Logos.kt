@@ -109,6 +109,32 @@ object Logos {
             else -> find(name).also { synchronized(cache) { cache[name] = it ?: "" } } ?: original
         }
         return r?.let { bySection(name, it) }?.let { if (onWhiteByName(name) && !hasWhite(it)) white(it) else it }
+            ?.let { if (darkenByName(name)) darken(it) else it }
+    }
+
+    /**
+     * Canales con logo blanco que van sobre fondo blanco: lo blanco del logo pasa a negro y lo que tiene color
+     * se respeta (TCM, AXN, Star Channel, Eurosport, Nat Geo, BBC Earth, Disney Channel, Mezzo...).
+     */
+    private val DARKEN_NAMES = Regex(
+        "^(tcm|axn( movies| white| black)?|star( channel)?|comedy central|eurosport ?[0-9]*|caza y pesca|" +
+            "nat ?geo( wild)?|national geographic( wild)?|bbc (earth|lifestyle)|disney channel|mezzo( live)?|sundance( tv)?)\\b"
+    )
+
+    private fun darkenByName(name: String): Boolean {
+        val n = Normalizer.normalize(name, Normalizer.Form.NFKD).lowercase()
+            .replace(Regex("\\p{Mn}+"), "").replace(Regex("[^a-z0-9 ]"), " ").replace(Regex("\\s+"), " ").trim()
+        val words = n.split(' ').filter { it.isNotBlank() }.toMutableList()
+        while (words.size > 1 && (words.first() in setOf("es", "esp", "spain", "m", "movistar") || words.first().all { it.isDigit() })) words.removeAt(0)
+        return DARKEN_NAMES.containsMatchIn(words.joinToString(" "))
+    }
+
+    /** Fondo blanco y lo blanco del logo a negro («x=d»), si el logo no tiene ya otro retoque. */
+    private fun darken(url: String): String {
+        val frag = url.substringAfter('#', "").split('&')
+        if (frag.any { it.startsWith("x=") }) return url
+        val extra = if ("w=1" in frag) "x=d" else "x=d&w=1"
+        return if (url.contains('#')) "$url&$extra" else "$url#$extra"
     }
 
     private val sections = java.util.concurrent.ConcurrentHashMap<String, String>()

@@ -79,6 +79,7 @@ object LogoTone {
  * Retoca los colores de un logo:
  *  - «swap»: logos de dos colores (p. ej. rojo con letras blancas) → se intercambian: lo de color pasa a blanco y lo blanco al color.
  *  - «k»: lo blanco/gris pasa a negro (y lo negro a blanco); lo que tiene color se queda igual.
+ *  - «d»: solo lo blanco/gris claro pasa a negro; lo oscuro y lo que tiene color se quedan igual.
  */
 class LogoRecolor(private val mode: String) : coil.transform.Transformation {
     override val cacheKey: String = "recolor2-$mode"
@@ -111,7 +112,7 @@ class LogoRecolor(private val mode: String) : coil.transform.Transformation {
                 val nr = (255 + (cr - 255) * t).toInt(); val ng = (255 + (cg - 255) * t).toInt(); val nb = (255 + (cb - 255) * t).toInt()
                 px[i] = (a shl 24) or (nr shl 16) or (ng shl 8) or nb
             }
-        } else if (mode == "k") {
+        } else if (mode == "k" || mode == "d") {
             // Fondo del logo (el color más repetido en el borde): se quita, para que quede solo el logo sobre el blanco.
             val border = HashMap<Int, Int>()
             for (x in 0 until w) { border.merge(px[x] or 0x0F0F0F, 1, Int::plus); border.merge(px[(h - 1) * w + x] or 0x0F0F0F, 1, Int::plus) }
@@ -125,6 +126,7 @@ class LogoRecolor(private val mode: String) : coil.transform.Transformation {
                 val r = (p shr 16) and 0xFF; val g = (p shr 8) and 0xFF; val b = p and 0xFF
                 if (bgOpaque && kotlin.math.abs(r - br) + kotlin.math.abs(g - bgG) + kotlin.math.abs(b - bb) < 60) { px[i] = 0; continue }
                 if (sat(p) > 60) continue
+                if (mode == "d" && r + g + b < 3 * 128) continue
                 // Blanco/gris → negro.
                 px[i] = (p and 0xFF000000.toInt()) or (p.inv() and 0x00FFFFFF)
             }
