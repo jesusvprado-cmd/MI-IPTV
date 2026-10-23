@@ -117,7 +117,7 @@ object Logos {
      * se respeta (TCM, AXN, Star Channel, Eurosport, Nat Geo, BBC Earth, Disney Channel, Mezzo...).
      */
     private val DARKEN_NAMES = Regex(
-        "^(tcm|axn( movies| white| black)?|star( channel)?|comedy central|eurosport ?[0-9]*|caza y pesca|" +
+        "^(tcm|axn( movies| white| black)?|star( channel)?|comedy central|eurosport ?[0-9]*|" +
             "nat ?geo( wild)?|national geographic( wild)?|bbc (earth|lifestyle)|disney channel|mezzo( live)?|sundance( tv)?)\\b"
     )
 
@@ -369,6 +369,7 @@ object Logos {
             Pick(Regex("^bbc food$"), lp("5/51/BBC-FOOD.svg", 800), onWhite = true),
             // BBC News: logo oficial en negro sobre fondo blanco.
             Pick(Regex("^bbc news\\b"), OWN_LOGOS + "bbcnews.png", onWhite = true),
+            Pick(Regex("^caza (y|and|&)? ?pesca\\b"), OWN_LOGOS + "cazaypesca.png", onWhite = true),
             Pick(Regex("^(canal )?hollywood\\b"), OWN_LOGOS + "hollywood.png", onWhite = true),
             Pick(Regex("^(nickelodeon|nick)$"), OWN_LOGOS + "nickelodeon.png", onWhite = true),
             Pick(Regex("^(telecinco|tele 5|t 5)$"), OWN_LOGOS + "telecinco2.png", onWhite = true),
