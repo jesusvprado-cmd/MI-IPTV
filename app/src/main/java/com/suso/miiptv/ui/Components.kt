@@ -130,11 +130,8 @@ fun TvButton(
     // Botones en columna (vertical): línea verde a la izquierda, como los menús que bajan.
     // El principal («Reproducir») siempre en verde; con el cursor, un verde más vivo y en negrita.
     var focused by remember { mutableStateOf(false) }
-    val fg = when {
-        filled -> if (focused) C.gold else Color(0xFF7FC172)
-        focused -> if (vertical) Color.White else C.gold
-        else -> Color(0xFFBDBDBD)
-    }
+    @Suppress("UNUSED_VARIABLE") val principal = filled // «Reproducir» se comporta como los demás.
+    val fg = if (focused) C.gold else Color(0xFFBDBDBD)
     Row(
         modifier
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
@@ -346,7 +343,7 @@ fun CategoryRow(name: String, selected: Boolean, focusKey: String, onFocused: ()
         Spacer(Modifier.width(14.dp - bar))
         Text(
             name,
-            color = if (active) Color.White else Color(0xFF9A9A9A),
+            color = if (active) accent else Color(0xFF9A9A9A),
             fontSize = 15.sp,
             fontWeight = when {
                 active && focused -> FontWeight.ExtraBold

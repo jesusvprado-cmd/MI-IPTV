@@ -976,7 +976,7 @@ private fun TrackRow(label: String, selected: Boolean, requestFocus: Boolean, on
             fontSize = 16.sp, fontWeight = FontWeight.Bold,
             modifier = Modifier.width(26.dp),
         )
-        Text(label, color = Color.White, fontSize = 15.sp, fontWeight = if (focused) FontWeight.Bold else FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(label, color = if (focused) C.gold else Color.White, fontSize = 15.sp, fontWeight = if (focused) FontWeight.Bold else FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

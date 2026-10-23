@@ -658,7 +658,7 @@ private fun SeasonRow(season: Int, count: Int, expanded: Boolean, onClick: () ->
         verticalAlignment = Alignment.CenterVertically,
     ) {
         FocusBar(focused)
-        val tc = if (expanded) C.gold else Color.White
+        val tc = if (expanded || focused) C.gold else Color.White
         Text(if (expanded) "▾" else "▸", color = tc, fontSize = 16.sp, modifier = Modifier.width(22.dp))
         Text(
             "Temporada $season", color = tc, fontSize = 19.sp,
@@ -685,7 +685,7 @@ private fun EpisodeRow(ep: Episode, progress: Prefs.Progress?, focusKey: String,
         Text("${ep.number}", color = C.gold, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(38.dp))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(ep.title, color = if (watched) C.text2 else Color.White, fontSize = 15.sp, fontWeight = if (focused) FontWeight.Bold else FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                Text(ep.title, color = when { focused -> C.gold; watched -> C.text2; else -> Color.White }, fontSize = 15.sp, fontWeight = if (focused) FontWeight.Bold else FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                 if (watched) Text("  ✓ visto", color = C.gold, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             }
             if (progress != null && progress.dur > 0) {

@@ -102,7 +102,7 @@ fun SideItem(
     // Sin recuadro: la sección activa se marca con la línea, el icono en verde y el texto en blanco.
     // Con el cursor en el menú solo se marca la que tiene el cursor (nunca dos a la vez); si no, la sección abierta.
     val active = if (cursorInMenu) focused else selected
-    val fg = if (active) Color.White else Color(0xFF8A8A8A)
+    val fgBase = Color(0xFF8A8A8A)
     // Verde vivo con el cursor en el menú; aún más intenso cuando ya estás dentro de las opciones de esa sección.
     val accent = if (cursorInMenu) Color(0xFF8FE27C) else Color(0xFF4FD65A)
     Row(
@@ -128,7 +128,7 @@ fun SideItem(
         }
         Spacer(Modifier.width(14.dp))
         Text(
-            label, color = fg, fontSize = 16.sp, maxLines = 1,
+            label, color = if (active) accent else fgBase, fontSize = 16.sp, maxLines = 1,
             fontWeight = when {
                 active && focused -> FontWeight.ExtraBold
                 active -> FontWeight.SemiBold
@@ -167,7 +167,7 @@ fun SettingRow(
         FocusBar(focused, height = 30.dp)
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
-            Text(title, color = Color.White, fontSize = 16.sp, fontWeight = if (focused) FontWeight.ExtraBold else FontWeight.Medium)
+            Text(title, color = if (focused) C.gold else Color.White, fontSize = 16.sp, fontWeight = if (focused) FontWeight.ExtraBold else FontWeight.Medium)
             if (subtitle != null) {
                 Spacer(Modifier.height(2.dp))
                 Text(subtitle, color = C.text2, fontSize = 13.sp, lineHeight = 17.sp)
@@ -338,6 +338,6 @@ private fun ChoiceItem(label: String, selected: Boolean, fr: FocusRequester, onC
             if (selected) Box(Modifier.size(10.dp).clip(CircleShape).background(C.gold))
         }
         Spacer(Modifier.width(14.dp))
-        Text(label, color = Color.White, fontSize = 16.sp, fontWeight = if (focused) FontWeight.ExtraBold else FontWeight.Medium)
+        Text(label, color = if (focused) C.gold else Color.White, fontSize = 16.sp, fontWeight = if (focused) FontWeight.ExtraBold else FontWeight.Medium)
     }
 }
