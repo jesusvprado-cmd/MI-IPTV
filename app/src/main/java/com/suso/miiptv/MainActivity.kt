@@ -46,7 +46,26 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         // Si la app pasa a segundo plano, se corta la previsualización (libera la conexión).
         PlayerHolder.stopPreview()
+        if (isFinishing) closeApp()
         super.onStop()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // Saliendo con Atrás: el sonido se corta en el acto, sin esperar a nada.
+        if (isFinishing) closeApp()
+    }
+
+    override fun onDestroy() {
+        val exiting = isFinishing
+        super.onDestroy()
+        // Al salir de la app se cierra del todo: no queda nada sonando ni funcionando en segundo plano.
+        if (exiting) android.os.Process.killProcess(android.os.Process.myPid())
+    }
+
+    private fun closeApp() {
+        PlayerHolder.closing = true
+        PlayerHolder.releaseAll()
     }
 
     override fun onResume() {

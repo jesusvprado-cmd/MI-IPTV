@@ -11,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -1223,7 +1224,7 @@ private fun TouchLayer(ctl: PlayerCtl, live: Boolean, onTap: () -> Unit, onShow:
                 var acc = 0f
                 var baseVol = 0
                 var baseBright = 0.5f
-                androidx.compose.foundation.gestures.detectDragGestures(
+                detectDragGestures(
                     onDragStart = { o ->
                         startX = o.x; startY = o.y; mode = 0; acc = 0f
                         baseVol = audio.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
