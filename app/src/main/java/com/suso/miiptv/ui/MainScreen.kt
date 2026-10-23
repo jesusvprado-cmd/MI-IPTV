@@ -245,20 +245,15 @@ private fun TopTab(
 @Composable
 private fun TopIcon(icon: ImageVector, label: String, focusKey: String, centerDot: Color? = null, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
-    // Igual que las secciones del menú: verde al momento cuando tiene el cursor.
-    // El verde claro y el gris tienen casi la misma luminosidad: en un icono fino apenas se nota el cambio.
-    // Por eso con el cursor, además de verde, la rueda se agranda un poco y lleva un círculo verde suave detrás.
+    // Igual que las secciones del menú: con el cursor, el mismo verde (sin halo ni recuadro); un pelín más grande.
     val color = if (focused) C.gold else Color(0xFFB4B4B4)
-    val scale by androidx.compose.animation.core.animateFloatAsState(if (focused) 1.15f else 1f, Motion.focusSpec(), label = "gear")
+    val scale by androidx.compose.animation.core.animateFloatAsState(if (focused) 1.1f else 1f, Motion.focusSpec(), label = "gear")
     Box(
         Modifier
             .memFocus(focusKey) { focused = it }
             .tvClick(onClick = onClick)
-            .padding(4.dp)
-            .graphicsLayer { scaleX = scale; scaleY = scale }
-            .clip(androidx.compose.foundation.shape.CircleShape)
-            .background(if (focused) C.gold.copy(alpha = 0.16f) else Color.Transparent)
-            .padding(5.dp),
+            .padding(9.dp)
+            .graphicsLayer { scaleX = scale; scaleY = scale },
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, contentDescription = label, tint = color, modifier = Modifier.size(26.dp))
