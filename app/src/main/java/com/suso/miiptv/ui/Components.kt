@@ -240,7 +240,7 @@ fun PosterCard(
         Text(
             title,
             color = if (focused) Color.White else C.text3,
-            fontSize = 13.sp,
+            fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
             maxLines = 1,
             overflow = if (focused) TextOverflow.Clip else TextOverflow.Ellipsis,
