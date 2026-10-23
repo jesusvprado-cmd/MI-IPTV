@@ -1,5 +1,6 @@
 package com.suso.miiptv.ui
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
@@ -133,7 +134,8 @@ internal suspend fun loadHeader(item: Item): HeaderInfo = try {
 /** Imagen grande a la derecha que se funde con el negro; cambia con un fundido. */
 @Composable
 private fun BoxScope.HeroImage(url: String?) {
-    Box(Modifier.align(Alignment.TopEnd).fillMaxWidth(0.5f).fillMaxHeight(0.82f)) {
+    val compact = compactDetail()
+    Box(Modifier.align(Alignment.TopEnd).fillMaxWidth(if (compact) 1f else 0.5f).fillMaxHeight(if (compact) 0.5f else 0.82f)) {
         Crossfade(targetState = url, animationSpec = tween(400), label = "hero") { u ->
             if (u != null) {
                 AsyncImage(model = u, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
@@ -149,8 +151,27 @@ private fun BoxScope.HeroImage(url: String?) {
                 Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent, C.bg.copy(alpha = 0.7f), C.bg))
             )
         )
+        // En el móvil el texto va encima de la imagen: se oscurece para que se lea.
+        if (compact) Box(Modifier.fillMaxSize().background(C.bg.copy(alpha = 0.55f)))
     }
 }
+
+/** Móvil en vertical: la ficha ocupa todo el ancho. */
+@Composable
+internal fun compactDetail(): Boolean =
+    com.suso.miiptv.data.Device.touch && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 600
+
+/** Ancho del texto de la ficha (62 % en TV, todo en el móvil). */
+@Composable
+private fun detailFrac() = if (compactDetail()) 1f else 0.62f
+
+@Composable
+private fun detailStart() = if (compactDetail()) 18.dp else 48.dp
+
+/** Fila de botones: en el móvil se puede deslizar si no caben. */
+@Composable
+private fun buttonsScroll(): Modifier =
+    if (compactDetail()) Modifier.horizontalScroll(rememberScrollState()) else Modifier
 
 /**
  * Fila de títulos relacionados. Al pasar por encima de uno se avisa con [onPreview]
@@ -457,9 +478,9 @@ fun MovieDetailScreen(item: Item) {
             Column(Modifier.fillMaxSize()) {
                 Column(
                     Modifier
-                        .fillMaxWidth(0.62f)
+                        .fillMaxWidth(detailFrac())
                         .weight(1f)
-                        .padding(start = 48.dp, top = 28.dp, end = 16.dp, bottom = 6.dp),
+                        .padding(start = detailStart(), top = 28.dp, end = 16.dp, bottom = 6.dp),
                 ) {
                     HeaderText(shown, C.gold, 8, Modifier.weight(1f, fill = false)) { k, o ->
                         if (k == own.key) hs.overflow = o
@@ -470,6 +491,7 @@ fun MovieDetailScreen(item: Item) {
                     } else {
                         Row(
                             Modifier
+                                .then(buttonsScroll())
                                 .graphicsLayer { alpha = if (previewing) 0.35f else 1f }
                                 .onFocusChanged { if (it.hasFocus) hs.previewItem = null },
                             horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -588,13 +610,14 @@ fun SeriesDetailScreen(item: Item) {
         // Cabecera de altura fija: al pasar por los relacionados, la lista de abajo no sube ni baja.
         val headerH = (maxHeight * 0.46f).coerceIn(210.dp, 320.dp)
         Column(Modifier.fillMaxSize()) {
-            Column(Modifier.fillMaxWidth(0.62f).height(headerH).padding(start = 48.dp, top = 28.dp, end = 16.dp)) {
+            Column(Modifier.fillMaxWidth(detailFrac()).height(headerH).padding(start = detailStart(), top = 28.dp, end = 16.dp)) {
                 HeaderText(shown, C.gold, 4, Modifier.fillMaxWidth().weight(1f)) { k, o ->
                     if (k == own.key) hs.overflow = o
                 }
                 Spacer(Modifier.height(14.dp))
                 Row(
                     Modifier
+                        .then(buttonsScroll())
                         .graphicsLayer { alpha = if (previewing) 0.35f else 1f }
                         .then(clearPreview),
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -630,7 +653,7 @@ fun SeriesDetailScreen(item: Item) {
             ) {
                 when {
                     det == null -> this.item(key = "loading") {
-                        Box(Modifier.padding(start = 48.dp)) { SmallLoading() }
+                        Box(Modifier.padding(start = detailStart())) { SmallLoading() }
                     }
                     det.seasons.isEmpty() -> this.item(key = "empty") {
                         Text(
@@ -642,7 +665,7 @@ fun SeriesDetailScreen(item: Item) {
                         this.item(key = "s$season") {
                             val sfr = seasonFrs.getOrPut(season) { FocusRequester() }
                             Box(
-                                Modifier.animateItem().fillMaxWidth(0.62f).padding(start = 48.dp, end = 16.dp)
+                                Modifier.animateItem().fillMaxWidth(detailFrac()).padding(start = detailStart(), end = 16.dp)
                                     .focusRequester(sfr).then(clearPreview)
                             ) {
                                 SeasonRow(season, eps.size, open == season) { open = if (open == season) null else season }
@@ -651,7 +674,7 @@ fun SeriesDetailScreen(item: Item) {
                         if (open == season) {
                             this.itemsIndexed(eps, key = { _, ep -> "e${ep.id}" }) { i, ep ->
                                 val p = Repo.prefs.progress(epKey(item.id, ep))
-                                Box(Modifier.animateItem().fillMaxWidth(0.62f).padding(start = 48.dp, end = 16.dp).then(clearPreview)) {
+                                Box(Modifier.animateItem().fillMaxWidth(detailFrac()).padding(start = detailStart(), end = 16.dp).then(clearPreview)) {
                                     val k = epKey(item.id, ep)
                                     EpisodeRow(
                                         ep, p, "ep_${ep.id}",

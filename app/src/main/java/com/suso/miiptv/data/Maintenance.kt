@@ -140,3 +140,17 @@ object Perf {
         return lowRam || mem <= 192 || model.contains("MIBOX") || model.contains("MI BOX")
     }
 }
+
+/** Tipo de aparato: tele (mando) o táctil (móvil, tablet). */
+object Device {
+    /** true en móviles y tablets (pantalla táctil y sin interfaz de tele). */
+    @Volatile
+    var touch = false
+        private set
+
+    fun init(ctx: Context) {
+        val pm = ctx.packageManager
+        val tv = pm.hasSystemFeature("android.software.leanback") || pm.hasSystemFeature("android.hardware.type.television")
+        touch = !tv && pm.hasSystemFeature("android.hardware.touchscreen")
+    }
+}

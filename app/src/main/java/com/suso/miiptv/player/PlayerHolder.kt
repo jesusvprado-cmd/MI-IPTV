@@ -34,6 +34,10 @@ object PlayerHolder {
     @Volatile
     var fullscreen = false
 
+    /** La app se está cerrando: ya no se arranca ninguna previsualización. */
+    @Volatile
+    var closing = false
+
     /** Cambia cada vez que se vuelve a la pantalla principal (la previsualización se vuelve a enganchar). */
     var epoch by mutableIntStateOf(0)
         private set
@@ -84,7 +88,17 @@ object PlayerHolder {
             else -> DefaultLoadControl.Builder().setBufferDurationsMs(15_000, 50_000, 2_000, 4_000)
         }.build()
         val exo = ExoPlayer.Builder(ctx.applicationContext, renderers)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(http))
+            .setMediaSourceFactory(
+                DefaultMediaSourceFactory(
+                    http,
+                    // Emisiones de satélite («SAT»): muchas no marcan bien dónde empieza cada imagen ni traen imágenes
+                    // clave completas; sin estas opciones el reproductor descarta imágenes y el vídeo va a saltos.
+                    androidx.media3.extractor.DefaultExtractorsFactory().setTsExtractorFlags(
+                        androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES or
+                            androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS
+                    ),
+                )
+            )
             .setLoadControl(load)
             .build()
         exo.playWhenReady = true
@@ -120,7 +134,7 @@ object PlayerHolder {
 
     /** Reproduce un canal en el recuadro de previsualización (con el volumen más bajo). */
     fun playPreview(ctx: Context, item: Item, force: Boolean = false) {
-        if (fullscreen) return
+        if (fullscreen || closing) return
         val url = try {
             Repo.streamUrl(item)
         } catch (e: Exception) {
@@ -144,6 +158,17 @@ object PlayerHolder {
             it.stop()
             it.clearMediaItems()
         }
+        previewError = null
+    }
+
+    /** Al salir de la app: se libera el reproductor del todo (nada sigue sonando). */
+    fun releaseAll() {
+        fullscreen = false
+        player?.let {
+            runCatching { it.stop() }
+            runCatching { it.release() }
+        }
+        player = null
         previewError = null
     }
 

@@ -34,6 +34,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -115,10 +118,12 @@ fun GuideScreen() {
         sel = p
     }
     val pv = Repo.prefs.version
+    val touch = com.suso.miiptv.data.Device.touch
+    val compact = touch && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 600
 
     Row(Modifier.fillMaxSize()) {
-        // Categorías
-        LazyColumn(
+        // Categorías (en el móvil, como píldoras arriba)
+        if (!compact) LazyColumn(
             modifier = Modifier.width(250.dp).fillMaxHeight().onFocusChanged { catsFocused = it.hasFocus },
             contentPadding = PaddingValues(start = 22.dp, end = 6.dp, top = 14.dp, bottom = 24.dp),
         ) {
@@ -133,10 +138,28 @@ fun GuideScreen() {
             }
         }
 
-        Column(Modifier.weight(1f).fillMaxHeight().padding(end = 24.dp)) {
-            InfoPanel(focused, now)
+        Column(Modifier.weight(1f).fillMaxHeight().padding(end = if (compact) 6.dp else 24.dp)) {
+            if (compact) CategoryChips(cats, sel) { id -> sel = id }
+            InfoPanel(focused, now, touch)
+            if (touch) {
+                // Sin mando: botones para mover la franja horaria.
+                fun shift(d: Long) {
+                    val arch = channels.orEmpty().maxOfOrNull { it.archive } ?: 0
+                    val base = floorHalfHour(now)
+                    val min = if (arch > 0) base - minOf(arch, 1) * 24 * 3600_000L else base
+                    winStart = (winStart + d).coerceIn(min, base + 24 * 3600_000L)
+                }
+                Row(
+                    Modifier.padding(start = 12.dp, bottom = 6.dp),
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+                ) {
+                    GuidePill("◀  1 h") { shift(-60 * 60_000L) }
+                    GuidePill("Ahora") { winStart = floorHalfHour(now) }
+                    GuidePill("1 h  ▶") { shift(60 * 60_000L) }
+                }
+            }
             BoxWithConstraints(Modifier.fillMaxSize()) {
-                val chW = 200.dp
+                val chW = if (compact) 116.dp else 200.dp
                 val areaW = maxWidth - chW
                 val perMin: Dp = areaW / WIN_MIN.toFloat()
                 val winEnd = winStart + WIN_MIN * 60_000L
@@ -148,11 +171,18 @@ fun GuideScreen() {
                         list.isEmpty() -> EmptyText("No hay canales en esta categoría.")
                         else -> {
                             val state = rememberLazyListState()
+                            // Casilla «en emisión» de cada fila: al subir o bajar, el cursor va siempre a lo que se emite ahora.
+                            val liveFrs = remember(list) { HashMap<Int, androidx.compose.ui.focus.FocusRequester>() }
+                            fun jump(to: Int): Boolean {
+                                val fr = liveFrs[to] ?: return false
+                                return runCatching { fr.requestFocus() }.isSuccess
+                            }
                             LazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
                                 itemsIndexed(list, key = { _, ch -> ch.key }) { i, ch ->
                                     GuideRow(
                                         ch = ch,
                                         chW = chW,
+                                        compact = compact,
                                         perMin = perMin,
                                         winStart = winStart,
                                         winEnd = winEnd,
@@ -171,6 +201,8 @@ fun GuideScreen() {
                                             }
                                         },
                                         onPick = { e -> pick(ctx, list, i, ch, e, now) },
+                                        liveFr = remember(ch.key) { androidx.compose.ui.focus.FocusRequester() }.also { liveFrs[i] = it },
+                                        onVertical = { d -> jump(i + d) },
                                     )
                                 }
                             }
@@ -211,13 +243,14 @@ private fun pick(ctx: Context, list: List<Item>, i: Int, ch: Item, e: EpgEntry?,
 }
 
 @Composable
-private fun InfoPanel(f: Focused?, now: Long) {
-    Column(Modifier.fillMaxWidth().height(118.dp).padding(start = 14.dp, top = 14.dp, end = 10.dp)) {
+private fun InfoPanel(f: Focused?, now: Long, touch: Boolean = false) {
+    Column(Modifier.fillMaxWidth().height(if (touch) 104.dp else 118.dp).padding(start = 14.dp, top = if (touch) 8.dp else 14.dp, end = 10.dp)) {
         if (f == null) {
-            Text("Guía de programación", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Text("Guía de programación", color = Color.White, fontSize = if (touch) 20.sp else 24.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(6.dp))
             Text(
-                "OK sobre lo que se emite ahora: ver el canal · sobre un programa futuro: recordatorio · sobre uno pasado: verlo (si el canal lo guarda)",
+                if (touch) "Toca un programa para ver su información y vuelve a tocarlo para verlo, poner un recordatorio o verlo desde el principio (si el canal lo guarda)."
+                else "OK sobre lo que se emite ahora: ver el canal · sobre un programa futuro: recordatorio · sobre uno pasado: verlo (si el canal lo guarda)",
                 color = C.text2, fontSize = 13.sp, maxLines = 2,
             )
             return@Column
@@ -269,6 +302,7 @@ private fun TimeHeader(winStart: Long, chW: Dp, perMin: Dp, now: Long) {
 private fun GuideRow(
     ch: Item,
     chW: Dp,
+    compact: Boolean,
     perMin: Dp,
     winStart: Long,
     winEnd: Long,
@@ -277,23 +311,25 @@ private fun GuideRow(
     onFocus: (EpgEntry?) -> Unit,
     onShift: (Long) -> Boolean,
     onPick: (EpgEntry?) -> Unit,
+    liveFr: androidx.compose.ui.focus.FocusRequester,
+    onVertical: (Int) -> Boolean,
 ) {
     var epg by remember(ch.key) { mutableStateOf<List<EpgEntry>?>(null) }
     LaunchedEffect(ch.key) { epg = Repo.guideEpg(ch) }
     val logo = remember(ch.key, Logos.version) { Logos.url(ch.name, ch.image) }
     Row(Modifier.fillMaxWidth().height(58.dp).padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
         // Canal: logo y nombre
-        Row(Modifier.width(chW).fillMaxHeight().padding(start = 14.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.width(chW).fillMaxHeight().padding(start = if (compact) 8.dp else 14.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             val white = LogoTone.wantsWhite(logo)
             Box(
-                Modifier.width(62.dp).fillMaxHeight().clip(RoundedCornerShape(6.dp))
+                Modifier.width(if (compact) 48.dp else 62.dp).fillMaxHeight().clip(RoundedCornerShape(6.dp))
                     .background(if (white) Color.White else Color(0x22FFFFFF)),
                 contentAlignment = Alignment.Center,
             ) {
                 if (logo != null) ChannelLogoImage(logo, Modifier.fillMaxSize().padding(5.dp), fallback = ch.image)
             }
-            Spacer(Modifier.width(8.dp))
-            Text(ch.name, color = Color(0xFFCFCFCF), fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 14.sp)
+            Spacer(Modifier.width(if (compact) 6.dp else 8.dp))
+            Text(ch.name, color = Color(0xFFCFCFCF), fontSize = if (compact) 10.sp else 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 14.sp)
         }
         // Programas
         Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(6.dp))) {
@@ -308,6 +344,8 @@ private fun GuideRow(
                     onLeft = { onShift(-60 * 60_000L) },
                     onRight = { onShift(60 * 60_000L) },
                     onClick = { onPick(null) },
+                    liveFr = liveFr,
+                    onVertical = onVertical,
                 )
             }
             visible.forEachIndexed { idx, e ->
@@ -329,6 +367,8 @@ private fun GuideRow(
                         onLeft = { if (idx == 0) onShift(-60 * 60_000L) else false },
                         onRight = { if (idx == visible.lastIndex) onShift(60 * 60_000L) || true else false },
                         onClick = { onPick(e) },
+                        liveFr = if (e.start <= now && e.end > now) liveFr else null,
+                        onVertical = onVertical,
                     )
                 }
             }
@@ -354,9 +394,13 @@ private fun ProgramCell(
     onLeft: () -> Boolean,
     onRight: () -> Boolean,
     onClick: () -> Unit,
+    liveFr: androidx.compose.ui.focus.FocusRequester? = null,
+    onVertical: (Int) -> Boolean = { false },
 ) {
     var focused by remember { mutableStateOf(false) }
     var pressed by remember { mutableStateOf(false) }
+    val fr = remember { androidx.compose.ui.focus.FocusRequester() }
+    val click by androidx.compose.runtime.rememberUpdatedState(onClick)
     val bg = when {
         focused -> C.gold
         live -> Color(0xFF1E3A22)
@@ -376,6 +420,8 @@ private fun ProgramCell(
                 when {
                     e.type == KeyEventType.KeyDown && e.key == Key.DirectionLeft -> onLeft()
                     e.type == KeyEventType.KeyDown && e.key == Key.DirectionRight -> onRight()
+                    e.type == KeyEventType.KeyDown && e.key == Key.DirectionDown -> onVertical(1)
+                    e.type == KeyEventType.KeyDown && e.key == Key.DirectionUp -> onVertical(-1)
                     e.key == Key.DirectionCenter || e.key == Key.Enter || e.key == Key.NumPadEnter -> {
                         if (e.type == KeyEventType.KeyDown && e.nativeKeyEvent.repeatCount == 0) pressed = true
                         if (e.type == KeyEventType.KeyUp && pressed) {
@@ -387,7 +433,13 @@ private fun ProgramCell(
                     else -> false
                 }
             }
+            .focusRequester(fr)
+            .then(if (liveFr != null) Modifier.focusRequester(liveFr) else Modifier)
             .focusable()
+            // Táctil: el primer toque lo selecciona (se ve su información), el segundo hace lo mismo que OK.
+            .pointerInput(Unit) {
+                detectTapGestures { if (focused) click() else runCatching { fr.requestFocus() } }
+            }
             .clip(RoundedCornerShape(6.dp))
             .background(bg)
             .then(if (live && !focused) Modifier.border(1.dp, C.gold.copy(alpha = 0.45f), RoundedCornerShape(6.dp)) else Modifier)
@@ -462,4 +514,17 @@ fun ReminderPopup(onVisible: (Boolean) -> Unit = {}, onWatch: (Prefs.Reminder) -
             }
         }
     }
+}
+
+
+@Composable
+private fun GuidePill(text: String, onClick: () -> Unit) {
+    Text(
+        text, color = Color(0xFFDDDDDD), fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFF1F2A21))
+            .tvClick(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 7.dp),
+    )
 }

@@ -340,6 +340,8 @@ object Logos {
             // Liga RFEF: emblema rojo sobre blanco con el número del canal en rojo.
             Pick(Regex("^((la ?)?liga )?rfef( tv)?$"), lp("6/61/RFEF_icon_%282021%29.svg", 500), "E4002B", onWhite = true, alwaysNumber = true),
             Pick(Regex("^bbc food$"), lp("5/51/BBC-FOOD.svg", 800), onWhite = true),
+            // BBC News: logo oficial en negro sobre fondo blanco.
+            Pick(Regex("^bbc news\\b"), OWN_LOGOS + "bbcnews.png", onWhite = true),
             Pick(Regex("^(canal )?hollywood\\b"), OWN_LOGOS + "hollywood.png", onWhite = true),
             Pick(Regex("^(nickelodeon|nick)$"), OWN_LOGOS + "nickelodeon.png", onWhite = true),
             Pick(Regex("^(telecinco|tele 5|t 5)$"), OWN_LOGOS + "telecinco2.png", onWhite = true),

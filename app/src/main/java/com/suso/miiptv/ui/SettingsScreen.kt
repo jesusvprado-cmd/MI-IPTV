@@ -354,17 +354,23 @@ fun SettingsScreen(onChangeList: () -> Unit) {
         return
     }
 
+    // Móvil en vertical: primero la lista de secciones a pantalla completa; al tocar una, sus opciones.
+    val compact = com.suso.miiptv.data.Device.touch &&
+        androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 600
+    var mobilePane by remember { mutableStateOf(false) }
+
     // Atrás desde las opciones vuelve primero al menú de secciones.
-    BackHandler(enabled = inPane && choice == null) {
+    BackHandler(enabled = !compact && inPane && choice == null) {
         runCatching { sideFrs.getValue(sec).requestFocus() }
     }
+    BackHandler(enabled = compact && mobilePane && choice == null) { mobilePane = false }
 
     Box(Modifier.fillMaxSize().background(S.panel)) {
         Row(Modifier.fillMaxSize()) {
             // ---------------- Menú lateral (fijo) ----------------
-            Column(
+            if (!compact || !mobilePane) Column(
                 Modifier
-                    .width(280.dp)
+                    .then(if (compact) Modifier.fillMaxWidth() else Modifier.width(280.dp))
                     .fillMaxHeight()
                     // Menú lateral en negro (más contraste para los iconos); las opciones, sobre el verde oscuro.
                     .background(C.bg)
@@ -396,6 +402,7 @@ fun SettingsScreen(onChangeList: () -> Unit) {
                         requester = sideFrs.getValue(s),
                         // «Acerca de»: la «i» en rojo si hay una versión nueva por instalar.
                         iconColor = if (s == Sec.ABOUT && com.suso.miiptv.data.Updater.available != null) Color(0xFFE53935) else null,
+                        onClick = if (compact) ({ sec = s; lastSec = s; mobilePane = true }) else null,
                         onFocused = {
                             val now = System.currentTimeMillis()
                             when {
@@ -414,7 +421,7 @@ fun SettingsScreen(onChangeList: () -> Unit) {
             }
 
             // ---------------- Opciones de la sección ----------------
-            Box(
+            if (!compact || mobilePane) Box(
                 Modifier
                     .weight(1f)
                     .fillMaxHeight()
@@ -463,11 +470,16 @@ fun SettingsScreen(onChangeList: () -> Unit) {
                 LazyColumn(
                     state = paneList,
                     modifier = Modifier.fillMaxSize().fadeInOnChange(sec).focusRequester(paneFr),
-                    contentPadding = PaddingValues(start = 40.dp, end = 48.dp, top = 30.dp, bottom = 48.dp),
+                    contentPadding = if (compact) PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 32.dp)
+                        else PaddingValues(start = 40.dp, end = 48.dp, top = 30.dp, bottom = 48.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     item(key = "title_${sec.name}") {
                         Column(Modifier.padding(bottom = 8.dp)) {
+                            if (compact) Text(
+                                "‹  Ajustes", color = C.gold, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.tvClick { mobilePane = false }.padding(vertical = 8.dp),
+                            )
                             Text(sec.label, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
                             if (sec.desc.isNotEmpty()) {
                                 Spacer(Modifier.height(4.dp))

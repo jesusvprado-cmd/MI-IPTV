@@ -6,6 +6,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -66,8 +68,10 @@ fun MainScreen() {
     // Fondo que toma el color de la carátula con el foco (Inicio, Películas y Series).
     AmbientBackground(enabled = !com.suso.miiptv.data.Perf.light && (UiState.tab == Tab.HOME || UiState.tab == Tab.MOVIES || UiState.tab == Tab.SERIES))
     val mainCtx = androidx.compose.ui.platform.LocalContext.current
+    // Móvil o tablet en vertical: secciones abajo, como en cualquier app de móvil.
+    val compact = com.suso.miiptv.data.Device.touch && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 700
     Column(Modifier.fillMaxSize()) {
-        TopBar(restoring)
+        TopBar(restoring, compact)
         Box(Modifier.fillMaxWidth().weight(1f).fadeInOnChange(UiState.tab)) {
             when (UiState.tab) {
                 Tab.HOME -> HomeScreen()
@@ -78,6 +82,7 @@ fun MainScreen() {
                 Tab.SEARCH -> SearchScreen()
             }
         }
+        if (compact) BottomNav()
     }
     // Aviso de programas con recordatorio.
     ReminderPopup { r -> Actions.playLive(mainCtx, listOf(r.channel), 0) }
@@ -86,14 +91,11 @@ fun MainScreen() {
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-private fun TopBar(restoring: Boolean) {
+private fun TopBar(restoring: Boolean, compact: Boolean = false) {
     // La sección cambia sola al ponerse encima (con una pausa corta para poder pasar de largo).
     var hovered by remember { mutableStateOf<Tab?>(null) }
     LaunchedEffect(hovered) {
         val h = hovered ?: return@LaunchedEffect
-        // Buscar no se abre solo al pasar por encima (su campo de texto se quedaba el cursor y la lupa volvía a gris):
-        // se abre con OK. Así, con el cursor encima, la lupa se queda en verde.
-        if (h == Tab.SEARCH) return@LaunchedEffect
         delay(260)
         if (UiState.tab != h) UiState.tab = h
     }
@@ -109,7 +111,8 @@ private fun TopBar(restoring: Boolean) {
                 fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold, maxLines = 1,
             )
             Spacer(Modifier.width(12.dp))
-            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+            if (compact) Spacer(Modifier.weight(1f))
+            if (!compact) Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 Row(
                     Modifier
                         // Al subir al menú desde el contenido, el foco entra por la sección actual.
@@ -224,7 +227,7 @@ private fun TopTab(
         if (icon != null) {
             // Hueco fijo: el menú no se mueve aunque la lupa crezca un poco con el cursor.
             Box(Modifier.size(28.dp), contentAlignment = Alignment.Center) {
-                Icon(icon, contentDescription = text, tint = color, modifier = Modifier.size(if (focused) 28.dp else 25.dp))
+                Icon(icon, contentDescription = text, tint = iconTint(color), modifier = Modifier.size(if (focused) 28.dp else 25.dp))
             }
         } else {
             // Texto invisible en negrita: reserva el ancho para que el menú no se mueva al cambiar el grosor.
@@ -241,6 +244,12 @@ private fun TopTab(
     }
 }
 
+/**
+ * En un icono de trazo fino, el verde claro de las palabras se ve casi gris en la tele: los iconos usan
+ * un verde algo más intenso para que se vean del mismo verde que las palabras del menú.
+ */
+private fun iconTint(c: Color): Color = if (c == C.gold) Color(0xFF6FE07A) else c
+
 /** Icono del menú superior (Ajustes) con el mismo estilo que las secciones. */
 @Composable
 private fun TopIcon(icon: ImageVector, label: String, focusKey: String, centerDot: Color? = null, onClick: () -> Unit) {
@@ -256,8 +265,49 @@ private fun TopIcon(icon: ImageVector, label: String, focusKey: String, centerDo
             .graphicsLayer { scaleX = scale; scaleY = scale },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = label, tint = color, modifier = Modifier.size(26.dp))
+        Icon(icon, contentDescription = label, tint = iconTint(color), modifier = Modifier.size(26.dp))
         // Relleno del agujero central de la rueda (el icono mide 24 de lado y el agujero ~7 de diámetro).
         if (centerDot != null) Box(Modifier.size(26.dp * 7.4f / 24f).clip(androidx.compose.foundation.shape.CircleShape).background(centerDot))
+    }
+}
+
+
+/** Iconos de las secciones (barra de abajo en el móvil). */
+private val TAB_ICONS: Map<Tab, ImageVector> by lazy {
+    mapOf(
+        Tab.HOME to pathIcon("inicio", "M10,20v-6h4v6h5v-8h3L12,3 2,12h3v8z"),
+        Tab.LIVE to pathIcon("tv", "M21,3H3c-1.1,0 -2,0.9 -2,2v12c0,1.1 0.9,2 2,2h5v2h8v-2h5c1.1,0 1.99,-0.9 1.99,-2L23,5c0,-1.1 -0.9,-2 -2,-2zM21,17H3V5h18v12z"),
+        Tab.GUIDE to SIcons.guide,
+        Tab.MOVIES to SIcons.video,
+        Tab.SERIES to pathIcon("series", "M4,6H2v14c0,1.1 0.9,2 2,2h14v-2H4V6zM20,2H8c-1.1,0 -2,0.9 -2,2v12c0,1.1 0.9,2 2,2h12c1.1,0 2,-0.9 2,-2V4c0,-1.1 -0.9,-2 -2,-2zM12,14.5v-9l6,4.5 -6,4.5z"),
+        Tab.SEARCH to Icons.Filled.Search,
+    )
+}
+
+/** Barra de secciones abajo (móvil y tablet en vertical). */
+@Composable
+private fun BottomNav() {
+    Column(Modifier.fillMaxWidth().background(C.bg)) {
+        Box(Modifier.fillMaxWidth().height(1.dp).background(C.divider))
+        Row(Modifier.fillMaxWidth().height(62.dp), verticalAlignment = Alignment.CenterVertically) {
+            Tab.values().forEach { t ->
+                val sel = UiState.tab == t
+                val col = if (sel) C.gold else Color(0xFF9A9A9A)
+                androidx.compose.foundation.layout.Column(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clickable { if (UiState.tab != t) UiState.tab = t },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Icon(TAB_ICONS.getValue(t), contentDescription = t.label, tint = col, modifier = Modifier.size(24.dp))
+                    Text(
+                        if (t == Tab.SEARCH) "Buscar" else t.label, color = col, fontSize = 11.sp,
+                        fontWeight = if (sel) FontWeight.Bold else FontWeight.Medium, maxLines = 1,
+                    )
+                }
+            }
+        }
     }
 }

@@ -109,8 +109,8 @@ object PlayQueue {
     }
 
     /** Abre el vídeo en el reproductor elegido en Ajustes (sin preguntar). Devuelve false si no se pudo. */
-    fun openExternal(ctx: Context, item: PlayItem, pos: Long = 0): Boolean {
-        val pkg = Repo.prefs.externalPkg?.takeIf { p -> installedPlayers(ctx).any { it.second == p } }
+    fun openExternal(ctx: Context, item: PlayItem, pos: Long = 0, pkg: String? = null): Boolean {
+        val chosen = (pkg ?: Repo.prefs.externalPkg)?.takeIf { p -> installedPlayers(ctx).any { it.second == p } }
         val i = Intent(Intent.ACTION_VIEW)
             .setDataAndType(Uri.parse(item.url), "video/*")
             .putExtra("title", item.title)
@@ -118,7 +118,7 @@ object PlayQueue {
             i.putExtra("position", pos) // VLC (milisegundos)
             i.putExtra("from_start", false)
         }
-        if (pkg != null) i.setPackage(pkg)
+        if (chosen != null) i.setPackage(chosen)
         if (ctx !is android.app.Activity) i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         return try {
             ctx.startActivity(i)
@@ -208,7 +208,10 @@ class PlayerCtl(ctx: Context) {
                     if (g.type == C.TRACK_TYPE_AUDIO && audio == null) audio = g.getTrackFormat(i)
                 }
             }
-            video?.let { onVideoFormat?.invoke(it) }
+            video?.let {
+                videoFormat = it
+                onVideoFormat?.invoke(it)
+            }
             streamBadges = badgesOf(video, audio)
             // Película o episodio: se recupera el audio y los subtítulos que tenías puestos.
             if (!current.live && restoredFor != current.key && tracks.groups.any { it.type == C.TRACK_TYPE_AUDIO }) {
@@ -448,7 +451,43 @@ class PlayerCtl(ctx: Context) {
         }
     }
 
-    private fun load(url: String, pos: Long, forceHls: Boolean) {
+    // ---------- Formato de emisión (TS / HLS) y frecuencia de la pantalla, desde las opciones ----------
+
+    /** true = se usa el otro formato (TS ↔ HLS) en los canales, para probar si alguno va mejor. */
+    var altLiveFormat by mutableStateOf(false)
+        private set
+
+    private fun swapFormat(url: String): String = when {
+        url.endsWith(".m3u8", true) -> url.dropLast(5) + ".ts"
+        url.endsWith(".ts", true) -> url.dropLast(3) + ".m3u8"
+        else -> url
+    }
+
+    /** Formato con el que se está viendo el canal: "TS" o "HLS". */
+    fun liveFormatLabel(): String {
+        val u = if (altLiveFormat) swapFormat(current.url) else current.url
+        return if (u.contains(".m3u8", true)) "HLS" else "TS"
+    }
+
+    /** Cambia entre TS y HLS y vuelve a abrir el canal. */
+    fun toggleLiveFormat() {
+        if (!current.live) return
+        altLiveFormat = !altLiveFormat
+        triedHls = false
+        load(current.url, 0, false)
+    }
+
+    /** Última imagen conocida del vídeo (para la frecuencia de la pantalla y sus fps). */
+    var videoFormat by mutableStateOf<Format?>(null)
+        private set
+
+    /** Vuelve a aplicar (o quitar) el ajuste de la frecuencia de la pantalla con el vídeo actual. */
+    fun reapplyFrameRate() {
+        videoFormat?.let { onVideoFormat?.invoke(it) }
+    }
+
+    private fun load(rawUrl: String, pos: Long, forceHls: Boolean) {
+        val url = if (altLiveFormat && current.live) swapFormat(rawUrl) else rawUrl
         val b = MediaItem.Builder().setUri(url)
         if (forceHls || url.contains(".m3u8", ignoreCase = true)) b.setMimeType(MimeTypes.APPLICATION_M3U8)
         buffering = true
@@ -498,6 +537,22 @@ class PlayerCtl(ctx: Context) {
                 if (idx == index) load(current.url, if (current.live) 0 else position, triedHls)
             }, 2000L * retries)
             return
+        }
+        // Programa emitido / desde el principio: cada proveedor usa un formato distinto; se prueba el siguiente.
+        if (it.key.startsWith("CU|") && code in 2000..3999) {
+            // Se apunta cada intento (sin usuario ni contraseña) para ver en Ajustes qué responde el servidor.
+            val http = (e.cause as? HttpDataSource.InvalidResponseCodeException)?.responseCode
+            com.suso.miiptv.data.ErrorLog.add("Desde el principio: ${http?.let { c -> "HTTP $c" } ?: e.errorCodeName} en ${maskUrl(it.url)}")
+            val next = Repo.nextCatchup(it.url)
+            if (next != null) {
+                val n = it.copy(url = next)
+                androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
+                    items = items.map { x -> if (x === it) n else x }
+                }
+                triedHls = false
+                load(next, 0, false)
+                return
+            }
         }
         com.suso.miiptv.data.ErrorLog.add("Reproducción («${it.title}»): ${e.errorCodeName} (${e.message ?: "sin detalle"})")
         // Directo que no hay manera de abrir: plan B con la VPN antes de dar el error.
@@ -816,3 +871,9 @@ private fun badgesOf(video: Format?, audio: Format?): List<String> {
     }
     return out
 }
+
+/** Dirección sin usuario ni contraseña, para el registro de errores. */
+internal fun maskUrl(url: String): String = url
+    .replace(Regex("^https?://[^/]+"), "")
+    .replace(Regex("/timeshift/[^/]+/[^/]+/"), "/timeshift/*/*/")
+    .replace(Regex("username=[^&]*&password=[^&]*"), "username=*&password=*")

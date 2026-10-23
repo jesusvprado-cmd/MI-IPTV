@@ -1,6 +1,9 @@
 package com.suso.miiptv.ui
 
 import androidx.compose.foundation.focusGroup
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -137,8 +140,10 @@ fun BrowseScreen(kind: Kind) {
     var catsFocused by remember { mutableStateOf(false) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val narrow = maxWidth < 700.dp
+        // Móvil en vertical: categorías en una fila deslizable arriba en vez de la columna de la izquierda.
+        val chips = com.suso.miiptv.data.Device.touch && maxWidth < 600.dp
         Row(Modifier.fillMaxSize()) {
-            LazyColumn(
+            if (!chips) LazyColumn(
                 state = st.cats,
                 modifier = Modifier.width(if (narrow) 140.dp else 290.dp).fillMaxHeight()
                     .onFocusChanged { catsFocused = it.hasFocus },
@@ -165,7 +170,8 @@ fun BrowseScreen(kind: Kind) {
                 }
             }
             Column(Modifier.weight(1f).fillMaxHeight()) {
-                if (kind == Kind.LIVE && !narrow) LiveHeader(st.focused)
+                if (chips) CategoryChips(allCats, sel) { id -> st.selected = id }
+                if (kind == Kind.LIVE && !narrow && !com.suso.miiptv.data.Device.touch) LiveHeader(st.focused) // en táctil, sin previsualización: más sitio para los canales
                 val its = content
                 val ie = contentErr
                 when {
@@ -177,7 +183,8 @@ fun BrowseScreen(kind: Kind) {
                     )
                     else -> CompositionLocalProvider(LocalBringIntoViewSpec provides RevealBringIntoView) {
                     LazyVerticalGrid(
-                        columns = GridCells.Adaptive(if (kind == Kind.LIVE) 150.dp else 128.dp),
+                        // Canales más pequeños (5 por fila en vez de 3) para ver más de un vistazo.
+                        columns = GridCells.Adaptive(if (kind == Kind.LIVE) 112.dp else 128.dp),
                         state = st.grid,
                         modifier = Modifier
                             .fillMaxSize()
@@ -188,8 +195,8 @@ fun BrowseScreen(kind: Kind) {
                             .focusGroup()
                             .fadeInOnChange(its),
                         contentPadding = PaddingValues(start = 14.dp, end = 30.dp, top = 14.dp, bottom = 40.dp),
-                        horizontalArrangement = Arrangement.spacedBy(18.dp),
-                        verticalArrangement = Arrangement.spacedBy(20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(if (kind == Kind.LIVE) 14.dp else 18.dp),
+                        verticalArrangement = Arrangement.spacedBy(if (kind == Kind.LIVE) 14.dp else 20.dp),
                     ) {
                         itemsIndexed(its, key = { i, x -> "$i:${x.key}" }) { i, x ->
                             val fk = "g_${kind.name}_${sel}_${x.key}"
@@ -218,6 +225,33 @@ fun BrowseScreen(kind: Kind) {
                     }
                 }
             }
+        }
+    }
+}
+
+
+/** Categorías como fila de «píldoras» deslizable (móvil). */
+@Composable
+fun CategoryChips(cats: List<Category>, selected: String?, onPick: (String) -> Unit) {
+    val state = androidx.compose.foundation.lazy.rememberLazyListState()
+    androidx.compose.foundation.lazy.LazyRow(
+        state = state,
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        items(cats.size) { i ->
+            val c = cats[i]
+            val sel = c.id == selected
+            Text(
+                c.name, maxLines = 1, fontSize = 14.sp,
+                color = if (sel) Color.Black else Color(0xFFDDDDDD),
+                fontWeight = if (sel) FontWeight.Bold else FontWeight.Medium,
+                modifier = Modifier
+                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(18.dp))
+                    .background(if (sel) C.gold else Color(0xFF1F2A21))
+                    .clickable { onPick(c.id) }
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+            )
         }
     }
 }
