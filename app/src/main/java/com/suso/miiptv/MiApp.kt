@@ -15,7 +15,6 @@ class MiApp : Application(), ImageLoaderFactory {
         super.onCreate()
         com.suso.miiptv.data.ErrorLog.init(this)
         com.suso.miiptv.data.Perf.init(this)
-        com.suso.miiptv.data.Device.init(this)
         Repo.init(this)
         VpnManager.init(this)
         VpnManager.autoStart()

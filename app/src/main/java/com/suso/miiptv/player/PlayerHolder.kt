@@ -34,10 +34,6 @@ object PlayerHolder {
     @Volatile
     var fullscreen = false
 
-    /** La app se está cerrando: ya no se arranca ninguna previsualización. */
-    @Volatile
-    var closing = false
-
     /** Cambia cada vez que se vuelve a la pantalla principal (la previsualización se vuelve a enganchar). */
     var epoch by mutableIntStateOf(0)
         private set
@@ -134,7 +130,7 @@ object PlayerHolder {
 
     /** Reproduce un canal en el recuadro de previsualización (con el volumen más bajo). */
     fun playPreview(ctx: Context, item: Item, force: Boolean = false) {
-        if (fullscreen || closing) return
+        if (fullscreen) return
         val url = try {
             Repo.streamUrl(item)
         } catch (e: Exception) {
@@ -158,17 +154,6 @@ object PlayerHolder {
             it.stop()
             it.clearMediaItems()
         }
-        previewError = null
-    }
-
-    /** Al salir de la app: se libera el reproductor del todo (nada sigue sonando). */
-    fun releaseAll() {
-        fullscreen = false
-        player?.let {
-            runCatching { it.stop() }
-            runCatching { it.release() }
-        }
-        player = null
         previewError = null
     }
 

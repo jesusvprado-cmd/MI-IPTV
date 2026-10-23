@@ -538,22 +538,6 @@ class PlayerCtl(ctx: Context) {
             }, 2000L * retries)
             return
         }
-        // Programa emitido / desde el principio: cada proveedor usa un formato distinto; se prueba el siguiente.
-        if (it.key.startsWith("CU|") && code in 2000..3999) {
-            // Se apunta cada intento (sin usuario ni contraseña) para ver en Ajustes qué responde el servidor.
-            val http = (e.cause as? HttpDataSource.InvalidResponseCodeException)?.responseCode
-            com.suso.miiptv.data.ErrorLog.add("Desde el principio: ${http?.let { c -> "HTTP $c" } ?: e.errorCodeName} en ${maskUrl(it.url)}")
-            val next = Repo.nextCatchup(it.url)
-            if (next != null) {
-                val n = it.copy(url = next)
-                androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
-                    items = items.map { x -> if (x === it) n else x }
-                }
-                triedHls = false
-                load(next, 0, false)
-                return
-            }
-        }
         com.suso.miiptv.data.ErrorLog.add("Reproducción («${it.title}»): ${e.errorCodeName} (${e.message ?: "sin detalle"})")
         // Directo que no hay manera de abrir: plan B con la VPN antes de dar el error.
         if (it.live && code in 2000..2999 && tryVpnFallback()) return
@@ -871,9 +855,3 @@ private fun badgesOf(video: Format?, audio: Format?): List<String> {
     }
     return out
 }
-
-/** Dirección sin usuario ni contraseña, para el registro de errores. */
-internal fun maskUrl(url: String): String = url
-    .replace(Regex("^https?://[^/]+"), "")
-    .replace(Regex("/timeshift/[^/]+/[^/]+/"), "/timeshift/*/*/")
-    .replace(Regex("username=[^&]*&password=[^&]*"), "username=*&password=*")

@@ -200,20 +200,12 @@ object Repo {
         val shift = prefs.epgOffset * 60_000L
         val start = e.start - shift
         val minutes = ((e.end - e.start) / 60_000L).toInt() + 2
-        val all = try {
-            src().catchupUrls(item, start, minutes)
+        return try {
+            src().catchupUrl(item, start, minutes)
         } catch (e: Exception) {
-            emptyList()
+            null
         }
-        // Si el servidor rechaza una, el reproductor prueba la siguiente (ver [nextCatchup]).
-        for (i in 0 until all.size - 1) catchupNext[all[i]] = all[i + 1]
-        return all.firstOrNull()
     }
-
-    private val catchupNext = java.util.concurrent.ConcurrentHashMap<String, String>()
-
-    /** Siguiente dirección que probar para un programa emitido cuando el servidor rechaza [url]. */
-    fun nextCatchup(url: String): String? = catchupNext[url]
 
     fun playItem(item: Item): PlayItem = PlayItem(
         key = item.key,

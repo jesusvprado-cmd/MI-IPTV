@@ -37,7 +37,6 @@ class XtreamSource(private val cfg: Config) : Source {
         val ui = o.optJSONObject("user_info")
             ?: throw IOException("El servidor no responde como Xtream Codes. Revisa la dirección y el puerto.")
         if (ui.optString("auth") != "1") throw IOException("Usuario o contraseña incorrectos.")
-        learnServerClock(o)
         AccountInfo(
             status = ui.str("status"),
             expiry = ui.str("exp_date")?.toLongOrNull()?.times(1000),
@@ -47,8 +46,6 @@ class XtreamSource(private val cfg: Config) : Source {
     }
 
     override suspend fun categories(kind: Kind): List<Category> = io {
-        // La hora del servidor hace falta para «Ver desde el principio»: se pregunta una vez.
-        if (kind == Kind.LIVE && serverOffset[base] == null) runCatching { learnServerClock(JSONObject(Http.text(api(null)))) }
         val action = when (kind) {
             Kind.LIVE -> "get_live_categories"
             Kind.MOVIE -> "get_vod_categories"
@@ -246,58 +243,11 @@ class XtreamSource(private val cfg: Config) : Source {
         out.sortedBy { it.start }.distinctBy { it.start }
     }
 
-    /** Diferencia entre la hora del servidor y la UTC (cada proveedor usa la de su país). */
-    private fun learnServerClock(o: JSONObject) {
-        val si = o.optJSONObject("server_info") ?: return
-        val ts = si.str("timestamp_now")?.toLongOrNull()
-        val wall = si.str("time_now")
-        if (ts != null && wall != null) {
-            val f = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
-            f.timeZone = java.util.TimeZone.getTimeZone("UTC")
-            val w = runCatching { f.parse(wall)?.time }.getOrNull()
-            if (w != null) {
-                val q = 15 * 60_000L
-                serverOffset[base] = Math.round((w - ts * 1000) / q.toDouble()) * q
-                return
-            }
-        }
-        si.str("timezone")?.let { tz ->
-            val z = java.util.TimeZone.getTimeZone(tz)
-            if (z.id == tz) serverOffset[base] = z.getOffset(System.currentTimeMillis()).toLong()
-        }
-    }
-
-    /**
-     * Direcciones posibles para ver un programa ya emitido (o desde el principio), en orden de preferencia.
-     * Cada proveedor acepta una: /timeshift/… o timeshift.php, con la hora del servidor (o la local).
-     */
-    override fun catchupUrls(item: Item, start: Long, minutes: Int): List<String> {
-        if (item.kind != Kind.LIVE || item.archive <= 0) return emptyList()
-        val min = minutes.coerceAtLeast(1)
-        fun fmt(offset: Long?): String {
-            val f = java.text.SimpleDateFormat("yyyy-MM-dd:HH-mm", java.util.Locale.US)
-            if (offset != null) {
-                f.timeZone = java.util.TimeZone.getTimeZone("UTC")
-                return f.format(java.util.Date(start + offset))
-            }
-            return f.format(java.util.Date(start))
-        }
-        val times = listOfNotNull(serverOffset[base]?.let { fmt(it) }, fmt(null)).distinct()
-        // Programa que aún se está emitiendo: algunos servidores solo aceptan la parte ya grabada (hasta ahora).
-        val elapsed = ((System.currentTimeMillis() - start) / 60_000L).toInt()
-        val durations = if (elapsed in 1 until min) listOf(min, elapsed) else listOf(min)
-        val out = ArrayList<String>()
-        for (d in durations) for (t in times) {
-            out += "$base/timeshift/$u/$p/$d/$t/${item.id}.ts"
-            out += "$base/streaming/timeshift.php?username=$u&password=$p&stream=${item.id}&start=$t&duration=$d"
-            out += "$base/timeshift/$u/$p/$d/$t/${item.id}.m3u8"
-        }
-        return out
-    }
-
-    companion object {
-        /** Desfase horario de cada servidor (milisegundos respecto a UTC). */
-        private val serverOffset = java.util.concurrent.ConcurrentHashMap<String, Long>()
+    /** Formato de Xtream: /timeshift/usuario/clave/minutos/AAAA-MM-DD:HH-MM/id.ts (hora del servidor; se usa la local). */
+    override fun catchupUrl(item: Item, start: Long, minutes: Int): String? {
+        if (item.kind != Kind.LIVE || item.archive <= 0) return null
+        val f = java.text.SimpleDateFormat("yyyy-MM-dd:HH-mm", java.util.Locale.US)
+        return "$base/timeshift/$u/$p/${minutes.coerceAtLeast(1)}/${f.format(java.util.Date(start))}/${item.id}.ts"
     }
 
     override fun streamUrl(item: Item): String = when (item.kind) {

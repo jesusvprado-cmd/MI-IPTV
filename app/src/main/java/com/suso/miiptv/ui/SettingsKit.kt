@@ -96,7 +96,6 @@ fun SideItem(
     overlay: ImageVector? = null,
     overlayColor: Color = Color.Unspecified,
     cursorInMenu: Boolean = false,
-    onClick: (() -> Unit)? = null,
     onFocused: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
@@ -104,8 +103,8 @@ fun SideItem(
     // Con el cursor en el menú solo se marca la que tiene el cursor (nunca dos a la vez); si no, la sección abierta.
     val active = if (cursorInMenu) focused else selected
     val fgBase = Color(0xFF8A8A8A)
-    // Verde intenso con el cursor en el menú; más claro cuando ya estás dentro de las opciones de esa sección.
-    val accent = if (cursorInMenu) PaneFocus else Color(0xFFB8EBAE)
+    // Verde vivo con el cursor en el menú; aún más intenso cuando ya estás dentro de las opciones de esa sección.
+    val accent = if (cursorInMenu) Color(0xFF8FE27C) else Color(0xFF4FD65A)
     Row(
         Modifier
             .fillMaxWidth()
@@ -115,7 +114,7 @@ fun SideItem(
                 focused = f
                 if (f) onFocused()
             }
-            .tvClick(onClick = onClick ?: onFocused)
+            .tvClick(onClick = onFocused)
             .height(48.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -165,10 +164,10 @@ fun SettingRow(
             .padding(end = 20.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        FocusBar(focused, height = 30.dp, color = PaneFocus)
+        FocusBar(focused, height = 30.dp)
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
-            Text(title, color = if (focused) PaneFocus else Color.White, fontSize = 16.sp, fontWeight = if (focused) FontWeight.ExtraBold else FontWeight.Medium)
+            Text(title, color = if (focused) C.gold else Color.White, fontSize = 16.sp, fontWeight = if (focused) FontWeight.ExtraBold else FontWeight.Medium)
             if (subtitle != null) {
                 Spacer(Modifier.height(2.dp))
                 Text(subtitle, color = C.text2, fontSize = 13.sp, lineHeight = 17.sp)
@@ -191,7 +190,7 @@ fun SettingRow(
             trailing(focused)
         } else if (chevron) {
             Spacer(Modifier.width(10.dp))
-            Text("›", color = if (focused) PaneFocus else C.text2, fontSize = 22.sp)
+            Text("›", color = if (focused) C.gold else C.text2, fontSize = 22.sp)
         }
     }
 }
@@ -326,7 +325,7 @@ private fun ChoiceItem(label: String, selected: Boolean, fr: FocusRequester, onC
             .padding(end = 14.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        FocusBar(focused, color = PaneFocus)
+        FocusBar(focused)
         Spacer(Modifier.width(4.dp))
         // Botón de opción: círculo, relleno si está elegida.
         Box(
@@ -339,9 +338,6 @@ private fun ChoiceItem(label: String, selected: Boolean, fr: FocusRequester, onC
             if (selected) Box(Modifier.size(10.dp).clip(CircleShape).background(C.gold))
         }
         Spacer(Modifier.width(14.dp))
-        Text(label, color = if (focused) PaneFocus else Color.White, fontSize = 16.sp, fontWeight = if (focused) FontWeight.ExtraBold else FontWeight.Medium)
+        Text(label, color = if (focused) C.gold else Color.White, fontSize = 16.sp, fontWeight = if (focused) FontWeight.ExtraBold else FontWeight.Medium)
     }
 }
-
-/** Verde intenso de la opción con el cursor dentro de una sección de Ajustes. */
-val PaneFocus = Color(0xFF34D640)

@@ -185,5 +185,5 @@ interface Source {
     suspend fun fullEpg(item: Item): List<EpgEntry> = epg(item)
     fun streamUrl(item: Item): String
     /** Dirección para ver un programa ya emitido (o desde el principio); null si el proveedor no lo permite. */
-    fun catchupUrls(item: Item, start: Long, minutes: Int): List<String> = emptyList()
+    fun catchupUrl(item: Item, start: Long, minutes: Int): String? = null
 }
