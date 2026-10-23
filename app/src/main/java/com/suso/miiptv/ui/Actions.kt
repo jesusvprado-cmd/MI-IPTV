@@ -10,6 +10,7 @@ import com.suso.miiptv.data.Kind
 import com.suso.miiptv.data.Prefs
 import com.suso.miiptv.data.Repo
 import com.suso.miiptv.player.PlayQueue
+import kotlinx.coroutines.launch
 
 object Actions {
     fun toast(ctx: Context, msg: String) = Toast.makeText(ctx, msg, Toast.LENGTH_SHORT).show()
@@ -30,7 +31,38 @@ object Actions {
         }
     }
 
+    /** Todos los episodios de la serie en orden (todas las temporadas), para pasar de uno al siguiente. */
+    fun episodeQueue(seriesId: String, m: com.suso.miiptv.data.SeriesDetail, fallbackImage: String?): List<com.suso.miiptv.data.PlayItem> =
+        m.seasons.flatMap { it.second }.map { ep ->
+            com.suso.miiptv.data.PlayItem(
+                key = "EP|$seriesId|${ep.id}",
+                title = m.title,
+                subtitle = "S${ep.season}E${ep.number} - ${ep.title}",
+                image = m.poster ?: fallbackImage,
+                url = ep.url,
+                live = false,
+            )
+        }
+
+    private val scope = kotlinx.coroutines.MainScope()
+
     fun resume(ctx: Context, p: Prefs.Progress) {
+        val k = p.play.key
+        // Episodio a medias («Continuar viendo»): se carga la serie entera para que al terminar siga el siguiente.
+        if (k.startsWith("EP|")) {
+            val seriesId = k.split('|').getOrNull(1)
+            if (seriesId != null) {
+                scope.launch {
+                    val m = kotlinx.coroutines.withTimeoutOrNull(6000) {
+                        runCatching { Repo.seriesDetail(Item(Kind.SERIES, seriesId, p.play.title, image = p.play.image)) }.getOrNull()
+                    }
+                    val q = m?.let { episodeQueue(seriesId, it, p.play.image) }.orEmpty()
+                    val i = q.indexOfFirst { it.key == k }
+                    if (i >= 0) PlayQueue.start(ctx, q, i, p.pos) else PlayQueue.start(ctx, listOf(p.play), 0, p.pos)
+                }
+                return
+            }
+        }
         PlayQueue.start(ctx, listOf(p.play), 0, p.pos)
     }
 

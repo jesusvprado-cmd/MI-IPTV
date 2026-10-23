@@ -747,6 +747,10 @@ private fun VideoSection(ask: Ask) {
         SettingRow("Búfer", "set_buf", subtitle = "Más alto: menos cortes, pero tarda más en arrancar", value = label(BUFFER, p.bufferMode)) {
             ask.of("Búfer", BUFFER, p.bufferMode) { p.bufferMode = it }
         }
+        ToggleRow(
+            "Reproducir el siguiente episodio", "set_autonext", p.autoNext,
+            subtitle = "Al terminar un episodio empieza solo el siguiente, también el de la temporada siguiente",
+        ) { p.autoNext = it }
         SettingRow("Salto al avanzar o retroceder", "set_seek", subtitle = "En películas y series", value = label(SEEK, p.seekStep)) {
             ask.of("Salto al avanzar o retroceder", SEEK, p.seekStep) { p.seekStep = it }
         }

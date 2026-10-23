@@ -223,6 +223,11 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("afr", false)
         set(v) = putBool("afr", v)
 
+    /** Al terminar un episodio, empieza solo el siguiente (también el primero de la temporada siguiente). */
+    var autoNext: Boolean
+        get() = sp.getBoolean("autoNext", true)
+        set(v) = putBool("autoNext", v)
+
 
     // ---------- VPN ----------
 

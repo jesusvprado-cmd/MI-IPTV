@@ -579,7 +579,7 @@ class PlayerCtl(ctx: Context) {
             return
         }
         saveProgress()
-        if (index < items.lastIndex) {
+        if (index < items.lastIndex && Repo.prefs.autoNext) {
             val next = index + 1
             play(next, Repo.prefs.progress(items[next].key)?.pos ?: 0L)
         } else {

@@ -576,18 +576,11 @@ fun SeriesDetailScreen(item: Item) {
 
     fun playEpisodes(eps: List<Episode>, index: Int) {
         val m = d ?: return
-        val list = eps.map { ep ->
-            PlayItem(
-                key = epKey(item.id, ep),
-                title = m.title,
-                subtitle = "S${ep.season}E${ep.number} - ${ep.title}",
-                image = m.poster ?: item.image,
-                url = ep.url,
-                live = false,
-            )
-        }
-        val pos = Repo.prefs.progress(list[index].key)?.pos ?: 0L
-        PlayQueue.start(ctx, list, index, pos)
+        // Toda la serie en la cola (todas las temporadas): al terminar el último de una, sigue la siguiente.
+        val list = Actions.episodeQueue(item.id, m, item.image)
+        val start = list.indexOfFirst { it.key == epKey(item.id, eps[index]) }.coerceAtLeast(0)
+        val pos = Repo.prefs.progress(list[start].key)?.pos ?: 0L
+        PlayQueue.start(ctx, list, start, pos)
     }
 
     fun continueLast() {
