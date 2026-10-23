@@ -221,7 +221,7 @@ private fun TopTab(
         if (icon != null) {
             // Hueco fijo: el menú no se mueve aunque la lupa crezca un poco con el cursor.
             Box(Modifier.size(28.dp), contentAlignment = Alignment.Center) {
-                Icon(icon, contentDescription = text, tint = color, modifier = Modifier.size(if (focused) 28.dp else 25.dp))
+                Icon(icon, contentDescription = text, tint = iconTint(color), modifier = Modifier.size(if (focused) 28.dp else 25.dp))
             }
         } else {
             // Texto invisible en negrita: reserva el ancho para que el menú no se mueva al cambiar el grosor.
@@ -238,6 +238,12 @@ private fun TopTab(
     }
 }
 
+/**
+ * En un icono de trazo fino, el verde claro de las palabras se ve casi gris en la tele: los iconos usan
+ * un verde algo más intenso para que se vean del mismo verde que las palabras del menú.
+ */
+private fun iconTint(c: Color): Color = if (c == C.gold) Color(0xFF6FE07A) else c
+
 /** Icono del menú superior (Ajustes) con el mismo estilo que las secciones. */
 @Composable
 private fun TopIcon(icon: ImageVector, label: String, focusKey: String, centerDot: Color? = null, onClick: () -> Unit) {
@@ -253,7 +259,7 @@ private fun TopIcon(icon: ImageVector, label: String, focusKey: String, centerDo
             .graphicsLayer { scaleX = scale; scaleY = scale },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = label, tint = color, modifier = Modifier.size(26.dp))
+        Icon(icon, contentDescription = label, tint = iconTint(color), modifier = Modifier.size(26.dp))
         // Relleno del agujero central de la rueda (el icono mide 24 de lado y el agujero ~7 de diámetro).
         if (centerDot != null) Box(Modifier.size(26.dp * 7.4f / 24f).clip(androidx.compose.foundation.shape.CircleShape).background(centerDot))
     }
