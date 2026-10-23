@@ -171,6 +171,12 @@ fun GuideScreen() {
                         list.isEmpty() -> EmptyText("No hay canales en esta categoría.")
                         else -> {
                             val state = rememberLazyListState()
+                            // Casilla «en emisión» de cada fila: al subir o bajar, el cursor va siempre a lo que se emite ahora.
+                            val liveFrs = remember(list) { HashMap<Int, androidx.compose.ui.focus.FocusRequester>() }
+                            fun jump(to: Int): Boolean {
+                                val fr = liveFrs[to] ?: return false
+                                return runCatching { fr.requestFocus() }.isSuccess
+                            }
                             LazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
                                 itemsIndexed(list, key = { _, ch -> ch.key }) { i, ch ->
                                     GuideRow(
@@ -195,6 +201,8 @@ fun GuideScreen() {
                                             }
                                         },
                                         onPick = { e -> pick(ctx, list, i, ch, e, now) },
+                                        liveFr = remember(ch.key) { androidx.compose.ui.focus.FocusRequester() }.also { liveFrs[i] = it },
+                                        onVertical = { d -> jump(i + d) },
                                     )
                                 }
                             }
@@ -303,6 +311,8 @@ private fun GuideRow(
     onFocus: (EpgEntry?) -> Unit,
     onShift: (Long) -> Boolean,
     onPick: (EpgEntry?) -> Unit,
+    liveFr: androidx.compose.ui.focus.FocusRequester,
+    onVertical: (Int) -> Boolean,
 ) {
     var epg by remember(ch.key) { mutableStateOf<List<EpgEntry>?>(null) }
     LaunchedEffect(ch.key) { epg = Repo.guideEpg(ch) }
@@ -334,6 +344,8 @@ private fun GuideRow(
                     onLeft = { onShift(-60 * 60_000L) },
                     onRight = { onShift(60 * 60_000L) },
                     onClick = { onPick(null) },
+                    liveFr = liveFr,
+                    onVertical = onVertical,
                 )
             }
             visible.forEachIndexed { idx, e ->
@@ -355,6 +367,8 @@ private fun GuideRow(
                         onLeft = { if (idx == 0) onShift(-60 * 60_000L) else false },
                         onRight = { if (idx == visible.lastIndex) onShift(60 * 60_000L) || true else false },
                         onClick = { onPick(e) },
+                        liveFr = if (e.start <= now && e.end > now) liveFr else null,
+                        onVertical = onVertical,
                     )
                 }
             }
@@ -380,6 +394,8 @@ private fun ProgramCell(
     onLeft: () -> Boolean,
     onRight: () -> Boolean,
     onClick: () -> Unit,
+    liveFr: androidx.compose.ui.focus.FocusRequester? = null,
+    onVertical: (Int) -> Boolean = { false },
 ) {
     var focused by remember { mutableStateOf(false) }
     var pressed by remember { mutableStateOf(false) }
@@ -404,6 +420,8 @@ private fun ProgramCell(
                 when {
                     e.type == KeyEventType.KeyDown && e.key == Key.DirectionLeft -> onLeft()
                     e.type == KeyEventType.KeyDown && e.key == Key.DirectionRight -> onRight()
+                    e.type == KeyEventType.KeyDown && e.key == Key.DirectionDown -> onVertical(1)
+                    e.type == KeyEventType.KeyDown && e.key == Key.DirectionUp -> onVertical(-1)
                     e.key == Key.DirectionCenter || e.key == Key.Enter || e.key == Key.NumPadEnter -> {
                         if (e.type == KeyEventType.KeyDown && e.nativeKeyEvent.repeatCount == 0) pressed = true
                         if (e.type == KeyEventType.KeyUp && pressed) {
@@ -416,6 +434,7 @@ private fun ProgramCell(
                 }
             }
             .focusRequester(fr)
+            .then(if (liveFr != null) Modifier.focusRequester(liveFr) else Modifier)
             .focusable()
             // Táctil: el primer toque lo selecciona (se ve su información), el segundo hace lo mismo que OK.
             .pointerInput(Unit) {
