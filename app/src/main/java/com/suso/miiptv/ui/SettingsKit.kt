@@ -105,7 +105,7 @@ fun SideItem(
     val active = if (cursorInMenu) focused else selected
     val fgBase = Color(0xFF8A8A8A)
     // Verde intenso con el cursor en el menú; más claro cuando ya estás dentro de las opciones de esa sección.
-    val accent = if (cursorInMenu) Color(0xFF4FD65A) else Color(0xFF8FE27C)
+    val accent = if (cursorInMenu) PaneFocus else Color(0xFFB8EBAE)
     Row(
         Modifier
             .fillMaxWidth()
@@ -344,4 +344,4 @@ private fun ChoiceItem(label: String, selected: Boolean, fr: FocusRequester, onC
 }
 
 /** Verde intenso de la opción con el cursor dentro de una sección de Ajustes. */
-val PaneFocus = Color(0xFF4FD65A)
+val PaneFocus = Color(0xFF34D640)
