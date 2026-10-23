@@ -235,10 +235,18 @@ private fun HeaderText(
 private fun FittingPlot(text: String, modifier: Modifier, maxLinesCap: Int, onOverflow: (Boolean) -> Unit) {
     BoxWithConstraints(modifier) {
         val lh = with(LocalDensity.current) { 21.sp.toDp() }
-        val lines = if (constraints.hasBoundedHeight) (maxHeight / lh).toInt().coerceIn(1, maxLinesCap) else maxLinesCap
+        val lines = if (constraints.hasBoundedHeight) ((maxHeight + 1.dp) / lh).toInt().coerceIn(1, maxLinesCap) else maxLinesCap
         Text(
             text, color = Color(0xFFE6E6E6), fontSize = 15.sp, lineHeight = 21.sp,
             maxLines = lines, overflow = TextOverflow.Ellipsis,
+            // Sin el margen extra de la fuente: cada línea mide exactamente 21 y la última no queda cortada por abajo.
+            style = androidx.compose.material3.LocalTextStyle.current.merge(androidx.compose.ui.text.TextStyle(
+                platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false),
+                lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
+                    alignment = androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
+                    trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.None,
+                ),
+            )),
             onTextLayout = { r -> onOverflow(r.hasVisualOverflow) },
         )
     }
