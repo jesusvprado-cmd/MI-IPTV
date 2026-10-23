@@ -69,7 +69,6 @@ import java.io.File
 
 private enum class Sec(val label: String, val desc: String) {
     ACCOUNT("Cuenta", "Tu lista IPTV y el estado de la suscripción."),
-    PROFILES("Perfiles", "Cada persona con sus favoritos, lo que está viendo, vistos e idiomas."),
     VPN("VPN", "Se conecta cuando tú quieras."),
     VIDEO("Vídeo", "Imagen, carga y forma de reproducir."),
     AUDIO("Audio", "Sonido de canales, películas y series."),
@@ -362,7 +361,9 @@ fun SettingsScreen(onChangeList: () -> Unit) {
                     .fillMaxHeight()
                     // Menú lateral en negro (más contraste para los iconos); las opciones, sobre el verde oscuro.
                     .background(C.bg)
-                    .padding(horizontal = 16.dp, vertical = 28.dp),
+                    // Por si en alguna tele no cabe entero: se desplaza en vez de quedar cortado.
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 24.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 8.dp, bottom = 22.dp)) {
                     Logo(32.dp)
@@ -380,7 +381,6 @@ fun SettingsScreen(onChangeList: () -> Unit) {
                             Sec.SUBS -> SIcons.subs
                             Sec.CONTENT -> SIcons.content
                             Sec.EPG -> SIcons.guide
-                            Sec.PROFILES -> SIcons.people
                             Sec.ABOUT -> SIcons.info
                         },
                         selected = sec == s,
@@ -455,12 +455,6 @@ fun SettingsScreen(onChangeList: () -> Unit) {
                         Sec.AUDIO -> item(key = "audio") { AudioSection { t, o, s, f -> ask(t, o, s, f) } }
                         Sec.SUBS -> item(key = "subs") { SubsSection { t, o, s, f -> ask(t, o, s, f) } }
                         Sec.CONTENT -> item(key = "content") { ContentSection() }
-                        Sec.PROFILES -> item(key = "profiles") {
-                            ProfilesSection(
-                                ask = { t, o, sel, f -> ask(t, o, sel, f) },
-                                onName = { id -> nameDialog = id },
-                            )
-                        }
                         Sec.EPG -> item(key = "epg") {
                             EpgSection(ask = { t, o, sel, f -> ask(t, o, sel, f) }, onUrl = { epgUrlDialog = true })
                         }
