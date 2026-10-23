@@ -165,9 +165,14 @@ fun ChannelLogoImage(url: String, modifier: Modifier = Modifier, fallback: Strin
     val badgeColor = remember(url) { params["c"]?.takeIf { it.length == 6 }?.toLongOrNull(16)?.let { Color(0xFF000000 or it) } }
     val clean = remember(url) { url.substringBefore('#') }
     var model by remember(url) { mutableStateOf(clean) }
+    // Copia del mismo logo en otro servidor (jsDelivr): algunas redes (p. ej. datos móviles en días de fútbol)
+    // bloquean raw.githubusercontent.com y el logo bueno no carga.
+    val mirror = remember(url) { githubMirror(clean) }
+    // ¿Se está mostrando el logo bueno (original o su copia), o el de la lista?
+    val primary = model == clean || model == mirror
     // Número de color (Liga de Campeones): va a la izquierda del logo, sin taparlo.
     val cornerNumber = params["p"] == "br"
-    val sideNumber = badge != null && badgeColor != null && model == clean && !cornerNumber
+    val sideNumber = badge != null && badgeColor != null && primary && !cornerNumber
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         if (sideNumber) {
             Text(
@@ -180,7 +185,7 @@ fun ChannelLogoImage(url: String, modifier: Modifier = Modifier, fallback: Strin
             model = remember(model) {
                 ImageRequest.Builder(ctx).data(model).allowHardware(false).apply {
                     // Retoque de color pedido para el logo de la lista (solo al de la URL original).
-                    params["x"]?.let { if (model == clean) transformations(LogoRecolor(it)) }
+                    params["x"]?.let { if (model == clean || model == mirror) transformations(LogoRecolor(it)) }
                 }.build()
             },
             contentDescription = null,
@@ -188,21 +193,30 @@ fun ChannelLogoImage(url: String, modifier: Modifier = Modifier, fallback: Strin
             modifier = Modifier.fillMaxSize(),
             onSuccess = { s ->
                 val d = s.result.drawable
-                if (d is BitmapDrawable) d.bitmap?.let { LogoTone.analyze(model, it) }
-                onModel(model)
+                val key = if (model == mirror) clean else model
+                if (d is BitmapDrawable) d.bitmap?.let { LogoTone.analyze(key, it) }
+                onModel(key)
             },
-            onError = {
-                if (model == clean && fallback != null && fallback != clean) model = fallback
+            onError = { err ->
+                // Una vez por servidor: queda en el registro de errores qué servidor de logos no responde.
+                val host = runCatching { android.net.Uri.parse(model).host }.getOrNull()
+                if (host != null && logoHostsFailed.add(host)) {
+                    com.suso.miiptv.data.ErrorLog.add("Logo sin cargar desde $host: ${err.result.throwable.message ?: err.result.throwable.javaClass.simpleName}")
+                }
+                when {
+                    model == clean && mirror != null -> model = mirror
+                    (model == clean || model == mirror) && fallback != null && fallback != clean -> model = fallback
+                }
             },
         )
-        if (badge != null && model == clean && badgeColor != null && cornerNumber) {
+        if (badge != null && primary && badgeColor != null && cornerNumber) {
             // Número de color en la esquina inferior derecha, sin recuadro (Liga RFEF).
             Text(
                 badge, color = badgeColor, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 18.sp,
                 modifier = Modifier.align(Alignment.BottomEnd),
             )
         }
-        if (badge != null && model == clean && badgeColor == null) {
+        if (badge != null && primary && badgeColor == null) {
             run {
                 Box(
                     Modifier
@@ -219,3 +233,12 @@ fun ChannelLogoImage(url: String, modifier: Modifier = Modifier, fallback: Strin
     }
     }
 }
+
+/** Misma imagen de GitHub servida por jsDelivr (por si la red bloquea raw.githubusercontent.com). */
+internal fun githubMirror(url: String): String? {
+    val m = Regex("^https://raw\\.githubusercontent\\.com/([^/]+)/([^/]+)/([^/]+)/(.+)$").find(url) ?: return null
+    val (user, repo, branch, path) = m.destructured
+    return "https://cdn.jsdelivr.net/gh/$user/$repo@$branch/$path"
+}
+
+private val logoHostsFailed = java.util.Collections.synchronizedSet(HashSet<String>())
