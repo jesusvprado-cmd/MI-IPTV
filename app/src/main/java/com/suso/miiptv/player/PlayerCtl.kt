@@ -109,8 +109,8 @@ object PlayQueue {
     }
 
     /** Abre el vídeo en el reproductor elegido en Ajustes (sin preguntar). Devuelve false si no se pudo. */
-    fun openExternal(ctx: Context, item: PlayItem, pos: Long = 0): Boolean {
-        val pkg = Repo.prefs.externalPkg?.takeIf { p -> installedPlayers(ctx).any { it.second == p } }
+    fun openExternal(ctx: Context, item: PlayItem, pos: Long = 0, pkg: String? = null): Boolean {
+        val chosen = (pkg ?: Repo.prefs.externalPkg)?.takeIf { p -> installedPlayers(ctx).any { it.second == p } }
         val i = Intent(Intent.ACTION_VIEW)
             .setDataAndType(Uri.parse(item.url), "video/*")
             .putExtra("title", item.title)
@@ -118,7 +118,7 @@ object PlayQueue {
             i.putExtra("position", pos) // VLC (milisegundos)
             i.putExtra("from_start", false)
         }
-        if (pkg != null) i.setPackage(pkg)
+        if (chosen != null) i.setPackage(chosen)
         if (ctx !is android.app.Activity) i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         return try {
             ctx.startActivity(i)

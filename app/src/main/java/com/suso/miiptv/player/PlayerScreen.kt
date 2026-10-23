@@ -113,6 +113,7 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
     var typed by remember { mutableStateOf("") }
     var okLong by remember { mutableStateOf(false) }
     var reminderOpen by remember { mutableStateOf(false) }
+    var playersOpen by remember { mutableStateOf(false) }
     var aspect by remember { mutableStateOf(Repo.prefs.resizeMode) }
     // Permiso de Android para la VPN (solo la primera vez).
     val vpnPerm = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
@@ -207,8 +208,8 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
             ctl.clearNotice()
         }
     }
-    LaunchedEffect(listOpen, tracksOpen, padOpen, reminderOpen) {
-        if (!listOpen && !tracksOpen && !padOpen && !reminderOpen) {
+    LaunchedEffect(listOpen, tracksOpen, padOpen, reminderOpen, playersOpen) {
+        if (!listOpen && !tracksOpen && !padOpen && !reminderOpen && !playersOpen) {
             delay(40)
             runCatching { rootFr.requestFocus() }
         }
@@ -216,6 +217,7 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
 
     BackHandler {
         when {
+            playersOpen -> playersOpen = false
             showNext -> nextDismissed = true
             showIntro && !overlay -> introDone = true
             padOpen -> {
@@ -250,7 +252,7 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
     }
 
     val onKey: (KeyEvent) -> Boolean = handler@{ e ->
-        if (listOpen || tracksOpen || padOpen || reminderOpen) return@handler false
+        if (listOpen || tracksOpen || padOpen || reminderOpen || playersOpen) return@handler false
         val isOk = e.key == Key.DirectionCenter || e.key == Key.Enter || e.key == Key.NumPadEnter
         // En directo, OK se decide al soltar: pulsación corta = lo de siempre; mantenido = teclado de números.
         if (isOk && item.live) {
@@ -500,6 +502,21 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
             if (i >= 0) ctl.play(i, 0) else ctl.playCatchup(Repo.playItem(r.channel))
         }
 
+        if (playersOpen) {
+            PlayersPanel(
+                players = remember { PlayQueue.installedPlayers(ctx) },
+                modifier = Modifier.align(Alignment.TopEnd),
+                onPick = { pkg ->
+                    playersOpen = false
+                    // En directo se corta nuestra conexión del todo: muchas cuentas solo admiten una a la vez
+                    // y, si no, el otro reproductor puede quedarse sin imagen a los pocos segundos.
+                    if (PlayQueue.openExternal(ctx, ctl.current, pkg = pkg)) {
+                        if (ctl.current.live) ctl.player.stop() else ctl.player.pause()
+                    }
+                },
+            )
+        }
+
         if (tracksOpen) {
             OptionsPanel(
                 ctl,
@@ -520,7 +537,8 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
                 },
                 onExternal = {
                     tracksOpen = false
-                    if (PlayQueue.openExternal(ctx, ctl.current)) ctl.player.pause()
+                    // Lista propia de reproductores (la ventana de Android quedaba cortada en la tele).
+                    playersOpen = true
                 },
             ) { tracksOpen = false }
         }
@@ -1115,5 +1133,29 @@ private fun PadKey(label: String, key: String, modifier: Modifier = Modifier, wi
                 else -> Color(0xFF555555)
             },
         )
+    }
+}
+
+
+/** Lista de reproductores instalados para abrir el vídeo (se desplaza; no queda cortada). */
+@Composable
+private fun PlayersPanel(players: List<Pair<String, String>>, modifier: Modifier, onPick: (String) -> Unit) {
+    Column(
+        modifier
+            .fillMaxHeight()
+            .width(380.dp)
+            .background(Color(0xF00A0A0A))
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 14.dp, vertical = 22.dp),
+    ) {
+        Text("Abrir con otro reproductor", color = C.gold, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 10.dp, bottom = 8.dp))
+        if (players.isEmpty()) {
+            Text("No hay otros reproductores instalados", color = C.text2, fontSize = 14.sp, modifier = Modifier.padding(start = 10.dp))
+        }
+        players.forEachIndexed { i, (name, pkg) ->
+            TrackRow(name, pkg == Repo.prefs.externalPkg, requestFocus = i == 0) { onPick(pkg) }
+        }
+        Spacer(Modifier.height(14.dp))
+        Text("Atrás para cerrar", color = C.text2, fontSize = 12.sp, modifier = Modifier.padding(start = 10.dp))
     }
 }
