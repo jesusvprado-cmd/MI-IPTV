@@ -157,9 +157,9 @@ fun TvButton(
 
 /** Línea verde vertical que marca dónde está el cursor en los menús que bajan (ocupa siempre 10 dp de ancho). */
 @Composable
-fun FocusBar(active: Boolean, height: androidx.compose.ui.unit.Dp = 26.dp) {
+fun FocusBar(active: Boolean, height: androidx.compose.ui.unit.Dp = 26.dp, color: Color = Color(0xFF8FE27C)) {
     val bar = if (active) 3.dp else 0.dp
-    Box(Modifier.width(bar).height(height).clip(RoundedCornerShape(2.dp)).background(Color(0xFF8FE27C)))
+    Box(Modifier.width(bar).height(height).clip(RoundedCornerShape(2.dp)).background(color))
     Spacer(Modifier.width(10.dp - bar))
 }
 
