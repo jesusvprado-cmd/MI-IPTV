@@ -1,4 +1,10 @@
+@file:OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+
 package com.suso.miiptv.ui
+
+import androidx.compose.foundation.focusGroup
+
+import androidx.compose.ui.focus.focusProperties
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
@@ -216,10 +222,18 @@ fun HeroCarousel(items: List<Item>) {
                 }
             }
             Spacer(Modifier.height(16.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            val playFr = remember { androidx.compose.ui.focus.FocusRequester() }
+            Row(
+                // Al bajar desde el menú (o subir desde las filas) el cursor entra siempre por «Reproducir».
+                Modifier
+                    .focusProperties { enter = { playFr } }
+                    .focusGroup(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 val playLabel = if (item.kind == Kind.SERIES) "Ver serie" else "Reproducir"
                 Box(Modifier.trackFocus { f -> firstFocused = f }) {
-                    TvButton(playLabel, "hero_play", icon = Icons.Filled.PlayArrow, filled = true) {
+                    TvButton(playLabel, "hero_play", icon = Icons.Filled.PlayArrow, filled = true, focusRequester = playFr) {
                         if (item.kind == Kind.MOVIE) playMovie(ctx, item, h) else Actions.open(item)
                     }
                 }
