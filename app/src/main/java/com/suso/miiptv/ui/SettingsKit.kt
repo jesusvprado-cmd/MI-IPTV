@@ -96,6 +96,7 @@ fun SideItem(
     overlay: ImageVector? = null,
     overlayColor: Color = Color.Unspecified,
     cursorInMenu: Boolean = false,
+    onClick: (() -> Unit)? = null,
     onFocused: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
@@ -114,7 +115,7 @@ fun SideItem(
                 focused = f
                 if (f) onFocused()
             }
-            .tvClick(onClick = onFocused)
+            .tvClick(onClick = onClick ?: onFocused)
             .height(48.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

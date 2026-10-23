@@ -396,13 +396,14 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
             )
         }
 
-        // Capa táctil (móvil y tablet).
-        Box(
-            Modifier
-                .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectTapGestures(onTap = { if (overlay) overlay = false else show() })
-                }
+        // Capa táctil (móvil y tablet): toque = mostrar/ocultar; doble toque a los lados = ±10 s;
+        // arrastrar en horizontal = avanzar/retroceder (o cambiar de canal en directo);
+        // arrastrar en vertical = brillo (mitad izquierda) y volumen (mitad derecha).
+        TouchLayer(
+            ctl = ctl,
+            live = item.live,
+            onTap = { if (overlay) overlay = false else show() },
+            onShow = { show() },
         )
 
         val err = ctl.error
@@ -425,6 +426,29 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
         if (overlay && err == null) {
             if (item.live) LiveOverlay(ctl, item, fav, onFav = { toggleFav() })
             else VodOverlay(ctl, item)
+        }
+        // Botones para el dedo (móvil y tablet).
+        if (com.suso.miiptv.data.Device.touch && (overlay || err != null) && !listOpen && !tracksOpen && !playersOpen) {
+            TouchTopBar(
+                live = item.live,
+                fav = fav,
+                modifier = Modifier.align(Alignment.TopCenter),
+                onBack = onExit,
+                onList = { listOpen = true },
+                onPrev = { ctl.zap(-1); show() },
+                onNext = { ctl.zap(1); show() },
+                onFav = { toggleFav() },
+                onOptions = { tracksOpen = true },
+            )
+        }
+
+        // Tocar fuera de un panel lo cierra.
+        if (listOpen || tracksOpen || playersOpen) {
+            Box(
+                Modifier.fillMaxSize().pointerInput(Unit) {
+                    detectTapGestures { listOpen = false; tracksOpen = false; playersOpen = false }
+                }
+            )
         }
 
         if (listOpen) {
@@ -616,7 +640,7 @@ private fun LiveOverlay(ctl: PlayerCtl, item: PlayItem, fav: Boolean, onFav: () 
                 }
             }
             Spacer(Modifier.width(20.dp))
-            Column(horizontalAlignment = Alignment.End) {
+            if (!com.suso.miiptv.data.Device.touch) Column(horizontalAlignment = Alignment.End) {
                 Text("▲ ▼  Cambiar canal", color = C.text2, fontSize = 13.sp)
                 Text("◀  Lista de canales", color = C.text2, fontSize = 13.sp)
                 Text("▶  Opciones", color = C.text2, fontSize = 13.sp)
@@ -659,7 +683,9 @@ private fun VodOverlay(ctl: PlayerCtl, item: PlayItem) {
                     val rest = ((ctl.duration - ctl.position).coerceAtLeast(0) / ctl.speed.coerceAtLeast(0.25f)).toLong()
                     Text("Termina a las ${hm(System.currentTimeMillis() + rest)}", color = C.text2, fontSize = 14.sp)
                 }
-                Text("▼  Opciones     ◀ ▶  Retroceder / avanzar     OK  Pausa", color = C.text2, fontSize = 13.sp, maxLines = 1)
+                if (!com.suso.miiptv.data.Device.touch) {
+                    Text("▼  Opciones     ◀ ▶  Retroceder / avanzar     OK  Pausa", color = C.text2, fontSize = 13.sp, maxLines = 1)
+                }
                 Spacer(Modifier.height(16.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
@@ -1157,5 +1183,158 @@ private fun PlayersPanel(players: List<Pair<String, String>>, modifier: Modifier
         }
         Spacer(Modifier.height(14.dp))
         Text("Atrás para cerrar", color = C.text2, fontSize = 12.sp, modifier = Modifier.padding(start = 10.dp))
+    }
+}
+
+
+/** Gestos con el dedo sobre el vídeo. */
+@Composable
+private fun TouchLayer(ctl: PlayerCtl, live: Boolean, onTap: () -> Unit, onShow: () -> Unit) {
+    val ctx = LocalContext.current
+    val activity = ctx as? android.app.Activity
+    val audio = remember { ctx.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager }
+    var hint by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(hint) {
+        if (hint != null) {
+            delay(900)
+            hint = null
+        }
+    }
+    Box(
+        Modifier
+            .fillMaxSize()
+            .pointerInput(live) {
+                detectTapGestures(
+                    onTap = { onTap() },
+                    onDoubleTap = { o ->
+                        if (!live) {
+                            val left = o.x < size.width / 2
+                            ctl.skipBy(if (left) -10_000 else 10_000)
+                            hint = if (left) "−10 s" else "+10 s"
+                            onShow()
+                        }
+                    },
+                )
+            }
+            .pointerInput(live) {
+                var startX = 0f
+                var startY = 0f
+                var mode = 0 // 0 sin decidir, 1 horizontal, 2 brillo, 3 volumen
+                var acc = 0f
+                var baseVol = 0
+                var baseBright = 0.5f
+                androidx.compose.foundation.gestures.detectDragGestures(
+                    onDragStart = { o ->
+                        startX = o.x; startY = o.y; mode = 0; acc = 0f
+                        baseVol = audio.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
+                        baseBright = activity?.window?.attributes?.screenBrightness?.takeIf { it >= 0f } ?: 0.5f
+                    },
+                    onDragEnd = {
+                        if (mode == 1) {
+                            if (live) {
+                                // Deslizar en directo: canal anterior / siguiente.
+                                if (kotlin.math.abs(acc) > size.width * 0.18f) ctl.zap(if (acc < 0) 1 else -1)
+                            } else {
+                                ctl.commitScrub()
+                            }
+                        }
+                        mode = 0
+                    },
+                    onDragCancel = { if (!live) ctl.cancelScrub(); mode = 0 },
+                ) { change, drag ->
+                    change.consume()
+                    if (mode == 0) {
+                        val dx = change.position.x - startX
+                        val dy = change.position.y - startY
+                        if (kotlin.math.abs(dx) > 24f || kotlin.math.abs(dy) > 24f) {
+                            mode = if (kotlin.math.abs(dx) > kotlin.math.abs(dy)) 1 else if (startX < size.width / 2) 2 else 3
+                        }
+                    }
+                    when (mode) {
+                        1 -> {
+                            acc += drag.x
+                            if (!live) {
+                                // Todo el ancho de la pantalla = 3 minutos.
+                                val ms = (drag.x / size.width * 180_000).toLong()
+                                ctl.scrubBy(ms)
+                                onShow()
+                            }
+                        }
+                        2 -> {
+                            acc -= drag.y
+                            val b = (baseBright + acc / size.height).coerceIn(0.02f, 1f)
+                            activity?.window?.let { w ->
+                                val lp = w.attributes
+                                lp.screenBrightness = b
+                                w.attributes = lp
+                            }
+                            hint = "Brillo ${(b * 100).toInt()} %"
+                        }
+                        3 -> {
+                            acc -= drag.y
+                            val max = audio.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
+                            val v = (baseVol + acc / size.height * max * 1.5f).toInt().coerceIn(0, max)
+                            audio.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, v, 0)
+                            hint = "Volumen ${v * 100 / max.coerceAtLeast(1)} %"
+                        }
+                    }
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        hint?.let {
+            Text(
+                it, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(Color(0xAA000000)).padding(horizontal = 20.dp, vertical = 10.dp),
+            )
+        }
+    }
+}
+
+/** Barra de botones arriba para manejar el reproductor con el dedo. */
+@Composable
+private fun TouchTopBar(
+    live: Boolean,
+    fav: Boolean,
+    modifier: Modifier,
+    onBack: () -> Unit,
+    onList: () -> Unit,
+    onPrev: () -> Unit,
+    onNext: () -> Unit,
+    onFav: () -> Unit,
+    onOptions: () -> Unit,
+) {
+    Row(
+        modifier
+            .fillMaxWidth()
+            .background(Brush.verticalGradient(listOf(Color(0xCC000000), Color.Transparent)))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        TouchBtn("‹  Atrás", onBack)
+        Spacer(Modifier.weight(1f))
+        if (live) {
+            TouchBtn("▲", onPrev)
+            TouchBtn("▼", onNext)
+            TouchBtn("Canales", onList)
+            TouchBtn(if (fav) "♥" else "♡", onFav)
+        }
+        TouchBtn("Opciones", onOptions)
+    }
+}
+
+@Composable
+private fun TouchBtn(label: String, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .padding(horizontal = 4.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(Color(0x55000000))
+            .focusProperties { canFocus = false }
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
     }
 }
