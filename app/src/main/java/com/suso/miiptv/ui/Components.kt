@@ -131,7 +131,8 @@ fun TvButton(
     // El principal («Reproducir») siempre en verde; con el cursor, un verde más vivo y en negrita.
     var focused by remember { mutableStateOf(false) }
     @Suppress("UNUSED_VARIABLE") val principal = filled // «Reproducir» se comporta como los demás.
-    val fg = if (focused) C.gold else Color(0xFFBDBDBD)
+    // Verde vivo para el botón con el cursor (el verde pastel se veía apagado sobre fondo oscuro).
+    val fg = if (focused) Color(0xFF7CF08A) else Color(0xFFBDBDBD)
     Row(
         modifier
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
@@ -141,7 +142,7 @@ fun TvButton(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (vertical) FocusBar(focused) else Spacer(Modifier.width(10.dp))
-        if (icon != null) Icon(icon, contentDescription = text, tint = iconTint ?: if (focused) C.gold else fg, modifier = Modifier.size(24.dp))
+        if (icon != null) Icon(icon, contentDescription = text, tint = iconTint ?: fg, modifier = Modifier.size(24.dp))
         if (icon != null && text != null) Spacer(Modifier.width(8.dp))
         if (text != null) {
             Box {

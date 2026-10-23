@@ -101,7 +101,7 @@ fun UpdateDialog() {
                     Spacer(Modifier.height(10.dp))
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    TvButton("Actualizar ahora", "upd_go", icon = Icons.Filled.PlayArrow, filled = true, focusRequester = fr) {
+                    TvButton("Actualizar ahora", "upd_go", filled = true, focusRequester = fr) {
                         scope.launch { Updater.downloadAndInstall(ctx) }
                     }
                     TvButton("Más tarde", "upd_later") { Updater.dismissed = true }
