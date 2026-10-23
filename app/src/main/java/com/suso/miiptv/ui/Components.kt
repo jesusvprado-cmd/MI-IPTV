@@ -181,7 +181,7 @@ fun PosterCard(
     var focused by remember { mutableStateOf(false) }
     var loaded by remember(image) { mutableStateOf(false) }
     val scale by animateFloatAsState(if (focused) 1.08f else 1f, Motion.focusSpec(), label = "poster")
-    val borderColor by animateColorAsState(if (focused) Color.White else Color.Transparent, Motion.focusSpec(), label = "pb")
+    val borderA by animateFloatAsState(if (focused) 1f else 0f, Motion.focusSpec(), label = "pb")
     val shape = RoundedCornerShape(8.dp)
     Column(modifier) {
         Box(
@@ -197,7 +197,7 @@ fun PosterCard(
                 .tvClick(onLong, onClick)
                 .clip(shape)
                 .background(C.card)
-                .border(2.dp, borderColor, shape)
+                .border(2.dp, focusFrame(borderA), shape)
         ) {
             if (image != null) {
                 if (!loaded) Box(Modifier.fillMaxSize().shimmer(RoundedCornerShape(0.dp)))
@@ -266,7 +266,7 @@ fun ChannelCard(
 ) {
     var focused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (focused) 1.08f else 1f, Motion.focusSpec(), label = "chan")
-    val borderColor by animateColorAsState(if (focused) Color.White else Color.Transparent, Motion.focusSpec(), label = "cb")
+    val borderA by animateFloatAsState(if (focused) 1f else 0f, Motion.focusSpec(), label = "cb")
     val shape = RoundedCornerShape(8.dp)
     // Logo en alta calidad si se encuentra; el nombre de debajo se deja tal cual.
     val sv = Repo.prefs.settingsVersion
@@ -297,7 +297,7 @@ fun ChannelCard(
                 .tvClick(onLong, onClick)
                 .clip(shape)
                 .background(cardBg)
-                .border(2.dp, if ((darkLogo || whiteLogo) && focused) C.gold else borderColor, shape),
+                .border(2.dp, if ((darkLogo || whiteLogo) && focused) androidx.compose.ui.graphics.SolidColor(C.gold) else focusFrame(borderA), shape),
             contentAlignment = Alignment.Center,
         ) {
             if (logo != null) {
@@ -389,3 +389,9 @@ fun EmptyText(text: String) {
 fun SectionTitle(text: String, modifier: Modifier = Modifier) {
     Text(text, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, modifier = modifier)
 }
+
+/** Marco de la miniatura con el cursor: degradado en diagonal de blanco (arriba a la izquierda) al verde claro. */
+fun focusFrame(alpha: Float): androidx.compose.ui.graphics.Brush =
+    androidx.compose.ui.graphics.Brush.linearGradient(
+        listOf(Color.White.copy(alpha = alpha), C.gold.copy(alpha = alpha)),
+    )
