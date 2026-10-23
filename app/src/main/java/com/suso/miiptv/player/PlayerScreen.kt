@@ -159,7 +159,8 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
     val showNext = hasNext && !nextDismissed && ctl.duration > 120_000 && remaining in 1..25_000 && ctl.error == null && ctl.scrubPos == null
     // Saltar la intro: en los episodios, durante los primeros minutos.
     var introDone by remember(ctl.index) { mutableStateOf(false) }
-    val showIntro = item.key.startsWith("EP|") && !introDone && ctl.position in 5_000..150_000 && ctl.scrubPos == null && ctl.error == null
+    // «Saltar introducción» quitado a petición: nunca se muestra.
+    val showIntro = false && !introDone
 
     fun show() {
         overlay = true
@@ -1058,17 +1059,20 @@ private fun TrackRow(label: String, selected: Boolean, requestFocus: Boolean, on
 @Composable
 private fun StreamBadges(badges: List<String>) {
     if (badges.isEmpty()) return
-    Row(Modifier.padding(start = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.padding(start = 10.dp), horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
         badges.forEach { b ->
             val sound = b == "DOLBY" || b == "DD+" || b == "ATMOS" || b == "DTS"
             Box(
                 Modifier
-                    .clip(RoundedCornerShape(4.dp))
-                    .border(1.dp, Color.White.copy(alpha = 0.55f), RoundedCornerShape(4.dp))
-                    .padding(horizontal = 6.dp, vertical = 1.dp),
+                    .clip(RoundedCornerShape(3.dp))
+                    .border(1.dp, Color.White.copy(alpha = 0.55f), RoundedCornerShape(3.dp))
+                    .padding(horizontal = 4.dp, vertical = 0.dp),
             ) {
                 Text(
-                    b, color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp,
+                    b, color = Color.White.copy(alpha = 0.85f), fontSize = 9.sp, lineHeight = 11.sp,
+                    style = androidx.compose.ui.text.TextStyle(
+                        platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false),
+                    ),
                     fontWeight = if (sound) FontWeight.ExtraBold else FontWeight.Bold,
                     letterSpacing = if (sound) 1.sp else 0.5.sp,
                 )
