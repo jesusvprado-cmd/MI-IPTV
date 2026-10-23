@@ -130,8 +130,8 @@ fun TvButton(
     var focused by remember { mutableStateOf(false) }
     val accent = Color(0xFF8FE27C)
     val fg = when {
+        filled -> C.gold // El principal («Reproducir») siempre en verde, también con el cursor.
         focused -> Color.White
-        filled -> C.gold
         else -> Color(0xFFBDBDBD)
     }
     Row(
