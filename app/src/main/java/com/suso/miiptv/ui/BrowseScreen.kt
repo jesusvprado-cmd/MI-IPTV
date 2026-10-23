@@ -177,8 +177,7 @@ fun BrowseScreen(kind: Kind) {
                     )
                     else -> CompositionLocalProvider(LocalBringIntoViewSpec provides RevealBringIntoView) {
                     LazyVerticalGrid(
-                        // Canales más pequeños (5 por fila en vez de 3) para ver más de un vistazo.
-                        columns = GridCells.Adaptive(if (kind == Kind.LIVE) 112.dp else 128.dp),
+                        columns = GridCells.Adaptive(if (kind == Kind.LIVE) 150.dp else 128.dp),
                         state = st.grid,
                         modifier = Modifier
                             .fillMaxSize()
@@ -189,8 +188,8 @@ fun BrowseScreen(kind: Kind) {
                             .focusGroup()
                             .fadeInOnChange(its),
                         contentPadding = PaddingValues(start = 14.dp, end = 30.dp, top = 14.dp, bottom = 40.dp),
-                        horizontalArrangement = Arrangement.spacedBy(if (kind == Kind.LIVE) 14.dp else 18.dp),
-                        verticalArrangement = Arrangement.spacedBy(if (kind == Kind.LIVE) 14.dp else 20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(20.dp),
                     ) {
                         itemsIndexed(its, key = { i, x -> "$i:${x.key}" }) { i, x ->
                             val fk = "g_${kind.name}_${sel}_${x.key}"

@@ -112,7 +112,7 @@ fun SkeletonHome() {
 @Composable
 fun SkeletonGrid(kind: Kind) {
     LazyVerticalGrid(
-        columns = GridCells.Adaptive(if (kind == Kind.LIVE) 112.dp else 128.dp),
+        columns = GridCells.Adaptive(if (kind == Kind.LIVE) 150.dp else 128.dp),
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 14.dp, end = 30.dp, top = 14.dp, bottom = 40.dp),
         horizontalArrangement = Arrangement.spacedBy(18.dp),
