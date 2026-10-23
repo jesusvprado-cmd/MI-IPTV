@@ -30,27 +30,13 @@ class PlayerActivity : ComponentActivity() {
         PlayerHolder.fullscreen = true
         val c = PlayerCtl(this)
         c.onFinished = { finish() }
-        // La frecuencia de la pantalla se ajusta (o se deja como estaba) según el ajuste, que también se cambia desde las opciones.
-        c.onVideoFormat = { f -> if (Repo.prefs.afr) matchFrameRate(f.frameRate) else resetFrameRate() }
+        if (Repo.prefs.afr) c.onVideoFormat = { f -> matchFrameRate(f.frameRate) }
         ctl = c
         c.start()
         setContent { AppTheme { PlayerScreen(c) { finish() } } }
     }
 
     private var afrApplied = -1f
-
-    /** Vuelve a la frecuencia normal de la pantalla (al desactivar el ajuste desde las opciones). */
-    private fun resetFrameRate() {
-        if (afrApplied <= 0f) return
-        afrApplied = -1f
-        try {
-            val lp = window.attributes
-            lp.preferredDisplayModeId = 0
-            window.attributes = lp
-        } catch (e: Exception) {
-            // Sin importancia.
-        }
-    }
 
     /**
      * Cambia la frecuencia de la pantalla para que coincida con la del vídeo (24, 25, 50, 60 Hz...),

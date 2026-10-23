@@ -84,17 +84,7 @@ object PlayerHolder {
             else -> DefaultLoadControl.Builder().setBufferDurationsMs(15_000, 50_000, 2_000, 4_000)
         }.build()
         val exo = ExoPlayer.Builder(ctx.applicationContext, renderers)
-            .setMediaSourceFactory(
-                DefaultMediaSourceFactory(
-                    http,
-                    // Emisiones de satélite («SAT»): muchas no marcan bien dónde empieza cada imagen ni traen imágenes
-                    // clave completas; sin estas opciones el reproductor descarta imágenes y el vídeo va a saltos.
-                    androidx.media3.extractor.DefaultExtractorsFactory().setTsExtractorFlags(
-                        androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES or
-                            androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS
-                    ),
-                )
-            )
+            .setMediaSourceFactory(DefaultMediaSourceFactory(http))
             .setLoadControl(load)
             .build()
         exo.playWhenReady = true

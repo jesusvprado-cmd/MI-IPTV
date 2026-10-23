@@ -44,10 +44,7 @@ object ChannelNames {
     }
 
     /** Nombre a mostrar: sin «Movistar» delante de los canales que no son suyos. */
-    fun display(raw: String): String = displayRaw(raw).uppercase(java.util.Locale("es", "ES"))
-
-    /** Todos los canales en mayúsculas (los autonómicos venían en minúsculas y desentonaban). */
-    private fun displayRaw(raw: String): String {
+    fun display(raw: String): String {
         val name = fixTypos(raw)
         val m = MOVISTAR.find(name) ?: return name
         val rest = name.substring(m.range.last + 1)
