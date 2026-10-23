@@ -321,13 +321,16 @@ private fun GuideRow(
         // Canal: logo y nombre
         Row(Modifier.width(chW).fillMaxHeight().padding(start = if (compact) 8.dp else 14.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             // Igual que en la lista de canales: blanco para los marcados y para los logos oscuros; si no, el fondo de tarjeta.
-            val white = LogoTone.wantsWhite(logo) || LogoTone.isDark(logo)
+            val white = LogoTone.wantsWhite(logo) || LogoTone.isDark(logo) || com.suso.miiptv.data.Device.touch
             Box(
                 Modifier.width(if (compact) 48.dp else 62.dp).fillMaxHeight().clip(RoundedCornerShape(6.dp))
                     .background(if (white) Color.White else C.card),
                 contentAlignment = Alignment.Center,
             ) {
-                if (logo != null) ChannelLogoImage(logo, Modifier.fillMaxSize().padding(5.dp), fallback = ch.image)
+                if (logo != null) ChannelLogoImage(
+                    logo, Modifier.fillMaxSize().padding(5.dp), fallback = ch.image,
+                    onWhite = com.suso.miiptv.data.Device.touch && !LogoTone.wantsWhite(logo) && !LogoTone.isDark(logo),
+                )
             }
             Spacer(Modifier.width(if (compact) 6.dp else 8.dp))
             Text(ch.name, color = Color(0xFFCFCFCF), fontSize = if (compact) 10.sp else 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 14.sp)
