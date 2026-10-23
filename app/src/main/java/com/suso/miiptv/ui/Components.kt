@@ -390,8 +390,9 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier) {
     Text(text, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, modifier = modifier)
 }
 
-/** Marco de la miniatura con el cursor: degradado en diagonal de blanco (arriba a la izquierda) al verde claro. */
+/** Marco de la miniatura con el cursor: degradado en diagonal del verde claro (arriba a la izquierda) a blanco,
+ *  para que abajo no se confunda con la barra verde de lo ya visto. */
 fun focusFrame(alpha: Float): androidx.compose.ui.graphics.Brush =
     androidx.compose.ui.graphics.Brush.linearGradient(
-        listOf(Color.White.copy(alpha = alpha), C.gold.copy(alpha = alpha)),
+        listOf(C.gold.copy(alpha = alpha), Color.White.copy(alpha = alpha)),
     )
