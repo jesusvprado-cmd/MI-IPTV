@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -120,7 +121,7 @@ private fun TopBar(restoring: Boolean) {
                                 TopTab(
                                     text = t.label,
                                     // Buscar: solo la lupa.
-                                    icon = if (t == Tab.SEARCH) androidx.compose.material.icons.Icons.Filled.Search else null,
+                                    icon = if (t == Tab.SEARCH) Icons.Filled.Search else null,
                                     selected = UiState.tab == t,
                                     menuFocused = hovered != null,
                                     focusKey = "tab_${t.name}",
