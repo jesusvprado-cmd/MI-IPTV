@@ -8,6 +8,12 @@ on:
 permissions:
   contents: write
 
+# Una compilación cada vez y en orden: así una antigua que termine tarde no queda como «última versión».
+# (Sin cancelar la que está en marcha, para no dejar a medias una versión publicada.)
+concurrency:
+  group: compilar-apk
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest

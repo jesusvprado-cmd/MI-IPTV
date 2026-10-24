@@ -155,12 +155,14 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
     // Siguiente episodio: aviso en los últimos 25 segundos (OK lo empieza ya; si no, empieza solo al terminar).
     val hasNext = !item.live && ctl.index < ctl.items.lastIndex
     var nextDismissed by remember(ctl.index) { mutableStateOf(false) }
-    val remaining = ctl.duration - ctl.position
-    val showNext = hasNext && !nextDismissed && ctl.duration > 120_000 && remaining in 1..25_000 && ctl.error == null && ctl.scrubPos == null
-    // Saltar la intro: en los episodios, durante los primeros minutos.
-    var introDone by remember(ctl.index) { mutableStateOf(false) }
-    // «Saltar introducción» quitado a petición: nunca se muestra.
-    val showIntro = false && !introDone
+    // La posición cambia cada medio segundo: se lee dentro de derivedStateOf para que la pantalla entera
+    // no se vuelva a dibujar dos veces por segundo (solo cuando el aviso aparece o desaparece).
+    val showNext by remember(ctl.index, hasNext) {
+        androidx.compose.runtime.derivedStateOf {
+            val remaining = ctl.duration - ctl.position
+            hasNext && !nextDismissed && ctl.duration > 120_000 && remaining in 1..25_000 && ctl.error == null && ctl.scrubPos == null
+        }
+    }
 
     fun show() {
         overlay = true
@@ -221,7 +223,6 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
         when {
             playersOpen -> playersOpen = false
             showNext -> nextDismissed = true
-            showIntro && !overlay -> introDone = true
             padOpen -> {
                 padOpen = false
                 typed = ""
@@ -241,11 +242,8 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
             ctl.commitScrub() -> show()
             ctl.error != null -> ctl.retry()
             showNext -> ctl.playNext()
-            showIntro && !overlay -> {
-                introDone = true
-                ctl.skipBy(85_000)
-            }
-            item.live -> if (overlay) toggleFav() else show()
+            // En directo, OK solo enseña la barra (antes cambiaba el favorito y se tocaba sin querer).
+            item.live -> show()
             else -> {
                 ctl.togglePlay()
                 show()
@@ -461,23 +459,9 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
         }
 
         if (showNext) {
-            val nextTitle = ctl.items[ctl.index + 1].title
-            Column(
-                Modifier.align(Alignment.BottomEnd).padding(end = 40.dp, bottom = if (overlay) 150.dp else 40.dp)
-                    .width(360.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xEE0B140D))
-                    .border(1.dp, C.gold.copy(alpha = 0.5f), RoundedCornerShape(14.dp)).padding(18.dp),
-            ) {
-                Text("Siguiente episodio en ${(remaining / 1000).coerceAtLeast(0)} s", color = C.gold, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(4.dp))
-                Text(nextTitle, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Spacer(Modifier.height(8.dp))
-                Text("OK: verlo ya  ·  Atrás: quedarse", color = C.text2, fontSize = 13.sp)
-            }
-        } else if (showIntro && !overlay) {
-            Text(
-                "OK · Saltar intro  ⏭", color = Color.Black, fontSize = 16.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 40.dp, bottom = 40.dp)
-                    .clip(RoundedCornerShape(10.dp)).background(C.gold).padding(horizontal = 18.dp, vertical = 10.dp),
+            NextEpisodeCard(
+                ctl,
+                Modifier.align(Alignment.BottomEnd).padding(end = 40.dp, bottom = if (overlay) 150.dp else 40.dp),
             )
         }
 
@@ -566,8 +550,28 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
                     // Lista propia de reproductores (la ventana de Android quedaba cortada en la tele).
                     playersOpen = true
                 },
+                fav = fav,
+                onFav = if (item.live && item.channel != null) ({ toggleFav() }) else null,
             ) { tracksOpen = false }
         }
+    }
+}
+
+/** Aviso de siguiente episodio con la cuenta atrás (lee la posición aquí, no en toda la pantalla). */
+@Composable
+private fun NextEpisodeCard(ctl: PlayerCtl, modifier: Modifier) {
+    val nextTitle = ctl.items.getOrNull(ctl.index + 1)?.title ?: return
+    val remaining = ctl.duration - ctl.position
+    Column(
+        modifier
+            .width(360.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xEE0B140D))
+            .border(1.dp, C.gold.copy(alpha = 0.5f), RoundedCornerShape(14.dp)).padding(18.dp),
+    ) {
+        Text("Siguiente episodio en ${(remaining / 1000).coerceAtLeast(0)} s", color = C.gold, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(4.dp))
+        Text(nextTitle, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.height(8.dp))
+        Text("OK: verlo ya  ·  Atrás: quedarse", color = C.text2, fontSize = 13.sp)
     }
 }
 
@@ -645,8 +649,8 @@ private fun LiveOverlay(ctl: PlayerCtl, item: PlayItem, fav: Boolean, onFav: () 
             if (!com.suso.miiptv.data.Device.touch) Column(horizontalAlignment = Alignment.End) {
                 Text("▲ ▼  Cambiar canal", color = C.text2, fontSize = 13.sp)
                 Text("◀  Lista de canales", color = C.text2, fontSize = 13.sp)
-                Text("▶  Opciones", color = C.text2, fontSize = 13.sp)
-                Text("OK  Favorito", color = C.text2, fontSize = 13.sp)
+                Text("▶  Opciones y favorito", color = C.text2, fontSize = 13.sp)
+                Text("OK mantenido  Número de canal", color = C.text2, fontSize = 13.sp)
             }
         }
     }
@@ -909,6 +913,8 @@ private fun OptionsPanel(
     onVpn: () -> Unit,
     onStartOver: (com.suso.miiptv.data.Item, com.suso.miiptv.data.EpgEntry) -> Unit,
     onExternal: () -> Unit,
+    fav: Boolean = false,
+    onFav: (() -> Unit)? = null,
     onClose: () -> Unit,
 ) {
     val v = ctl.tracksVersion
@@ -941,6 +947,11 @@ private fun OptionsPanel(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 14.dp, vertical = 22.dp),
     ) {
+        // Directo: el favorito se pone o se quita desde aquí (OK ya no lo cambia).
+        if (onFav != null) {
+            TrackRow(if (fav) "♥  Quitar de favoritos" else "♡  Añadir a favoritos", false, requestFocus = false) { onFav() }
+            Spacer(Modifier.height(18.dp))
+        }
         Text("Audio", color = C.gold, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 10.dp, bottom = 8.dp))
         if (audio.isEmpty()) {
             Text("No hay pistas de audio", color = C.text2, fontSize = 14.sp, modifier = Modifier.padding(start = 10.dp))
@@ -998,7 +1009,11 @@ private fun OptionsPanel(
         val ch = ctl.current.channel
         val nowMs = System.currentTimeMillis()
         val cur = ctl.epg.firstOrNull { it.start <= nowMs && it.end > nowMs }
-        if (ctl.current.live && ch != null && ch.archive > 0 && cur != null) {
+        // Si la guía dice que el servidor no tiene grabado nada de este canal, no se ofrece (daría error 404).
+        val archiveWorks by androidx.compose.runtime.produceState<Boolean?>(null, ch?.key) {
+            value = ch?.let { Repo.archiveWorks(it) }
+        }
+        if (ctl.current.live && ch != null && ch.archive > 0 && cur != null && archiveWorks != false) {
             TrackRow("Ver desde el principio: ${cur.title}", false, requestFocus = false) { onStartOver(ch, cur) }
         }
         val vs = VpnManager.state

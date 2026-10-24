@@ -195,6 +195,22 @@ object Repo {
         return l
     }
 
+    /**
+     * ¿Guarda de verdad el servidor lo emitido en este canal? Lo dice la guía completa: si el proveedor marca
+     * cada programa (has_archive) y ninguno de los ya emitidos está grabado, no lo guarda aunque el canal diga
+     * que sí. null = el proveedor no lo indica (entonces se hace caso a lo que dice el canal).
+     */
+    suspend fun archiveWorks(ch: Item): Boolean? {
+        if (ch.archive <= 0) return false
+        val now = System.currentTimeMillis()
+        val flags = try {
+            guideEpg(ch).filter { it.end <= now }.mapNotNull { it.archived }
+        } catch (e: Exception) {
+            return null
+        }
+        return if (flags.isEmpty()) null else flags.any { it }
+    }
+
     /** Dirección para ver un programa ya emitido o empezar uno desde el principio (null si no se puede). */
     fun catchupUrl(item: Item, e: EpgEntry): String? {
         val shift = prefs.epgOffset * 60_000L

@@ -50,12 +50,19 @@ object Actions {
         val k = p.play.key
         // Episodio a medias («Continuar viendo»): se carga la serie entera para que al terminar siga el siguiente.
         if (k.startsWith("EP|")) {
-            val seriesId = k.split('|').getOrNull(1)
+            // «EP|serie|episodio»: el id de la serie puede llevar «|» (listas M3U).
+            val seriesId = k.removePrefix("EP|").substringBeforeLast('|').takeIf { it.isNotEmpty() }
             if (seriesId != null) {
                 scope.launch {
-                    val m = kotlinx.coroutines.withTimeoutOrNull(6000) {
+                    // Si la serie tarda en cargar, se avisa (antes no se veía nada durante unos segundos).
+                    val hint = scope.launch {
+                        kotlinx.coroutines.delay(800)
+                        toast(ctx, "Cargando la serie…")
+                    }
+                    val m = kotlinx.coroutines.withTimeoutOrNull(5000) {
                         runCatching { Repo.seriesDetail(Item(Kind.SERIES, seriesId, p.play.title, image = p.play.image)) }.getOrNull()
                     }
+                    hint.cancel()
                     val q = m?.let { episodeQueue(seriesId, it, p.play.image) }.orEmpty()
                     val i = q.indexOfFirst { it.key == k }
                     if (i >= 0) PlayQueue.start(ctx, q, i, p.pos) else PlayQueue.start(ctx, listOf(p.play), 0, p.pos)

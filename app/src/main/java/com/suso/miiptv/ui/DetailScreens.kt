@@ -618,7 +618,8 @@ fun SeriesDetailScreen(item: Item) {
                 ) {
                     if (lastEp != null && det != null) {
                         TvButton(
-                            "Continuar " + (lastEp.play.subtitle?.substringBefore(" - ") ?: ""),
+                            // «Ver» si es el siguiente a uno terminado (aún sin empezar); «Continuar» si va a medias.
+                            (if (lastEp.pos > 0L) "Continuar " else "Ver ") + (lastEp.play.subtitle?.substringBefore(" - ") ?: ""),
                             "s_cont",
                             icon = Icons.Filled.PlayArrow,
                             filled = true,

@@ -16,9 +16,11 @@ object WatchNext {
 
     fun sync(ctx: Context) {
         val app = ctx.applicationContext
+        // Copia de la lista hecha aquí (hilo principal): el otro hilo no la lee mientras la app la cambia.
+        val wanted = Repo.prefs.progressList().take(MAX)
         Thread {
             try {
-                doSync(app)
+                doSync(app, wanted)
             } catch (e: Throwable) {
                 // Teles o aparatos sin esa fila: no pasa nada.
             }
@@ -26,10 +28,9 @@ object WatchNext {
     }
 
     @Synchronized
-    private fun doSync(ctx: Context) {
+    private fun doSync(ctx: Context, wanted: List<Prefs.Progress>) {
         val sp = ctx.getSharedPreferences("miiptv_watchnext", Context.MODE_PRIVATE)
         val ids = runCatching { JSONObject(sp.getString("ids", "{}") ?: "{}") }.getOrDefault(JSONObject())
-        val wanted = Repo.prefs.progressList().take(MAX)
         val keep = wanted.map { it.play.key }.toSet()
         val cr = ctx.contentResolver
         // Quita lo que ya no está a medias.
@@ -38,15 +39,20 @@ object WatchNext {
             ids.remove(k)
         }
         for (p in wanted) {
+            // A medias = «Continuar»; el siguiente episodio de uno terminado (posición 0) = «Siguiente».
+            val started = p.pos > 0L
             val b = WatchNextProgram.Builder()
                 .setType(if (p.play.key.startsWith("EP|")) TvContractCompat.PreviewPrograms.TYPE_TV_EPISODE else TvContractCompat.PreviewPrograms.TYPE_MOVIE)
-                .setWatchNextType(TvContractCompat.WatchNextPrograms.WATCH_NEXT_TYPE_CONTINUE)
+                .setWatchNextType(
+                    if (started) TvContractCompat.WatchNextPrograms.WATCH_NEXT_TYPE_CONTINUE
+                    else TvContractCompat.WatchNextPrograms.WATCH_NEXT_TYPE_NEXT
+                )
                 .setLastEngagementTimeUtcMillis(p.ts)
-                .setLastPlaybackPositionMillis(p.pos.toInt())
-                .setDurationMillis(p.dur.toInt())
                 .setTitle(p.play.title)
                 .setInternalProviderId(p.play.key)
                 .setIntentUri(Uri.parse("pepino://resume?key=" + Uri.encode(p.play.key)))
+            if (started) b.setLastPlaybackPositionMillis(p.pos.toInt())
+            if (p.dur > 0) b.setDurationMillis(p.dur.toInt())
             p.play.subtitle?.let { b.setDescription(it) }
             p.play.image?.let {
                 b.setPosterArtUri(Uri.parse(it))

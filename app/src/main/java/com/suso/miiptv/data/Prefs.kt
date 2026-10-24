@@ -10,6 +10,11 @@ import org.json.JSONObject
 class Prefs(ctx: Context) {
     data class Progress(val play: PlayItem, val pos: Long, val dur: Long, val ts: Long)
 
+    companion object {
+        /** A partir de aquí (92 %) un vídeo cuenta como terminado: visto y fuera de «Continuar viendo». */
+        const val FINISHED = 0.92
+    }
+
     private val sp = ctx.getSharedPreferences("miiptv", Context.MODE_PRIVATE)
 
     /** Cambia cada vez que cambian favoritos o progreso, para refrescar la interfaz. */
@@ -152,6 +157,23 @@ class Prefs(ctx: Context) {
     private fun putBool(k: String, v: Boolean) {
         sp.edit().putBoolean(k, v).apply()
         settingsVersion++
+    }
+
+    // ---------- Formato de emisión por canal (TS / HLS) ----------
+
+    private var altFmt: MutableSet<String>? = null
+
+    private fun altFormats(): MutableSet<String> =
+        altFmt ?: (sp.getStringSet("altfmt", emptySet())?.toMutableSet() ?: mutableSetOf()).also { altFmt = it }
+
+    /** Canal que se ve con el otro formato (TS ↔ HLS), elegido en las opciones del reproductor. */
+    fun usesAltFormat(channelKey: String): Boolean = channelKey in altFormats()
+
+    fun setAltFormat(channelKey: String, on: Boolean) {
+        val s = altFormats()
+        if ((channelKey in s) == on) return
+        if (on) s.add(channelKey) else s.remove(channelKey)
+        sp.edit().putStringSet("altfmt", HashSet(s)).apply()
     }
 
     /** Idioma de audio preferido (código ISO, p. ej. "es"). "orig" = sin preferencia. null = español. */
@@ -452,13 +474,32 @@ class Prefs(ctx: Context) {
 
     fun saveProgress(play: PlayItem, pos: Long, dur: Long) {
         if (play.live || dur <= 0) return
-        // Casi terminado: queda como visto.
-        if (pos >= dur * 0.92) setWatched(play.key, true)
-        val l = progressList().filterNot { it.play.key == play.key }.toMutableList()
-        if (pos > 30_000 && pos < dur * 0.95) l.add(0, Progress(play, pos, dur, System.currentTimeMillis()))
+        // Casi terminado (mismo umbral para las dos cosas): queda como visto y sale de «Continuar viendo».
+        val done = pos >= dur * FINISHED
+        if (done) setWatched(play.key, true)
+        val keep = pos > 30_000 && !done
+        // Series: una sola entrada por serie, la del episodio que estás viendo.
+        val series = seriesPrefix(play.key)
+        val l = progressList().filterNot {
+            it.play.key == play.key || ((keep || done) && series != null && it.play.key.startsWith(series))
+        }.toMutableList()
+        if (keep) l.add(0, Progress(play, pos, dur, System.currentTimeMillis()))
         while (l.size > 40) l.removeAt(l.lastIndex)
         storeProgress(l)
     }
+
+    /** Episodio siguiente a uno terminado: entra en «Continuar viendo», desde el principio (posición 0). */
+    fun queueNext(play: PlayItem) {
+        val series = seriesPrefix(play.key)
+        val l = progressList().filterNot { it.play.key == play.key || (series != null && it.play.key.startsWith(series)) }.toMutableList()
+        l.add(0, Progress(play, 0L, 0L, System.currentTimeMillis()))
+        while (l.size > 40) l.removeAt(l.lastIndex)
+        storeProgress(l)
+    }
+
+    /** «EP|serie|episodio» → «EP|serie|» (el id de la serie puede llevar «|» en las listas M3U). */
+    private fun seriesPrefix(key: String): String? =
+        if (key.startsWith("EP|")) key.substringBeforeLast('|') + "|" else null
 
     fun clearProgress() = storeProgress(mutableListOf())
 

@@ -395,8 +395,11 @@ class PlayerCtl(ctx: Context) {
     fun start() {
         if (items.isEmpty()) return
         val it = items[PlayQueue.index]
+        val alt = usesAlt(it)
+        val shown = if (alt) swapLiveFormat(it.url) else it.url
         // Viene de la previsualización y ya se está viendo ese canal: se sigue sin cortar.
-        if (PlayQueue.handoff && it.live && PlayerHolder.currentUrl() == it.url && player.playbackState != Player.STATE_IDLE) {
+        if (PlayQueue.handoff && it.live && PlayerHolder.currentUrl() == shown && player.playbackState != Player.STATE_IDLE) {
+            altLiveFormat = alt
             index = PlayQueue.index
             error = null
             buffering = player.playbackState == Player.STATE_BUFFERING
@@ -442,6 +445,8 @@ class PlayerCtl(ctx: Context) {
             speed = 1f
             player.setPlaybackSpeed(1f)
         }
+        // Formato elegido para este canal (TS o HLS).
+        altLiveFormat = usesAlt(it)
         load(it.url, pos, false)
         if (it.live) {
             it.channel?.let { ch -> Repo.prefs.lastLive = ch.key }
@@ -457,15 +462,11 @@ class PlayerCtl(ctx: Context) {
     var altLiveFormat by mutableStateOf(false)
         private set
 
-    private fun swapFormat(url: String): String = when {
-        url.endsWith(".m3u8", true) -> url.dropLast(5) + ".ts"
-        url.endsWith(".ts", true) -> url.dropLast(3) + ".m3u8"
-        else -> url
-    }
+    private fun usesAlt(it: PlayItem): Boolean = it.live && it.channel?.let { c -> Repo.prefs.usesAltFormat(c.key) } == true
 
     /** Formato con el que se está viendo el canal: "TS" o "HLS". */
     fun liveFormatLabel(): String {
-        val u = if (altLiveFormat) swapFormat(current.url) else current.url
+        val u = if (altLiveFormat) swapLiveFormat(current.url) else current.url
         return if (u.contains(".m3u8", true)) "HLS" else "TS"
     }
 
@@ -473,6 +474,8 @@ class PlayerCtl(ctx: Context) {
     fun toggleLiveFormat() {
         if (!current.live) return
         altLiveFormat = !altLiveFormat
+        // Se recuerda para este canal: la próxima vez se abre ya con el formato elegido.
+        current.channel?.let { Repo.prefs.setAltFormat(it.key, altLiveFormat) }
         triedHls = false
         load(current.url, 0, false)
     }
@@ -487,7 +490,7 @@ class PlayerCtl(ctx: Context) {
     }
 
     private fun load(rawUrl: String, pos: Long, forceHls: Boolean) {
-        val url = if (altLiveFormat && current.live) swapFormat(rawUrl) else rawUrl
+        val url = if (altLiveFormat && current.live) swapLiveFormat(rawUrl) else rawUrl
         val b = MediaItem.Builder().setUri(url)
         if (forceHls || url.contains(".m3u8", ignoreCase = true)) b.setMimeType(MimeTypes.APPLICATION_M3U8)
         buffering = true
@@ -561,8 +564,7 @@ class PlayerCtl(ctx: Context) {
         error = when {
             code == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> {
                 val http = (e.cause as? HttpDataSource.InvalidResponseCodeException)?.responseCode
-                "El servidor rechazó el canal" + (if (http != null) " (HTTP $http)" else "") +
-                    ". Puede que la cuenta tenga otra conexión abierta o que el canal no esté disponible."
+                httpMessage(http, catchup = it.key.startsWith("CU|"), live = it.live)
             }
             code in 2000..2999 -> "No se puede conectar con el servidor. Revisa tu conexión."
             code in 3000..3999 -> "Este contenido tiene un formato no compatible."
@@ -798,7 +800,14 @@ class PlayerCtl(ctx: Context) {
         if (current.key.startsWith("CU|")) return
         val d = player.duration
         if (d <= 0) return
-        Repo.prefs.saveProgress(current, player.currentPosition, d)
+        val pos = player.currentPosition
+        Repo.prefs.saveProgress(current, pos, d)
+        // Episodio terminado: el siguiente pasa a «Continuar viendo» (desde el principio) si aún no lo has empezado.
+        if (current.key.startsWith("EP|") && pos >= d * com.suso.miiptv.data.Prefs.FINISHED) {
+            items.getOrNull(index + 1)
+                ?.takeIf { it.key.startsWith("EP|") && Repo.prefs.progress(it.key) == null }
+                ?.let { Repo.prefs.queueNext(it) }
+        }
     }
 
     fun onStart() {
@@ -832,6 +841,33 @@ class PlayerCtl(ctx: Context) {
             player.stop()
             player.clearMediaItems()
         }
+    }
+}
+
+/** El otro formato de emisión de un canal: «.ts» ↔ «.m3u8» (si la dirección no acaba en ninguno, igual). */
+internal fun swapLiveFormat(url: String): String = when {
+    url.endsWith(".m3u8", true) -> url.dropLast(5) + ".ts"
+    url.endsWith(".ts", true) -> url.dropLast(3) + ".m3u8"
+    else -> url
+}
+
+/**
+ * Qué decir según el código con el que el servidor rechaza un vídeo: no es lo mismo que no exista (404)
+ * que una cuenta sin acceso (401/403) o el límite de conexiones (429/509).
+ */
+internal fun httpMessage(http: Int?, catchup: Boolean, live: Boolean): String {
+    val c = if (http != null) " (HTTP $http)" else ""
+    val what = if (live) "este canal" else "este contenido"
+    return when (http) {
+        404, 410 ->
+            if (catchup) "Este programa no está grabado en el servidor$c."
+            else "El servidor dice que $what no existe$c. Puede que lo hayan quitado de la lista."
+        401, 403 ->
+            "La cuenta no tiene acceso ahora mismo$c. Puede que haya otra conexión abierta con la misma cuenta " +
+                "o que la suscripción haya caducado."
+        429, 509 -> "Se ha llegado al límite de conexiones de la cuenta$c. Cierra la app en el otro aparato y vuelve a intentarlo."
+        in 500..599 -> "El servidor tiene un problema ahora mismo$c. Prueba dentro de un rato."
+        else -> "El servidor no deja abrir $what$c."
     }
 }
 

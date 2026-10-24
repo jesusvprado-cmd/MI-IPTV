@@ -24,6 +24,8 @@ fun AppRoot(activity: Activity) {
     AppTheme {
       CompositionLocalProvider(LocalBringIntoViewSpec provides TvBringIntoView) {
         var configured by remember { mutableStateOf(Repo.source != null) }
+        // Salir con Atrás desde Inicio: hay que pulsarlo dos veces seguidas (un toque de más no cierra la app).
+        var lastBack by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
         var editing by remember { mutableStateOf(false) }
         // Varios perfiles: se pregunta quién está viendo al abrir la app.
         var picking by remember {
@@ -52,7 +54,15 @@ fun AppRoot(activity: Activity) {
                                 UiState.tab = Tab.HOME
                                 runCatching { UiState.tabRequester(Tab.HOME).requestFocus() }
                             }
-                            else -> activity.finish()
+                            else -> {
+                                val now = System.currentTimeMillis()
+                                if (now - lastBack < 2500) {
+                                    activity.finish()
+                                } else {
+                                    lastBack = now
+                                    Actions.toast(ctx, "Pulsa Atrás otra vez para salir")
+                                }
+                            }
                         }
                     }
                     when (top) {

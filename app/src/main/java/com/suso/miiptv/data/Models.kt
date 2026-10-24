@@ -128,7 +128,8 @@ data class SeriesDetail(
     val seasons: List<Pair<Int, List<Episode>>>,
 )
 
-data class EpgEntry(val title: String, val desc: String?, val start: Long, val end: Long, val archived: Boolean = false)
+/** [archived]: si el proveedor dice que ese programa está grabado (true/false); null si no lo indica. */
+data class EpgEntry(val title: String, val desc: String?, val start: Long, val end: Long, val archived: Boolean? = null)
 
 data class AccountInfo(
     val status: String?,

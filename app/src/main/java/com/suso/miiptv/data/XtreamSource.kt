@@ -239,7 +239,8 @@ class XtreamSource(private val cfg: Config) : Source {
             out.add(
                 EpgEntry(
                     b64(e.str("title")) ?: "", b64(e.str("description")), s * 1000, en * 1000,
-                    archived = e.optString("has_archive") == "1",
+                    // Grabado de verdad en el servidor (si el proveedor lo indica en cada programa).
+                    archived = if (e.has("has_archive") && !e.isNull("has_archive")) e.optString("has_archive") == "1" else null,
                 )
             )
         }

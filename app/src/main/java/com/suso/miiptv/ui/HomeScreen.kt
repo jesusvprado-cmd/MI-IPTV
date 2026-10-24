@@ -166,7 +166,8 @@ fun HomeRowView(row: HomeRow) {
                         focusKey = "${row.key}:${p.play.key}",
                         modifier = Modifier.width(130.dp),
                         progress = if (p.dur > 0) p.pos.toFloat() / p.dur else null,
-                        subtitle = p.play.subtitle,
+                        // Episodio siguiente a uno terminado (aún sin empezar).
+                        subtitle = if (p.pos == 0L && p.play.key.startsWith("EP|")) "Siguiente · " + (p.play.subtitle ?: "") else p.play.subtitle,
                     ) { Actions.resume(ctx, p) }
                 }
             } else {

@@ -136,7 +136,7 @@ object PlayerHolder {
     fun playPreview(ctx: Context, item: Item, force: Boolean = false) {
         if (fullscreen || closing) return
         val url = try {
-            Repo.streamUrl(item)
+            Repo.streamUrl(item).let { u -> if (Repo.prefs.usesAltFormat(item.key)) swapLiveFormat(u) else u }
         } catch (e: Exception) {
             return
         }

@@ -227,6 +227,8 @@ private fun pick(ctx: Context, list: List<Item>, i: Int, ch: Item, e: EpgEntry?,
             val on = Repo.prefs.toggleReminder(Prefs.Reminder(ch, e.title, e.start))
             Actions.toast(ctx, if (on) "Te avisaré cuando empiece «${e.title}»" else "Recordatorio quitado")
         }
+        // El proveedor dice que ese programa no está grabado: no se intenta (daría error 404).
+        e.archived == false -> Actions.toast(ctx, "Este programa no está grabado en el servidor")
         else -> {
             val url = Repo.catchupUrl(ch, e)
             if (url == null) {
@@ -262,6 +264,7 @@ private fun InfoPanel(f: Focused?, now: Long, touch: Boolean = false) {
             val day = if (DAY.format(Date(e.start)) != DAY.format(Date(now))) DAY.format(Date(e.start)) + " · " else ""
             val state = when {
                 e.start <= now && e.end > now -> "  ·  EN EMISIÓN"
+                e.end <= now && f.ch.archive > 0 && e.archived == false -> "  ·  ya emitido · no está grabado"
                 e.end <= now && f.ch.archive > 0 -> "  ·  ya emitido · OK para verlo"
                 e.end <= now -> "  ·  ya emitido"
                 Repo.prefs.hasReminder("${f.ch.key}@${e.start}") -> "  ·  con recordatorio"
@@ -361,7 +364,8 @@ private fun GuideRow(
                         live = e.start <= now && e.end > now,
                         past = past,
                         reminder = remember(pv, e.start) { Repo.prefs.hasReminder("${ch.key}@${e.start}") },
-                        archived = past && ch.archive > 0,
+                        // ↺ solo si el programa está grabado (o si el proveedor no lo indica y el canal guarda lo emitido).
+                        archived = past && ch.archive > 0 && e.archived != false,
                         onFocus = { onFocus(e) },
                         // En el primero/último visible, ◀ ▶ mueven la franja horaria en lugar de salir de la fila.
                         onLeft = { if (idx == 0) onShift(-60 * 60_000L) else false },
