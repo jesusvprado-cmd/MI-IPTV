@@ -323,13 +323,21 @@ private fun GuideRow(
     Row(Modifier.fillMaxWidth().height(58.dp).padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
         // Canal: logo y nombre
         Row(Modifier.width(chW).fillMaxHeight().padding(start = if (compact) 8.dp else 14.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            val white = LogoTone.wantsWhite(logo)
+            // Mismo fondo que en la lista de canales: blanco para los marcados, claro para los logos oscuros
+            // y, si no, el de las tarjetas (antes era un gris translúcido para todos los demás).
+            var shown by remember(logo) { mutableStateOf(logo) }
+            val white = LogoTone.wantsWhite(logo) && shown?.substringBefore('#') == logo?.substringBefore('#')
+            val bg = when {
+                white -> Color.White
+                LogoTone.isDark(shown) -> LogoTone.light
+                else -> C.card
+            }
             Box(
                 Modifier.width(if (compact) 48.dp else 62.dp).fillMaxHeight().clip(RoundedCornerShape(6.dp))
-                    .background(if (white) Color.White else Color(0x22FFFFFF)),
+                    .background(bg),
                 contentAlignment = Alignment.Center,
             ) {
-                if (logo != null) ChannelLogoImage(logo, Modifier.fillMaxSize().padding(5.dp), fallback = ch.image)
+                if (logo != null) ChannelLogoImage(logo, Modifier.fillMaxSize().padding(5.dp), fallback = ch.image) { shown = it }
             }
             Spacer(Modifier.width(if (compact) 6.dp else 8.dp))
             Text(ch.name, color = Color(0xFFCFCFCF), fontSize = if (compact) 10.sp else 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 14.sp)
