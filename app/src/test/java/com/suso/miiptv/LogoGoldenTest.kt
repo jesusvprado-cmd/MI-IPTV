@@ -34,7 +34,8 @@ class LogoGoldenTest {
             raw to shown
         }
         if (sections.isNotEmpty()) Logos.setSections(sections)
-        val report = names.joinToString("\n") { (raw, shown) -> "$raw\t$shown\t${Logos.url(shown, null) ?: "-"}" } + "\n"
+        // Como en la app: cada canal trae su propio logo de la lista (aquí, uno de mentira) por si no hay otro mejor.
+        val report = names.joinToString("\n") { (raw, shown) -> "$raw\t$shown\t${Logos.url(shown, LIST_LOGO)}" } + "\n"
         val out = File("build/logo-report.tsv")
         out.parentFile?.mkdirs()
         out.writeText(report)
@@ -47,6 +48,10 @@ class LogoGoldenTest {
                     diffs.take(40).joinToString("\n") { "ahora:  $it\nantes:  ${want[it.substringBefore('\t')] ?: "(nuevo)"}" }
             )
         }
+    }
+
+    private companion object {
+        const val LIST_LOGO = "logo-de-la-lista"
     }
 
     private fun res(name: String): String? = javaClass.classLoader?.getResource(name)?.readText()
