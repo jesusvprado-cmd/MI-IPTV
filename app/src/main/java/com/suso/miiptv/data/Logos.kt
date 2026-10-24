@@ -378,6 +378,10 @@ object Logos {
             Pick(Regex("^bbc food$"), lp("5/51/BBC-FOOD.svg", 800), onWhite = true),
             // BBC News: logo oficial en negro sobre fondo blanco.
             Pick(Regex("^bbc news\\b"), OWN_LOGOS + "bbcnews.png", onWhite = true),
+            // Canal Sur: su logo actual (antes cogía el de Andalucía TV).
+            Pick(Regex("^canal ?sur ?2\\b"), TV_LOGOS_RAW + "countries/spain/canal-sur-2-es.png", onWhite = true),
+            Pick(Regex("^canal ?sur andalucia\\b"), TV_LOGOS_RAW + "countries/spain/canal-sur-andalucia-es.png", onWhite = true),
+            Pick(Regex("^canal ?sur\\b"), TV_LOGOS_RAW + "countries/spain/canal-sur-1-es.png", onWhite = true),
             // Sundance TV y BBC Earth: logos propios en alta resolución, en negro sobre blanco (el «TV» de Sundance en su color).
             Pick(Regex("^sundance( tv| channel)?\\b"), OWN_LOGOS + "sundancetv.png", onWhite = true),
             Pick(Regex("^bbc earth\\b"), OWN_LOGOS + "bbcearth.png", onWhite = true),
