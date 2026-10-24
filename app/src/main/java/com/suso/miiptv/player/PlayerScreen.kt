@@ -1,6 +1,7 @@
 package com.suso.miiptv.player
 
 import android.app.Activity
+import androidx.compose.ui.graphics.toArgb
 import com.suso.miiptv.ui.Sz
 import android.view.ViewGroup
 import android.widget.Toast
@@ -368,6 +369,9 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
                         isFocusable = false
                         isFocusableInTouchMode = false
                         setShowBuffering(PlayerView.SHOW_BUFFERING_ALWAYS)
+                        // Círculo de carga en el verde de la app (el del sistema sale azul).
+                        findViewById<android.widget.ProgressBar>(androidx.media3.ui.R.id.exo_buffering)?.indeterminateTintList =
+                            android.content.res.ColorStateList.valueOf(C.gold.toArgb())
                         setShutterBackgroundColor(android.graphics.Color.BLACK)
                         keepScreenOn = true
                         styleSubtitles(subtitleView)
