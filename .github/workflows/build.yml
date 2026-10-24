@@ -78,4 +78,6 @@ jobs:
           name: Pepino IPTV ${{ github.run_number }}
           make_latest: true
           body: ${{ github.event.head_commit.message }}
-          files: MiIPTV.apk
+          files: |
+            MiIPTV.apk
+            app/build/logo-report.tsv
