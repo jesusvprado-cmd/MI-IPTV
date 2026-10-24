@@ -14,6 +14,12 @@ class MainActivity : ComponentActivity() {
         Repo.init(applicationContext)
         // La app gestiona ella misma el hueco del teclado (imePadding) para que los campos no queden tapados.
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        // Móvil en horizontal: la app llega hasta el borde también por el lado de la cámara (sin franja negra).
+        if (android.os.Build.VERSION.SDK_INT >= 28) {
+            window.attributes = window.attributes.apply {
+                layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
+        }
         setContent { AppRoot(this) }
         handleResume(intent)
     }

@@ -28,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.ui.focus.onFocusChanged
 import kotlin.math.roundToInt
 import androidx.compose.ui.unit.IntOffset
@@ -102,7 +103,10 @@ private fun TopBar(restoring: Boolean, compact: Boolean = false) {
     }
     Column(Modifier.fillMaxWidth()) {
         Row(
-            Modifier.fillMaxWidth().height(68.dp).padding(horizontal = 24.dp)
+            Modifier.fillMaxWidth().height(68.dp)
+                // Móvil en horizontal: el menú se aparta de la cámara de la pantalla.
+                .then(if (com.suso.miiptv.data.Device.touch) Modifier.displayCutoutPadding() else Modifier)
+                .padding(horizontal = 24.dp)
                 .onFocusChanged { UiState.topBarFocused = it.hasFocus },
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -156,8 +160,11 @@ private fun TopBar(restoring: Boolean, compact: Boolean = false) {
                 Spacer(Modifier.width(12.dp))
             }
             // Hora discreta: más pequeña y en gris tenue.
-            Clock(fontSize = 14, color = Color(0xFF7C7C7C))
-            Spacer(Modifier.width(14.dp))
+            // En el móvil en horizontal la hora quitaba sitio a las pestañas (se cortaba «Series»).
+            if (!com.suso.miiptv.data.Device.touch) {
+                Clock(fontSize = 14, color = Color(0xFF7C7C7C))
+                Spacer(Modifier.width(14.dp))
+            }
             // Con la VPN conectada, el círculo del centro de la rueda se pone verde.
             val vpnOn = com.suso.miiptv.vpn.VpnManager.state == com.suso.miiptv.vpn.VpnManager.State.ON
             TopIcon(Icons.Filled.Settings, "Ajustes", "tab_settings", centerDot = if (vpnOn) C.greenStrong else null) { UiState.push(Screen.Settings) }

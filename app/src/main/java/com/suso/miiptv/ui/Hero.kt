@@ -157,6 +157,7 @@ fun HeroCarousel(items: List<Item>) {
             },
     ) {
         // Imagen de fondo a la derecha, que se funde con lo que hay detrás (sin bordes duros).
+        val compact = isCompactPhone()
         Box(Modifier.matchParentSize()) {
         Crossfade(
             targetState = image,
@@ -164,12 +165,13 @@ fun HeroCarousel(items: List<Item>) {
             label = "heroimg",
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .fillMaxWidth(0.68f)
+                // En el móvil en vertical la imagen ocupa todo el ancho (el texto va encima, sobre la imagen oscurecida).
+                .fillMaxWidth(if (compact) 1f else 0.68f)
                 .fillMaxHeight()
                 .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
                 .drawWithContent {
                     drawContent()
-                    drawRect(
+                    if (!compact) drawRect(
                         Brush.horizontalGradient(0f to Color.Transparent, 0.45f to Color.Black, 1f to Color.Black),
                         blendMode = BlendMode.DstIn,
                     )
@@ -183,13 +185,15 @@ fun HeroCarousel(items: List<Item>) {
                 AsyncImage(model = u, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             }
         }
+        // Móvil: se oscurece la imagen para que el texto se lea encima.
+        if (compact) Box(Modifier.matchParentSize().background(Color(0x8C000000)))
         }
 
         Column(
             Modifier
                 .align(Alignment.TopStart)
-                .padding(start = 40.dp, end = 40.dp, top = 14.dp, bottom = 8.dp)
-                .fillMaxWidth(0.52f),
+                .padding(start = sideGap(), end = sideGap(), top = 14.dp, bottom = 8.dp)
+                .fillMaxWidth(if (compact) 1f else 0.52f),
         ) {
             AnimatedContent(
                 targetState = item.key,

@@ -149,12 +149,12 @@ fun HomeRowView(row: HomeRow) {
         SectionTitle(
             row.title,
             Modifier
-                .padding(start = 40.dp, bottom = 10.dp)
+                .padding(start = sideGap(), bottom = 10.dp)
                 .graphicsLayer { translationX = shift * 6.dp.toPx() },
         )
         LazyRow(
             state = UiState.rowState(row.key),
-            contentPadding = PaddingValues(horizontal = 40.dp, vertical = 8.dp),
+            contentPadding = PaddingValues(horizontal = sideGap(), vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             val prog = row.progress

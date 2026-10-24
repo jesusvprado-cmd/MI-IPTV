@@ -11,6 +11,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.dp
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -120,3 +121,12 @@ fun fmtTime(ms: Long): String {
     val s = t % 60
     return if (h > 0) String.format(Locale.US, "%02d:%02d:%02d", h, m, s) else String.format(Locale.US, "%02d:%02d", m, s)
 }
+
+/** Móvil en vertical (pantalla estrecha y táctil). */
+@Composable
+fun isCompactPhone(): Boolean =
+    com.suso.miiptv.data.Device.touch && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 600
+
+/** Margen a los lados del contenido: amplio en la tele (zona segura) y estrecho en el móvil en vertical. */
+@Composable
+fun sideGap(): androidx.compose.ui.unit.Dp = if (isCompactPhone()) 16.dp else 40.dp
