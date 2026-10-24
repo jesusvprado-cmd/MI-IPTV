@@ -89,17 +89,17 @@ fun SearchScreen() {
             loading -> item {
                 Text(
                     "Buscando… (la primera búsqueda tarda más porque se carga todo el catálogo)",
-                    color = C.text2, fontSize = 15.sp, modifier = Modifier.padding(horizontal = 40.dp),
+                    color = C.text2, fontSize = Sz.body, modifier = Modifier.padding(horizontal = 40.dp),
                 )
             }
             r == null -> item {
                 Text(
                     "Escribe al menos 2 letras.",
-                    color = C.text2, fontSize = 15.sp, modifier = Modifier.padding(horizontal = 40.dp),
+                    color = C.text2, fontSize = Sz.body, modifier = Modifier.padding(horizontal = 40.dp),
                 )
             }
             r.live.isEmpty() && r.movies.isEmpty() && r.series.isEmpty() -> item {
-                Text("Sin resultados", color = C.text2, fontSize = 15.sp, modifier = Modifier.padding(horizontal = 40.dp))
+                Text("Sin resultados", color = C.text2, fontSize = Sz.body, modifier = Modifier.padding(horizontal = 40.dp))
             }
             else -> {
                 if (r.live.isNotEmpty()) item { HomeRowView(HomeRow("search_live", "Canales (${r.live.size})", Kind.LIVE, r.live)) }

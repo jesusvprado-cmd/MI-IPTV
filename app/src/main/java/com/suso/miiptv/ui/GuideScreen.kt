@@ -264,17 +264,17 @@ private fun pick(ctx: Context, list: List<Item>, i: Int, ch: Item, e: EpgEntry?,
 private fun InfoPanel(f: Focused?, now: Long, touch: Boolean = false) {
     Column(Modifier.fillMaxWidth().height(if (touch) 104.dp else 118.dp).padding(start = 14.dp, top = if (touch) 8.dp else 14.dp, end = 10.dp)) {
         if (f == null) {
-            Text("Guía de programación", color = Color.White, fontSize = if (touch) 20.sp else 24.sp, fontWeight = FontWeight.Bold)
+            Text("Guía de programación", color = Color.White, fontSize = if (touch) Sz.sub else Sz.title, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(6.dp))
             Text(
                 if (touch) "Toca un programa para ver su información y vuelve a tocarlo para verlo, poner un recordatorio o verlo desde el principio (si el canal lo guarda)."
                 else "OK sobre lo que se emite ahora: ver el canal · sobre un programa futuro: recordatorio · sobre uno pasado: verlo (si el canal lo guarda)",
-                color = C.text2, fontSize = 13.sp, maxLines = 2,
+                color = C.text2, fontSize = Sz.small, maxLines = 2,
             )
             return@Column
         }
         val e = f.e
-        Text(e?.title ?: f.ch.name, color = C.gold, fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(e?.title ?: f.ch.name, color = C.gold, fontSize = Sz.title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Spacer(Modifier.height(2.dp))
         val whenTxt = if (e == null) (if (f.loading) "Cargando la guía…" else "Sin guía") else {
             val day = if (DAY.format(Date(e.start)) != DAY.format(Date(now))) DAY.format(Date(e.start)) + " · " else ""
@@ -288,10 +288,10 @@ private fun InfoPanel(f: Focused?, now: Long, touch: Boolean = false) {
             }
             "$day${HM.format(Date(e.start))} – ${HM.format(Date(e.end))}  ·  ${f.ch.name}$state"
         }
-        Text(whenTxt, color = Color.White, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(whenTxt, color = Color.White, fontSize = Sz.body, maxLines = 1, overflow = TextOverflow.Ellipsis)
         e?.desc?.let {
             Spacer(Modifier.height(4.dp))
-            Text(it, color = C.text2, fontSize = 13.sp, lineHeight = 18.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(it, color = C.text2, fontSize = Sz.small, lineHeight = 18.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -300,13 +300,13 @@ private fun InfoPanel(f: Focused?, now: Long, touch: Boolean = false) {
 private fun TimeHeader(winStart: Long, chW: Dp, perMin: Dp, now: Long) {
     Box(Modifier.fillMaxWidth().height(30.dp)) {
         Text(
-            DAY.format(Date(winStart)).replaceFirstChar { it.uppercase() }, color = C.text2, fontSize = 13.sp,
+            DAY.format(Date(winStart)).replaceFirstChar { it.uppercase() }, color = C.text2, fontSize = Sz.small,
             modifier = Modifier.padding(start = 14.dp, top = 6.dp),
         )
         for (k in 0 until (WIN_MIN / 30).toInt()) {
             val t = winStart + k * HALF_HOUR
             Text(
-                HM.format(Date(t)), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                HM.format(Date(t)), color = Color.White, fontSize = Sz.small, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.offset(x = chW + perMin * (k * 30f) + 6.dp, y = 6.dp),
             )
         }
@@ -366,7 +366,7 @@ private fun GuideRow(
                 if (logo != null) ChannelLogoImage(logo, Modifier.fillMaxSize().padding(5.dp), fallback = ch.image) { shown = it }
             }
             Spacer(Modifier.width(if (compact) 6.dp else 8.dp))
-            Text(ch.name, color = Color(0xFFCFCFCF), fontSize = if (compact) 10.sp else 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 14.sp)
+            Text(ch.name, color = Color(0xFFCFCFCF), fontSize = if (compact) Sz.label else Sz.small, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 14.sp)
         }
         // Programas
         Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(6.dp)).onFocusChanged { rowFocused = it.hasFocus }) {
@@ -492,10 +492,10 @@ private fun ProgramCell(
         contentAlignment = Alignment.CenterStart,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            if (reminder) Text("⏰ ", fontSize = 12.sp, color = if (focused) Color.Black else C.gold)
-            if (archived) Text("↺ ", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (focused) Color.Black else C.gold)
+            if (reminder) Text("⏰ ", fontSize = Sz.small, color = if (focused) Color.Black else C.gold)
+            if (archived) Text("↺ ", fontSize = Sz.small, fontWeight = FontWeight.Bold, color = if (focused) Color.Black else C.gold)
             Text(
-                title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp,
+                title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = Sz.small,
                 fontWeight = if (focused || live) FontWeight.SemiBold else FontWeight.Medium,
                 color = when {
                     focused -> Color.Black
@@ -538,10 +538,10 @@ fun ReminderPopup(onVisible: (Boolean) -> Unit = {}, onWatch: (Prefs.Reminder) -
             Modifier.width(420.dp).clip(RoundedCornerShape(16.dp)).background(Color(0xF20B140D))
                 .border(1.dp, C.gold.copy(alpha = 0.5f), RoundedCornerShape(16.dp)).padding(20.dp),
         ) {
-            Text("⏰  Empieza ahora", color = C.gold, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text("⏰  Empieza ahora", color = C.gold, fontSize = Sz.body, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(4.dp))
-            Text(r.title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text(r.channel.name, color = C.text2, fontSize = 14.sp)
+            Text(r.title, color = Color.White, fontSize = Sz.sub, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(r.channel.name, color = C.text2, fontSize = Sz.body)
             Spacer(Modifier.height(14.dp))
             Row {
                 TvButton("Ver ahora", "rem_watch", filled = true, focusRequester = fr) {
@@ -565,7 +565,7 @@ fun ReminderPopup(onVisible: (Boolean) -> Unit = {}, onWatch: (Prefs.Reminder) -
 @Composable
 private fun GuidePill(text: String, onClick: () -> Unit) {
     Text(
-        text, color = Color(0xFFDDDDDD), fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+        text, color = Color(0xFFDDDDDD), fontSize = Sz.small, fontWeight = FontWeight.SemiBold,
         modifier = Modifier
             .clip(RoundedCornerShape(16.dp))
             .background(Color(0xFF1F2A21))

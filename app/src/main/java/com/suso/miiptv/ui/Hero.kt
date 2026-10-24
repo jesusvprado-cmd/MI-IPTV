@@ -207,17 +207,17 @@ fun HeroCarousel(items: List<Item>) {
                     Spacer(Modifier.height(10.dp))
                     Text(
                         hh?.title ?: it2.name,
-                        color = C.gold, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold,
+                        color = C.gold, fontSize = Sz.title, fontWeight = FontWeight.ExtraBold,
                         lineHeight = 35.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
                     )
                     Spacer(Modifier.height(6.dp))
                     val rating = ratingOf(it2) ?: hh?.rating?.replace(',', '.')?.toFloatOrNull()?.takeIf { it > 0 }
                         ?.let { String.format(java.util.Locale("es", "ES"), "%.1f", if (it > 10) it / 10 else it) }
                     val meta = listOfNotNull(rating?.let { "★ $it" }, hh?.meta?.takeIf { it.isNotBlank() }).joinToString("   ")
-                    if (meta.isNotBlank()) Text(meta, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (meta.isNotBlank()) Text(meta, color = Color.White, fontSize = Sz.body, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     hh?.plot?.let {
                         Spacer(Modifier.height(8.dp))
-                        Text(it, color = Color(0xFFDADADA), fontSize = 14.sp, lineHeight = 20.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(it, color = Color(0xFFDADADA), fontSize = Sz.body, lineHeight = 20.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }

@@ -173,7 +173,7 @@ fun ChannelLogoImage(url: String, modifier: Modifier = Modifier, fallback: Strin
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         if (sideNumber) {
             Text(
-                badge!!, color = badgeColor!!, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold,
+                badge!!, color = badgeColor!!, fontSize = Sz.title, fontWeight = FontWeight.ExtraBold,
                 modifier = Modifier.padding(end = 6.dp),
             )
         }
@@ -200,7 +200,7 @@ fun ChannelLogoImage(url: String, modifier: Modifier = Modifier, fallback: Strin
         if (badge != null && model == clean && badgeColor != null && cornerNumber) {
             // Número de color en la esquina inferior derecha, sin recuadro (Liga RFEF).
             Text(
-                badge, color = badgeColor, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 18.sp,
+                badge, color = badgeColor, fontSize = Sz.emph, fontWeight = FontWeight.ExtraBold, lineHeight = 18.sp,
                 modifier = Modifier.align(Alignment.BottomEnd),
             )
         }
@@ -214,7 +214,7 @@ fun ChannelLogoImage(url: String, modifier: Modifier = Modifier, fallback: Strin
                         .border(1.dp, Color.White.copy(alpha = 0.8f), RoundedCornerShape(5.dp))
                         .padding(horizontal = 6.dp, vertical = 1.dp),
                 ) {
-                    Text(badge, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
+                    Text(badge, color = Color.White, fontSize = Sz.small, fontWeight = FontWeight.ExtraBold)
                 }
             }
         }

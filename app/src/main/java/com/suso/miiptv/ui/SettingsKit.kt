@@ -129,7 +129,7 @@ fun SideItem(
         }
         Spacer(Modifier.width(14.dp))
         Text(
-            label, color = if (active) accent else fgBase, fontSize = 16.sp, maxLines = 1,
+            label, color = if (active) accent else fgBase, fontSize = Sz.emph, maxLines = 1,
             fontWeight = when {
                 active && focused -> FontWeight.ExtraBold
                 active -> FontWeight.SemiBold
@@ -168,10 +168,10 @@ fun SettingRow(
         FocusBar(focused, height = 30.dp, color = PaneFocus)
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
-            Text(title, color = if (focused) PaneFocus else Color.White, fontSize = 16.sp, fontWeight = if (focused) FontWeight.ExtraBold else FontWeight.Medium)
+            Text(title, color = if (focused) PaneFocus else Color.White, fontSize = Sz.emph, fontWeight = if (focused) FontWeight.ExtraBold else FontWeight.Medium)
             if (subtitle != null) {
                 Spacer(Modifier.height(2.dp))
-                Text(subtitle, color = C.text2, fontSize = 13.sp, lineHeight = 17.sp)
+                Text(subtitle, color = C.text2, fontSize = Sz.small, lineHeight = 17.sp)
             }
         }
         if (value != null) {
@@ -179,7 +179,7 @@ fun SettingRow(
             Text(
                 value,
                 color = C.gold,
-                fontSize = 15.sp,
+                fontSize = Sz.body,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -191,7 +191,7 @@ fun SettingRow(
             trailing(focused)
         } else if (chevron) {
             Spacer(Modifier.width(10.dp))
-            Text("›", color = if (focused) PaneFocus else C.text2, fontSize = 22.sp)
+            Text("›", color = if (focused) PaneFocus else C.text2, fontSize = Sz.sub)
         }
     }
 }
@@ -242,13 +242,13 @@ fun InfoCard(rows: List<Pair<String, String>>, status: Pair<String, Color>? = nu
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(10.dp).clip(CircleShape).background(status.second))
                 Spacer(Modifier.width(10.dp))
-                Text(status.first, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text(status.first, color = Color.White, fontSize = Sz.emph, fontWeight = FontWeight.SemiBold)
             }
         }
         rows.forEach { (k, v) ->
             Row {
-                Text(k, color = C.text2, fontSize = 14.sp, modifier = Modifier.width(130.dp))
-                Text(v, color = Color(0xFFE6E6E6), fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(k, color = C.text2, fontSize = Sz.body, modifier = Modifier.width(130.dp))
+                Text(v, color = Color(0xFFE6E6E6), fontSize = Sz.body, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -260,7 +260,7 @@ fun GroupLabel(text: String) {
     Text(
         text.uppercase(),
         color = C.text2,
-        fontSize = 12.sp,
+        fontSize = Sz.small,
         fontWeight = FontWeight.SemiBold,
         letterSpacing = 1.2.sp,
         modifier = Modifier.padding(start = 4.dp, top = 14.dp, bottom = 2.dp),
@@ -299,7 +299,7 @@ fun <T> ChoiceDialog(
                 .border(1.dp, S.line, RoundedCornerShape(16.dp))
                 .padding(vertical = 18.dp),
         ) {
-            Text(title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 24.dp))
+            Text(title, color = Color.White, fontSize = Sz.sub, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 24.dp))
             Spacer(Modifier.height(10.dp))
             LazyColumn(
                 Modifier.heightIn(max = 380.dp),
@@ -339,7 +339,7 @@ private fun ChoiceItem(label: String, selected: Boolean, fr: FocusRequester, onC
             if (selected) Box(Modifier.size(10.dp).clip(CircleShape).background(C.gold))
         }
         Spacer(Modifier.width(14.dp))
-        Text(label, color = if (focused) PaneFocus else Color.White, fontSize = 16.sp, fontWeight = if (focused) FontWeight.ExtraBold else FontWeight.Medium)
+        Text(label, color = if (focused) PaneFocus else Color.White, fontSize = Sz.emph, fontWeight = if (focused) FontWeight.ExtraBold else FontWeight.Medium)
     }
 }
 

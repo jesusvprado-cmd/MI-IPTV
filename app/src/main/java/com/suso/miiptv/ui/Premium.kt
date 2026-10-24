@@ -207,7 +207,7 @@ fun Pill(text: String, bg: Color, fg: Color, modifier: Modifier = Modifier) {
     Box(
         modifier.clip(RoundedCornerShape(5.dp)).background(bg).padding(horizontal = 6.dp, vertical = 2.dp),
     ) {
-        Text(text, color = fg, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.5.sp)
+        Text(text, color = fg, fontSize = Sz.label, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.5.sp)
     }
 }
 
@@ -226,7 +226,7 @@ fun BoxScope.PosterBadges(item: Item?, favBadge: Boolean = true) {
             Modifier.align(Alignment.TopStart).padding(6.dp).size(20.dp)
                 .clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xCC000000)),
             contentAlignment = Alignment.Center,
-        ) { Text("✓", color = C.gold, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold) }
+        ) { Text("✓", color = C.gold, fontSize = Sz.small, fontWeight = FontWeight.ExtraBold) }
     }
     // Novedad: circulito amarillo con una «N», discreto, abajo a la derecha.
     if (n) {
@@ -235,7 +235,7 @@ fun BoxScope.PosterBadges(item: Item?, favBadge: Boolean = true) {
                 .clip(androidx.compose.foundation.shape.CircleShape).background(C.gold),
             contentAlignment = Alignment.Center,
         ) {
-            Text("N", color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 11.sp)
+            Text("N", color = Color.Black, fontSize = Sz.label, fontWeight = FontWeight.ExtraBold, lineHeight = 11.sp)
         }
     }
     // En favoritos: corazón verde arriba a la derecha (no en la propia pestaña de Favoritos).

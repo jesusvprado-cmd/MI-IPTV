@@ -151,11 +151,11 @@ fun SetupScreen(canCancel: Boolean, onDone: () -> Unit, onCancel: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Logo(40.dp)
                 Spacer(Modifier.width(14.dp))
-                Text(BrandName(), color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                Text(BrandName(), color = Color.White, fontSize = Sz.title, fontWeight = FontWeight.Bold)
             }
             Text(
                 "Introduce los datos de tu lista. Se guardan solo en este dispositivo.",
-                color = C.text2, fontSize = 15.sp,
+                color = C.text2, fontSize = Sz.body,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 TabChip("Xtream Codes", mode == "xtream", "setup_x", requestInitial = mode == "xtream") { mode = "xtream" }
@@ -171,7 +171,7 @@ fun SetupScreen(canCancel: Boolean, onDone: () -> Unit, onCancel: () -> Unit) {
                 Field("URL de la lista M3U", m3u, KeyboardType.Uri, next) { m3u = it }
                 Field("URL de la guía EPG (opcional)", epg, KeyboardType.Uri, go, last = true) { epg = it }
             }
-            error?.let { Text(it, color = C.error, fontSize = 15.sp) }
+            error?.let { Text(it, color = C.error, fontSize = Sz.body) }
             Spacer(Modifier.height(4.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 TvButton(if (busy) "Conectando…" else "Conectar", "setup_go", filled = true) { connect() }

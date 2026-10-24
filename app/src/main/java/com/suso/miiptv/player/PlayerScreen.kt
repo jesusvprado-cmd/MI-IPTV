@@ -413,11 +413,11 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Text(item.title, color = C.gold, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                Text(err, color = Color.White, fontSize = 16.sp, textAlign = TextAlign.Center)
+                Text(item.title, color = C.gold, fontSize = Sz.sub, fontWeight = FontWeight.Bold)
+                Text(err, color = Color.White, fontSize = Sz.emph, textAlign = TextAlign.Center)
                 Text(
                     "Pulsa OK para reintentar" + if (item.live) " · ▲▼ para cambiar de canal" else "",
-                    color = C.text2, fontSize = 14.sp,
+                    color = C.text2, fontSize = Sz.body,
                     modifier = Modifier.focusProperties { canFocus = false }.clickable { ctl.retry() },
                 )
             }
@@ -477,7 +477,7 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
         // Aviso breve arriba (reconexión automática, VPN...).
         if (notice != null) {
             Text(
-                notice, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                notice, color = Color.White, fontSize = Sz.body, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = 24.dp)
                     .clip(RoundedCornerShape(20.dp)).background(Color(0xE6102414))
                     .border(1.dp, C.gold.copy(alpha = 0.6f), RoundedCornerShape(20.dp))
@@ -567,11 +567,11 @@ private fun NextEpisodeCard(ctl: PlayerCtl, modifier: Modifier) {
             .width(360.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xEE0B140D))
             .border(1.dp, C.gold.copy(alpha = 0.5f), RoundedCornerShape(14.dp)).padding(18.dp),
     ) {
-        Text("Siguiente episodio en ${(remaining / 1000).coerceAtLeast(0)} s", color = C.gold, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        Text("Siguiente episodio en ${(remaining / 1000).coerceAtLeast(0)} s", color = C.gold, fontSize = Sz.body, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(4.dp))
-        Text(nextTitle, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(nextTitle, color = Color.White, fontSize = Sz.emph, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
         Spacer(Modifier.height(8.dp))
-        Text("OK: verlo ya  ·  Atrás: quedarse", color = C.text2, fontSize = 13.sp)
+        Text("OK: verlo ya  ·  Atrás: quedarse", color = C.text2, fontSize = Sz.small)
     }
 }
 
@@ -612,9 +612,9 @@ private fun LiveOverlay(ctl: PlayerCtl, item: PlayItem, fav: Boolean, onFav: () 
             Spacer(Modifier.width(20.dp))
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("$number", color = C.gold, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                    Text("$number", color = C.gold, fontSize = Sz.sub, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.width(12.dp))
-                    Text(item.title, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                    Text(item.title, color = Color.White, fontSize = Sz.title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                     StreamBadges(ctl.streamBadges)
                     Spacer(Modifier.width(10.dp))
                     Icon(
@@ -626,7 +626,7 @@ private fun LiveOverlay(ctl: PlayerCtl, item: PlayItem, fav: Boolean, onFav: () 
                 }
                 Spacer(Modifier.height(6.dp))
                 if (cur != null) {
-                    Text("${hm(cur.start)} - ${hm(cur.end)}   ${cur.title}", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("${hm(cur.start)} - ${hm(cur.end)}   ${cur.title}", color = Color.White, fontSize = Sz.emph, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Spacer(Modifier.height(8.dp))
                     val frac = ((now - cur.start).toFloat() / (cur.end - cur.start).coerceAtLeast(1)).coerceIn(0f, 1f)
                     val left = ((cur.end - now) / 60_000).coerceAtLeast(0)
@@ -635,22 +635,22 @@ private fun LiveOverlay(ctl: PlayerCtl, item: PlayItem, fav: Boolean, onFav: () 
                             Box(Modifier.fillMaxWidth(frac).fillMaxHeight().clip(RoundedCornerShape(2.dp)).background(C.gold))
                         }
                         Spacer(Modifier.width(12.dp))
-                        Text(if (left > 0) "Quedan $left min" else "Terminando", color = C.text2, fontSize = 13.sp)
+                        Text(if (left > 0) "Quedan $left min" else "Terminando", color = C.text2, fontSize = Sz.small)
                     }
                     Spacer(Modifier.height(8.dp))
                 } else {
-                    Text("Sin guía de programación", color = C.text2, fontSize = 16.sp)
+                    Text("Sin guía de programación", color = C.text2, fontSize = Sz.emph)
                 }
                 if (next != null) {
-                    Text("Después  ${hm(next.start)}   ${next.title}", color = C.text2, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("Después  ${hm(next.start)}   ${next.title}", color = C.text2, fontSize = Sz.body, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
             Spacer(Modifier.width(20.dp))
             if (!com.suso.miiptv.data.Device.touch) Column(horizontalAlignment = Alignment.End) {
-                Text("▲ ▼  Cambiar canal", color = C.text2, fontSize = 13.sp)
-                Text("◀  Lista de canales", color = C.text2, fontSize = 13.sp)
-                Text("▶  Opciones y favorito", color = C.text2, fontSize = 13.sp)
-                Text("OK mantenido  Número de canal", color = C.text2, fontSize = 13.sp)
+                Text("▲ ▼  Cambiar canal", color = C.text2, fontSize = Sz.small)
+                Text("◀  Lista de canales", color = C.text2, fontSize = Sz.small)
+                Text("▶  Opciones y favorito", color = C.text2, fontSize = Sz.small)
+                Text("OK mantenido  Número de canal", color = C.text2, fontSize = Sz.small)
             }
         }
     }
@@ -679,18 +679,18 @@ private fun VodOverlay(ctl: PlayerCtl, item: PlayItem) {
             }
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(item.title, color = C.gold, fontSize = 26.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                    Text(item.title, color = C.gold, fontSize = Sz.title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                     StreamBadges(ctl.streamBadges)
                 }
                 item.subtitle?.let {
-                    Text(it, color = Color(0xFFDDDDDD), fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(it, color = Color(0xFFDDDDDD), fontSize = Sz.emph, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 if (ctl.duration > 0) {
                     val rest = ((ctl.duration - ctl.position).coerceAtLeast(0) / ctl.speed.coerceAtLeast(0.25f)).toLong()
-                    Text("Termina a las ${hm(System.currentTimeMillis() + rest)}", color = C.text2, fontSize = 14.sp)
+                    Text("Termina a las ${hm(System.currentTimeMillis() + rest)}", color = C.text2, fontSize = Sz.body)
                 }
                 if (!com.suso.miiptv.data.Device.touch) {
-                    Text("▼  Opciones     ◀ ▶  Retroceder / avanzar     OK  Pausa", color = C.text2, fontSize = 13.sp, maxLines = 1)
+                    Text("▼  Opciones     ◀ ▶  Retroceder / avanzar     OK  Pausa", color = C.text2, fontSize = Sz.small, maxLines = 1)
                 }
                 Spacer(Modifier.height(16.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -714,12 +714,12 @@ private fun VodOverlay(ctl: PlayerCtl, item: PlayItem) {
                     }
                     Spacer(Modifier.width(18.dp))
                     val shownPos = ctl.scrubPos ?: ctl.position
-                    Text(fmtTime(shownPos), color = if (ctl.scrubPos != null) C.gold else Color.White, fontSize = 15.sp)
+                    Text(fmtTime(shownPos), color = if (ctl.scrubPos != null) C.gold else Color.White, fontSize = Sz.body)
                     Spacer(Modifier.width(14.dp))
                     val frac = if (ctl.duration > 0) (shownPos.toFloat() / ctl.duration).coerceIn(0f, 1f) else 0f
                     SeekBar(frac, Modifier.weight(1f), preview = ctl.scrubPos) { f -> ctl.seekToFraction(f) }
                     Spacer(Modifier.width(14.dp))
-                    Text(fmtTime(ctl.duration), color = Color.White, fontSize = 15.sp)
+                    Text(fmtTime(ctl.duration), color = Color.White, fontSize = Sz.body)
                 }
             }
         }
@@ -752,7 +752,7 @@ private fun SeekBar(fraction: Float, modifier: Modifier, preview: Long? = null, 
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    fmtTime(preview), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold,
+                    fmtTime(preview), color = Color.White, fontSize = Sz.emph, fontWeight = FontWeight.Bold,
                     modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xCC111111)).padding(horizontal = 10.dp, vertical = 4.dp),
                 )
             }
@@ -816,7 +816,7 @@ private fun ChannelListPanel(ctl: PlayerCtl, onPick: (Int) -> Unit, onClose: () 
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     val n = p.channel?.num?.takeIf { it > 0 } ?: (i + 1)
-                    Text("$n", color = if (focused) Color.Black else C.gold, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(48.dp))
+                    Text("$n", color = if (focused) Color.Black else C.gold, fontSize = Sz.body, fontWeight = FontWeight.Bold, modifier = Modifier.width(48.dp))
                     val logo = remember(p.key, Logos.version) { Logos.url(p.title, p.image) }
                     Box(
                         Modifier.width(44.dp).height(28.dp).clip(RoundedCornerShape(4.dp))
@@ -837,7 +837,7 @@ private fun ChannelListPanel(ctl: PlayerCtl, onPick: (Int) -> Unit, onClose: () 
                     Text(
                         p.title,
                         color = if (focused) Color.Black else Color.White,
-                        fontSize = 15.sp,
+                        fontSize = Sz.body,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -952,9 +952,9 @@ private fun OptionsPanel(
             TrackRow(if (fav) "♥  Quitar de favoritos" else "♡  Añadir a favoritos", false, requestFocus = false) { onFav() }
             Spacer(Modifier.height(18.dp))
         }
-        Text("Audio", color = C.gold, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 10.dp, bottom = 8.dp))
+        Text("Audio", color = C.gold, fontSize = Sz.emph, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 10.dp, bottom = 8.dp))
         if (audio.isEmpty()) {
-            Text("No hay pistas de audio", color = C.text2, fontSize = 14.sp, modifier = Modifier.padding(start = 10.dp))
+            Text("No hay pistas de audio", color = C.text2, fontSize = Sz.body, modifier = Modifier.padding(start = 10.dp))
         }
         audio.forEachIndexed { i, o ->
             TrackRow(o.label, o.selected, requestFocus = opening && i == focusIdx) {
@@ -962,12 +962,12 @@ private fun OptionsPanel(
             }
         }
         Spacer(Modifier.height(22.dp))
-        Text("Subtítulos", color = C.gold, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 10.dp, bottom = 8.dp))
+        Text("Subtítulos", color = C.gold, fontSize = Sz.emph, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 10.dp, bottom = 8.dp))
         TrackRow("Desactivados", subsOff, requestFocus = opening && audio.isEmpty()) {
             ctl.selectTrack(MC.TRACK_TYPE_TEXT, null)
         }
         if (subs.isEmpty()) {
-            Text("Este contenido no trae subtítulos", color = C.text2, fontSize = 14.sp, modifier = Modifier.padding(start = 10.dp, top = 6.dp))
+            Text("Este contenido no trae subtítulos", color = C.text2, fontSize = Sz.body, modifier = Modifier.padding(start = 10.dp, top = 6.dp))
         }
         subs.forEach { o ->
             TrackRow(o.label, o.selected && !subsOff, requestFocus = false) {
@@ -975,7 +975,7 @@ private fun OptionsPanel(
             }
         }
         Spacer(Modifier.height(22.dp))
-        Text("Imagen y reproducción", color = C.gold, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 10.dp, bottom = 8.dp))
+        Text("Imagen y reproducción", color = C.gold, fontSize = Sz.emph, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 10.dp, bottom = 8.dp))
         TrackRow("Formato de imagen: ${aspectLabel(aspect)}", false, requestFocus = false) { onAspect() }
         if (!ctl.current.live) {
             TrackRow("Velocidad: ${speedLabel(ctl.speed)}", false, requestFocus = false) { ctl.nextSpeed() }
@@ -1026,7 +1026,7 @@ private fun OptionsPanel(
         TrackRow(vpnText, vs == VpnManager.State.ON, requestFocus = false) { onVpn() }
         TrackRow("Abrir en otro reproductor", false, requestFocus = false) { onExternal() }
         Spacer(Modifier.height(18.dp))
-        Text("◀ para cerrar", color = C.text2, fontSize = 13.sp, modifier = Modifier.padding(start = 10.dp))
+        Text("◀ para cerrar", color = C.text2, fontSize = Sz.small, modifier = Modifier.padding(start = 10.dp))
     }
 }
 
@@ -1063,10 +1063,10 @@ private fun TrackRow(label: String, selected: Boolean, requestFocus: Boolean, on
         Text(
             if (selected) "✓" else "",
             color = C.gold,
-            fontSize = 16.sp, fontWeight = FontWeight.Bold,
+            fontSize = Sz.emph, fontWeight = FontWeight.Bold,
             modifier = Modifier.width(26.dp),
         )
-        Text(label, color = if (focused) C.gold else Color.White, fontSize = 15.sp, fontWeight = if (focused) FontWeight.Bold else FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(label, color = if (focused) C.gold else Color.White, fontSize = Sz.body, fontWeight = if (focused) FontWeight.Bold else FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -1084,7 +1084,7 @@ private fun StreamBadges(badges: List<String>) {
                     .padding(horizontal = 4.dp, vertical = 0.dp),
             ) {
                 Text(
-                    b, color = Color.White.copy(alpha = 0.85f), fontSize = 9.sp, lineHeight = 11.sp,
+                    b, color = Color.White.copy(alpha = 0.85f), fontSize = Sz.label, lineHeight = 11.sp,
                     style = androidx.compose.ui.text.TextStyle(
                         platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false),
                     ),
@@ -1121,7 +1121,7 @@ private fun NumberPad(
             .padding(22.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("Ir al canal", color = C.text2, fontSize = 14.sp)
+        Text("Ir al canal", color = C.text2, fontSize = Sz.body)
         Text(
             typed.ifEmpty { "—" }, color = C.gold, fontSize = 44.sp, fontWeight = FontWeight.ExtraBold,
             modifier = Modifier.padding(vertical = 6.dp),
@@ -1147,7 +1147,7 @@ private fun NumberPad(
         Spacer(Modifier.height(12.dp))
         PadKey("Ir", "pad_go", wide = true, enabled = typed.isNotEmpty()) { onGo() }
         Spacer(Modifier.height(8.dp))
-        Text("↩ canal anterior · ⌫ borrar · Atrás cerrar", color = Color(0xFF7A7A7A), fontSize = 12.sp)
+        Text("↩ canal anterior · ⌫ borrar · Atrás cerrar", color = Color(0xFF7A7A7A), fontSize = Sz.small)
     }
 }
 
@@ -1187,7 +1187,7 @@ private fun PadKey(label: String, key: String, modifier: Modifier = Modifier, wi
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            label, fontSize = 22.sp, fontWeight = FontWeight.Bold,
+            label, fontSize = Sz.sub, fontWeight = FontWeight.Bold,
             color = when {
                 focused -> Color.Black
                 enabled -> Color.White
@@ -1209,15 +1209,15 @@ private fun PlayersPanel(players: List<Pair<String, String>>, modifier: Modifier
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 14.dp, vertical = 22.dp),
     ) {
-        Text("Abrir con otro reproductor", color = C.gold, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 10.dp, bottom = 8.dp))
+        Text("Abrir con otro reproductor", color = C.gold, fontSize = Sz.emph, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 10.dp, bottom = 8.dp))
         if (players.isEmpty()) {
-            Text("No hay otros reproductores instalados", color = C.text2, fontSize = 14.sp, modifier = Modifier.padding(start = 10.dp))
+            Text("No hay otros reproductores instalados", color = C.text2, fontSize = Sz.body, modifier = Modifier.padding(start = 10.dp))
         }
         players.forEachIndexed { i, (name, pkg) ->
             TrackRow(name, pkg == Repo.prefs.externalPkg, requestFocus = i == 0) { onPick(pkg) }
         }
         Spacer(Modifier.height(14.dp))
-        Text("Atrás para cerrar", color = C.text2, fontSize = 12.sp, modifier = Modifier.padding(start = 10.dp))
+        Text("Atrás para cerrar", color = C.text2, fontSize = Sz.small, modifier = Modifier.padding(start = 10.dp))
     }
 }
 
@@ -1319,7 +1319,7 @@ private fun TouchLayer(ctl: PlayerCtl, live: Boolean, onTap: () -> Unit, onShow:
     ) {
         hint?.let {
             Text(
-                it, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold,
+                it, color = Color.White, fontSize = Sz.sub, fontWeight = FontWeight.Bold,
                 modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(Color(0xAA000000)).padding(horizontal = 20.dp, vertical = 10.dp),
             )
         }
@@ -1370,6 +1370,6 @@ private fun TouchBtn(label: String, onClick: () -> Unit) {
             .padding(horizontal = 16.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+        Text(label, color = Color.White, fontSize = Sz.emph, fontWeight = FontWeight.SemiBold)
     }
 }

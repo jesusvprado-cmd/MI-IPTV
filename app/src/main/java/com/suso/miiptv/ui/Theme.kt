@@ -10,6 +10,7 @@ import com.suso.miiptv.R
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.sp
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -42,6 +43,25 @@ object C {
     val greenIcon = Color(0xFF6FE07A)
     val playBtn = Color(0xFFDDF3F2)
     val error = Color(0xFFFF6B6B)
+}
+
+/**
+ * Escala de tamaños de letra de toda la app (cambiar uno aquí lo cambia en todas partes).
+ * Fuera de la escala solo quedan unos pocos textos grandes únicos (número tecleado, pantalla de arranque…).
+ */
+object Sz {
+    /** Insignias (FHD, 5.1…) y avisos pequeños. */
+    val label = 10.sp
+    /** Pistas del mando, nombres de canal, datos secundarios. */
+    val small = 13.sp
+    /** Texto normal: opciones, programas, descripciones. */
+    val body = 15.sp
+    /** Títulos de fila, programa actual, botones. */
+    val emph = 17.sp
+    /** Títulos de paneles y secciones. */
+    val sub = 22.sp
+    /** Títulos grandes (fichas, Ajustes). */
+    val title = 28.sp
 }
 
 /** Tipografía Manrope en toda la app. */

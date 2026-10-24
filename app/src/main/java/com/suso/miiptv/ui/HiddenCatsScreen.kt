@@ -100,12 +100,12 @@ fun HiddenCatsScreen() {
     }
 
     Column(Modifier.fillMaxSize().background(C.bg).padding(horizontal = 48.dp, vertical = 28.dp)) {
-        Text("Categorías ocultas", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+        Text("Categorías ocultas", color = Color.White, fontSize = Sz.title, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(6.dp))
         Text(
             "Las categorías ocultas no aparecen en el menú, en Inicio ni en el buscador. " +
                 "Las de adultos se ocultan solas al aparecer por primera vez.",
-            color = C.text2, fontSize = 14.sp,
+            color = C.text2, fontSize = Sz.body,
         )
         Spacer(Modifier.height(14.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -141,7 +141,7 @@ fun HiddenCatsScreen() {
             l.isEmpty() -> EmptyText("No hay categorías")
             else -> {
                 val hiddenCount = l.count { prefs.isHidden(kind, it.id) }
-                Text("$hiddenCount de ${l.size} ocultas", color = C.text2, fontSize = 13.sp)
+                Text("$hiddenCount de ${l.size} ocultas", color = C.text2, fontSize = Sz.small)
                 Spacer(Modifier.height(6.dp))
                 LazyColumn(contentPadding = PaddingValues(bottom = 30.dp)) {
                     itemsIndexed(l, key = { i, c -> "$i:${c.id}:$hv" }) { _, c ->
@@ -178,7 +178,7 @@ private fun CatToggleRow(name: String, hidden: Boolean, focusKey: String, onClic
                 hidden -> C.text2
                 else -> Color.White
             },
-            fontSize = 15.sp,
+            fontSize = Sz.body,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
@@ -187,7 +187,7 @@ private fun CatToggleRow(name: String, hidden: Boolean, focusKey: String, onClic
         Text(
             if (hidden) "Oculta" else "Visible",
             color = if (focused) Color.Black else if (hidden) C.error else C.gold,
-            fontSize = 14.sp,
+            fontSize = Sz.body,
             fontWeight = FontWeight.SemiBold,
         )
     }
@@ -207,7 +207,7 @@ fun PinEntry(title: String, onCancel: () -> Unit, onDone: (String) -> Unit) {
             Modifier.widthIn(max = 520.dp).fillMaxWidth().padding(top = 60.dp, start = 32.dp, end = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text(title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text(title, color = Color.White, fontSize = Sz.sub, fontWeight = FontWeight.Bold)
             OutlinedTextField(
                 value = value,
                 onValueChange = { v -> value = v.filter { it.isDigit() }.take(8) },

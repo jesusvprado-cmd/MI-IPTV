@@ -244,7 +244,7 @@ fun CategoryChips(cats: List<Category>, selected: String?, onPick: (String) -> U
             val c = cats[i]
             val sel = c.id == selected
             Text(
-                c.name, maxLines = 1, fontSize = 14.sp,
+                c.name, maxLines = 1, fontSize = Sz.body,
                 color = if (sel) Color.Black else Color(0xFFDDDDDD),
                 fontWeight = if (sel) FontWeight.Bold else FontWeight.Medium,
                 modifier = Modifier

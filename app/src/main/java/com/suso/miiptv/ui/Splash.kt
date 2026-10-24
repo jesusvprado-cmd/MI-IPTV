@@ -143,7 +143,7 @@ fun SplashOverlay() {
                 Text(
                     "TV  ·  CINE  ·  SERIES",
                     color = C.gold,
-                    fontSize = 14.sp,
+                    fontSize = Sz.body,
                     fontWeight = FontWeight.SemiBold,
                     letterSpacing = 3.sp,
                     modifier = Modifier.graphicsLayer { alpha = text.value * 0.9f },

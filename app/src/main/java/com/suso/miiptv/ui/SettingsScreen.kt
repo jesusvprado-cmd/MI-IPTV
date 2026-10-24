@@ -381,7 +381,7 @@ fun SettingsScreen(onChangeList: () -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 8.dp, bottom = 22.dp)) {
                     Logo(32.dp)
                     Spacer(Modifier.width(12.dp))
-                    Text("Ajustes", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                    Text("Ajustes", color = Color.White, fontSize = Sz.title, fontWeight = FontWeight.Bold)
                 }
                 Sec.values().forEach { s ->
                     SideItem(
@@ -477,13 +477,13 @@ fun SettingsScreen(onChangeList: () -> Unit) {
                     item(key = "title_${sec.name}") {
                         Column(Modifier.padding(bottom = 8.dp)) {
                             if (compact) Text(
-                                "‹  Ajustes", color = C.gold, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                                "‹  Ajustes", color = C.gold, fontSize = Sz.emph, fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.tvClick { mobilePane = false }.padding(vertical = 8.dp),
                             )
-                            Text(sec.label, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                            Text(sec.label, color = Color.White, fontSize = Sz.title, fontWeight = FontWeight.Bold)
                             if (sec.desc.isNotEmpty()) {
                                 Spacer(Modifier.height(4.dp))
-                                Text(sec.desc, color = C.text2, fontSize = 14.sp)
+                                Text(sec.desc, color = C.text2, fontSize = Sz.body)
                             }
                         }
                     }
@@ -650,7 +650,7 @@ private fun VpnSection(onMode: () -> Unit, onConnect: () -> Unit, onFile: () -> 
         SettingRow("Cargar desde una dirección web", "set_vpn_url") { onUrl() }
         Text(
             "Sirve el archivo de Proton VPN (gratis) o de cualquier VPN que ofrezca WireGuard.",
-            color = Color(0xFF777777), fontSize = 13.sp, modifier = Modifier.padding(start = 4.dp, top = 4.dp),
+            color = Color(0xFF777777), fontSize = Sz.small, modifier = Modifier.padding(start = 4.dp, top = 4.dp),
         )
     }
 }
@@ -911,12 +911,12 @@ private fun AboutSection(onLog: () -> Unit, onBackup: () -> Unit, onRestore: () 
     ) {
         Logo(64.dp)
         Spacer(Modifier.height(14.dp))
-        Text(BrandName(), color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-        Text("Versión $version", color = C.gold, fontSize = 15.sp)
+        Text(BrandName(), color = Color.White, fontSize = Sz.title, fontWeight = FontWeight.Bold)
+        Text("Versión $version", color = C.gold, fontSize = Sz.body)
         Spacer(Modifier.height(10.dp))
         Text(
             "Reproductor para usar con tu propia lista IPTV.\nNo incluye canales ni contenidos.",
-            color = C.text2, fontSize = 14.sp, textAlign = TextAlign.Center, lineHeight = 20.sp,
+            color = C.text2, fontSize = Sz.body, textAlign = TextAlign.Center, lineHeight = 20.sp,
         )
     }
     Spacer(Modifier.height(10.dp))
@@ -970,8 +970,8 @@ private fun ErrorLogView(onClose: () -> Unit) {
     }
     BackHandler { onClose() }
     Column(Modifier.fillMaxSize().background(C.bg).padding(40.dp)) {
-        Text("Registro de errores", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        Text(com.suso.miiptv.data.ErrorLog.device(), color = C.text2, fontSize = 13.sp)
+        Text("Registro de errores", color = Color.White, fontSize = Sz.title, fontWeight = FontWeight.Bold)
+        Text(com.suso.miiptv.data.ErrorLog.device(), color = C.text2, fontSize = Sz.small)
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             TvButton("Cerrar", "log_close", focusRequester = fr) { onClose() }
@@ -987,7 +987,7 @@ private fun ErrorLogView(onClose: () -> Unit) {
         ) {
             Text(
                 text.ifBlank { "No hay errores registrados." },
-                color = Color(0xFFDDDDDD), fontSize = 12.sp, lineHeight = 16.sp,
+                color = Color(0xFFDDDDDD), fontSize = Sz.small, lineHeight = 16.sp,
                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
             )
         }
@@ -1006,8 +1006,8 @@ private fun FilePickList(files: List<File>, onCancel: () -> Unit, onPick: (File)
         Modifier.fillMaxSize().background(C.bg).verticalScroll(rememberScrollState()).padding(48.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text("Elige el archivo WireGuard", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        Text("Archivos .conf de la carpeta Download", color = C.text2, fontSize = 14.sp)
+        Text("Elige el archivo WireGuard", color = Color.White, fontSize = Sz.title, fontWeight = FontWeight.Bold)
+        Text("Archivos .conf de la carpeta Download", color = C.text2, fontSize = Sz.body)
         files.forEachIndexed { i, f ->
             TvButton(f.name, "conf_$i", focusRequester = if (i == 0) fr else null, vertical = true) { onPick(f) }
         }
@@ -1038,7 +1038,7 @@ private fun UrlEntry(
             Modifier.widthIn(max = 640.dp).fillMaxWidth().padding(top = 48.dp, start = 32.dp, end = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text(title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text(title, color = Color.White, fontSize = Sz.sub, fontWeight = FontWeight.Bold)
             OutlinedTextField(
                 value = value,
                 onValueChange = { value = if (text) it.take(20) else it.trim() },

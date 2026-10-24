@@ -109,7 +109,7 @@ private fun TopBar(restoring: Boolean, compact: Boolean = false) {
             Logo(34.dp)
             Spacer(Modifier.width(10.dp))
             androidx.compose.material3.Text(
-                BrandName(), color = androidx.compose.ui.graphics.Color.White, fontSize = 19.sp,
+                BrandName(), color = androidx.compose.ui.graphics.Color.White, fontSize = Sz.sub,
                 fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold, maxLines = 1,
             )
             Spacer(Modifier.width(12.dp))
@@ -233,9 +233,9 @@ private fun TopTab(
             }
         } else {
             // Texto invisible en negrita: reserva el ancho para que el menú no se mueva al cambiar el grosor.
-            Text(text, color = Color.Transparent, fontSize = 17.sp, maxLines = 1, fontWeight = FontWeight.ExtraBold)
+            Text(text, color = Color.Transparent, fontSize = Sz.emph, maxLines = 1, fontWeight = FontWeight.ExtraBold)
             Text(
-                text, color = color, fontSize = 17.sp, maxLines = 1,
+                text, color = color, fontSize = Sz.emph, maxLines = 1,
                 fontWeight = when {
                     focused -> FontWeight.ExtraBold
                     selected && !menuFocused -> FontWeight.SemiBold
@@ -305,7 +305,7 @@ private fun BottomNav() {
                 ) {
                     Icon(TAB_ICONS.getValue(t), contentDescription = t.label, tint = col, modifier = Modifier.size(24.dp))
                     Text(
-                        if (t == Tab.SEARCH) "Buscar" else t.label, color = col, fontSize = 11.sp,
+                        if (t == Tab.SEARCH) "Buscar" else t.label, color = col, fontSize = Sz.label,
                         fontWeight = if (sel) FontWeight.Bold else FontWeight.Medium, maxLines = 1,
                     )
                 }

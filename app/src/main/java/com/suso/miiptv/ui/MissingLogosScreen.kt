@@ -71,7 +71,7 @@ fun MissingLogosScreen() {
         runCatching { firstFr.requestFocus() }
     }
     Column(Modifier.fillMaxSize().background(C.bg).padding(horizontal = 48.dp, vertical = 28.dp)) {
-        Text("Canales sin logo de calidad", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+        Text("Canales sin logo de calidad", color = Color.White, fontSize = Sz.title, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(6.dp))
         val r = rows
         Text(
@@ -80,7 +80,7 @@ fun MissingLogosScreen() {
                 r.isEmpty() -> "Todos los canales tienen logo de calidad."
                 else -> "${r.size} de $total canales sin logo de calidad. Haz una foto y mándamela para añadirlos."
             },
-            color = C.text2, fontSize = 14.sp,
+            color = C.text2, fontSize = Sz.body,
         )
         Spacer(Modifier.height(14.dp))
         if (r == null) {
@@ -102,7 +102,7 @@ fun MissingLogosScreen() {
                     ) {
                         Text(
                             if (cat.isNotEmpty()) "$name   ·   $cat" else name,
-                            color = if (f) Color.Black else Color(0xFFDDDDDD), fontSize = 15.sp,
+                            color = if (f) Color.Black else Color(0xFFDDDDDD), fontSize = Sz.body,
                         )
                     }
                 }

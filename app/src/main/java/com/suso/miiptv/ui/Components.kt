@@ -105,7 +105,7 @@ fun TabChip(
             Text(
                 text,
                 color = if (focused) Color.Black else Color.White,
-                fontSize = 16.sp,
+                fontSize = Sz.emph,
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
                 maxLines = 1,
             )
@@ -147,8 +147,8 @@ fun TvButton(
         if (text != null) {
             Box {
                 // Texto invisible en negrita: reserva el ancho para que los botones no se muevan al pasar el cursor.
-                Text(text, color = Color.Transparent, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, maxLines = 1)
-                Text(text, color = fg, fontWeight = if (focused) FontWeight.ExtraBold else FontWeight.SemiBold, fontSize = 16.sp, maxLines = 1)
+                Text(text, color = Color.Transparent, fontWeight = FontWeight.ExtraBold, fontSize = Sz.emph, maxLines = 1)
+                Text(text, color = fg, fontWeight = if (focused) FontWeight.ExtraBold else FontWeight.SemiBold, fontSize = Sz.emph, maxLines = 1)
             }
         }
         Spacer(Modifier.width(10.dp))
@@ -218,7 +218,7 @@ fun PosterCard(
                 Text(
                     title,
                     color = C.text2,
-                    fontSize = 13.sp,
+                    fontSize = Sz.small,
                     textAlign = TextAlign.Center,
                     maxLines = 4,
                     modifier = Modifier.align(Alignment.Center).padding(8.dp),
@@ -241,14 +241,14 @@ fun PosterCard(
         Text(
             title,
             color = if (focused) Color.White else C.text3,
-            fontSize = 12.sp,
+            fontSize = Sz.small,
             fontWeight = FontWeight.Medium,
             maxLines = 1,
             overflow = if (focused) TextOverflow.Clip else TextOverflow.Ellipsis,
             modifier = if (focused) Modifier.basicMarquee() else Modifier,
         )
         if (subtitle != null) {
-            Text(subtitle, color = C.text2, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(subtitle, color = C.text2, fontSize = Sz.small, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -311,7 +311,7 @@ fun ChannelCard(
         Text(
             title,
             color = if (focused) Color.White else C.text3,
-            fontSize = 14.sp,
+            fontSize = Sz.body,
             fontWeight = FontWeight.Medium,
             maxLines = 1,
             overflow = if (focused) TextOverflow.Clip else TextOverflow.Ellipsis,
@@ -346,7 +346,7 @@ fun CategoryRow(name: String, selected: Boolean, focusKey: String, onFocused: ()
         Text(
             name,
             color = if (active) accent else Color(0xFF9A9A9A),
-            fontSize = 15.sp,
+            fontSize = Sz.body,
             fontWeight = when {
                 active && focused -> FontWeight.ExtraBold
                 active -> FontWeight.SemiBold
@@ -364,7 +364,7 @@ fun Loading(text: String = "Cargando…") {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             CircularProgressIndicator(color = C.gold)
             Spacer(Modifier.height(14.dp))
-            Text(text, color = C.text2, fontSize = 15.sp)
+            Text(text, color = C.text2, fontSize = Sz.body)
         }
     }
 }
@@ -373,7 +373,7 @@ fun Loading(text: String = "Cargando…") {
 fun ErrorBox(message: String, onRetry: () -> Unit) {
     Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp)) {
-            Text(message, color = Color.White, fontSize = 17.sp, textAlign = TextAlign.Center)
+            Text(message, color = Color.White, fontSize = Sz.emph, textAlign = TextAlign.Center)
             TvButton("Reintentar", "err_retry", filled = true, onClick = onRetry)
         }
     }
@@ -382,13 +382,13 @@ fun ErrorBox(message: String, onRetry: () -> Unit) {
 @Composable
 fun EmptyText(text: String) {
     Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
-        Text(text, color = C.text2, fontSize = 16.sp, textAlign = TextAlign.Center)
+        Text(text, color = C.text2, fontSize = Sz.emph, textAlign = TextAlign.Center)
     }
 }
 
 @Composable
 fun SectionTitle(text: String, modifier: Modifier = Modifier) {
-    Text(text, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, modifier = modifier)
+    Text(text, color = Color.White, fontSize = Sz.sub, fontWeight = FontWeight.SemiBold, modifier = modifier)
 }
 
 /** Marco de la miniatura con el cursor: degradado en diagonal del verde claro (arriba a la izquierda) a blanco,

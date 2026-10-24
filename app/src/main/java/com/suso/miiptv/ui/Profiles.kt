@@ -88,7 +88,7 @@ fun ProfilePicker(onDone: () -> Unit) {
                         )
                         Spacer(Modifier.height(14.dp))
                         Text(
-                            p.name, fontSize = 18.sp,
+                            p.name, fontSize = Sz.emph,
                             color = if (focused) Color.White else C.text2,
                             fontWeight = if (focused) FontWeight.Bold else FontWeight.Medium,
                         )
@@ -96,7 +96,7 @@ fun ProfilePicker(onDone: () -> Unit) {
                 }
             }
             Spacer(Modifier.height(36.dp))
-            Text("Los perfiles se gestionan en Ajustes → Perfiles", color = Color(0xFF6E6E6E), fontSize = 13.sp)
+            Text("Los perfiles se gestionan en Ajustes → Perfiles", color = Color(0xFF6E6E6E), fontSize = Sz.small)
         }
     }
 }

@@ -78,18 +78,18 @@ private fun LiveInfo(item: Item?) {
     }
     Column(Modifier.fillMaxSize()) {
         if (item == null) {
-            Text("Elige un canal", color = C.text2, fontSize = 16.sp)
+            Text("Elige un canal", color = C.text2, fontSize = Sz.emph)
             return@Column
         }
-        Text(item.name, color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(item.name, color = Color.White, fontSize = Sz.sub, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Spacer(Modifier.height(6.dp))
         val now = System.currentTimeMillis()
         val cur = epg.firstOrNull { it.start <= now && it.end > now }
         val next = epg.firstOrNull { it.start >= (cur?.end ?: now) }
         if (cur == null) {
-            Text("Sin guía de programación", color = C.text2, fontSize = 15.sp, maxLines = 1)
+            Text("Sin guía de programación", color = C.text2, fontSize = Sz.body, maxLines = 1)
         } else {
-            Text("${hm(cur.start)} - ${hm(cur.end)}   ${cur.title}", color = Color.White, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("${hm(cur.start)} - ${hm(cur.end)}   ${cur.title}", color = Color.White, fontSize = Sz.body, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(5.dp))
             val frac = ((now - cur.start).toFloat() / (cur.end - cur.start).coerceAtLeast(1)).coerceIn(0f, 1f)
             Box(Modifier.fillMaxWidth(0.7f).height(3.dp).background(Color(0x44FFFFFF))) {
@@ -98,7 +98,7 @@ private fun LiveInfo(item: Item?) {
         }
         if (next != null) {
             Spacer(Modifier.height(5.dp))
-            Text("Después  ${hm(next.start)}   ${next.title}", color = C.text2, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("Después  ${hm(next.start)}   ${next.title}", color = C.text2, fontSize = Sz.small, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         // La descripción usa solo el hueco que sobra; «OK pantalla completa» siempre cabe abajo.
         val desc = cur?.desc?.takeIf { it.isNotBlank() }
@@ -107,12 +107,12 @@ private fun LiveInfo(item: Item?) {
             val lines = ((maxHeight - 5.dp) / lh).toInt().coerceIn(0, 2)
             if (desc != null && lines > 0) {
                 Text(
-                    desc, color = C.text2, fontSize = 13.sp, lineHeight = 17.sp, maxLines = lines,
+                    desc, color = C.text2, fontSize = Sz.small, lineHeight = 17.sp, maxLines = lines,
                     overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 5.dp),
                 )
             }
         }
-        Text("OK  pantalla completa", color = C.gold, fontSize = 12.sp, maxLines = 1)
+        Text("OK  pantalla completa", color = C.gold, fontSize = Sz.small, maxLines = 1)
     }
 }
 
@@ -164,8 +164,8 @@ fun LivePreviewBox(item: Item?, modifier: Modifier) {
         )
         val err = PlayerHolder.previewError
         when {
-            item == null -> Text("Elige un canal", color = C.text2, fontSize = 14.sp)
-            err != null -> Text(err, color = C.text2, fontSize = 14.sp)
+            item == null -> Text("Elige un canal", color = C.text2, fontSize = Sz.body)
+            err != null -> Text(err, color = C.text2, fontSize = Sz.body)
         }
     }
 }

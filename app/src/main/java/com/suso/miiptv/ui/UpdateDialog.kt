@@ -73,31 +73,31 @@ fun UpdateDialog() {
                 BrandMark(44.dp)
                 Spacer(Modifier.padding(start = 14.dp))
                 Column {
-                    Text("Nueva versión disponible", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                    Text("Nueva versión disponible", color = Color.White, fontSize = Sz.sub, fontWeight = FontWeight.Bold)
                     Text(
                         "Tienes la ${Updater.currentName(ctx)} · nueva: 1.${rel.build}",
-                        color = C.gold, fontSize = 14.sp,
+                        color = C.gold, fontSize = Sz.body,
                     )
                 }
             }
             if (rel.notes.isNotBlank()) {
                 Spacer(Modifier.height(16.dp))
-                Text("Novedades", color = C.text2, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text("Novedades", color = C.text2, fontSize = Sz.small, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(4.dp))
                 Column(Modifier.heightIn(max = 150.dp).verticalScroll(rememberScrollState())) {
-                    Text(rel.notes, color = Color(0xFFDDDDDD), fontSize = 14.sp, lineHeight = 20.sp)
+                    Text(rel.notes, color = Color(0xFFDDDDDD), fontSize = Sz.body, lineHeight = 20.sp)
                 }
             }
             Spacer(Modifier.height(20.dp))
             if (downloading != null) {
-                Text("Descargando… ${(downloading * 100).toInt()} %", color = Color.White, fontSize = 15.sp)
+                Text("Descargando… ${(downloading * 100).toInt()} %", color = Color.White, fontSize = Sz.body)
                 Spacer(Modifier.height(8.dp))
                 Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(Color(0x33FFFFFF))) {
                     Box(Modifier.fillMaxWidth(downloading.coerceIn(0.02f, 1f)).fillMaxHeight().background(GoldBrush))
                 }
             } else {
                 Updater.error?.let {
-                    Text(it, color = C.error, fontSize = 14.sp)
+                    Text(it, color = C.error, fontSize = Sz.body)
                     Spacer(Modifier.height(10.dp))
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -110,7 +110,7 @@ fun UpdateDialog() {
                 Text(
                     "Se instala encima de la actual: no pierdes tu lista, favoritos ni ajustes. " +
                         "Si Android pide permiso para instalar apps de Pepino IPTV, actívalo y vuelve atrás.",
-                    color = C.text2, fontSize = 12.sp, lineHeight = 17.sp,
+                    color = C.text2, fontSize = Sz.small, lineHeight = 17.sp,
                 )
             }
         }

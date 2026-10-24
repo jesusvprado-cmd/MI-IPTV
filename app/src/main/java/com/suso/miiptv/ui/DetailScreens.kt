@@ -191,7 +191,7 @@ private fun RelatedRow(item: Item, onPreview: (Item) -> Unit) {
     if (related.isEmpty()) return
     Column(Modifier.fillMaxWidth().fadeInOnChange(related.size)) {
         Text(
-            "Títulos relacionados", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold,
+            "Títulos relacionados", color = Color.White, fontSize = Sz.emph, fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(start = 48.dp, bottom = 4.dp),
         )
         LazyRow(
@@ -229,14 +229,14 @@ private fun HeaderText(
     ) { h ->
         Column(Modifier.fillMaxWidth()) {
             Text(
-                h.title, color = titleColor, fontSize = 30.sp, fontWeight = FontWeight.Bold,
+                h.title, color = titleColor, fontSize = Sz.title, fontWeight = FontWeight.Bold,
                 lineHeight = 36.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
             )
             Spacer(Modifier.height(6.dp))
-            if (h.meta.isNotBlank()) Text(h.meta, color = C.text2, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (h.meta.isNotBlank()) Text(h.meta, color = C.text2, fontSize = Sz.body, maxLines = 1, overflow = TextOverflow.Ellipsis)
             h.rating?.let {
                 Spacer(Modifier.height(2.dp))
-                Text("★ $it", color = C.gold, fontSize = 15.sp)
+                Text("★ $it", color = C.gold, fontSize = Sz.body)
             }
             Spacer(Modifier.height(10.dp))
             PlotAndCredits(h, maxPlotLines, Modifier.weight(1f, fill = false)) { o -> onPlotOverflow(h.key, o) }
@@ -252,8 +252,8 @@ private fun HeaderText(
 private fun PlotAndCredits(h: HeaderInfo, maxPlotLines: Int, modifier: Modifier, onOverflow: (Boolean) -> Unit) {
     BoxWithConstraints(modifier) {
         val base = androidx.compose.material3.LocalTextStyle.current
-        val plotStyle = base.merge(androidx.compose.ui.text.TextStyle(color = Color(0xFFE6E6E6), fontSize = 15.sp, lineHeight = 21.sp))
-        val creditStyle = base.merge(androidx.compose.ui.text.TextStyle(color = C.text2, fontSize = 13.sp))
+        val plotStyle = base.merge(androidx.compose.ui.text.TextStyle(color = Color(0xFFE6E6E6), fontSize = Sz.body, lineHeight = 21.sp))
+        val creditStyle = base.merge(androidx.compose.ui.text.TextStyle(color = C.text2, fontSize = Sz.small))
         val measurer = androidx.compose.ui.text.rememberTextMeasurer()
         val p1 = remember(plotStyle) { measurer.measure("Ág", plotStyle, maxLines = 1).size.height }
         val p2 = remember(plotStyle) { measurer.measure("Ág\nÁg", plotStyle, maxLines = 2).size.height }
@@ -292,7 +292,7 @@ private fun PlotAndCredits(h: HeaderInfo, maxPlotLines: Int, modifier: Modifier,
 private fun FittingPlot(text: String, modifier: Modifier, maxLinesCap: Int, onOverflow: (Boolean) -> Unit) {
     BoxWithConstraints(modifier) {
         val style = androidx.compose.material3.LocalTextStyle.current.merge(
-            androidx.compose.ui.text.TextStyle(color = Color(0xFFE6E6E6), fontSize = 15.sp, lineHeight = 21.sp)
+            androidx.compose.ui.text.TextStyle(color = Color(0xFFE6E6E6), fontSize = Sz.body, lineHeight = 21.sp)
         )
         // Se mide de verdad cuánto ocupa una línea y dos líneas con esta letra, y solo se muestran las que caben enteras.
         val measurer = androidx.compose.ui.text.rememberTextMeasurer()
@@ -359,23 +359,23 @@ private fun FullPlotPanel(info: HeaderInfo, onClose: () -> Unit) {
                 .focusable()
                 .verticalScroll(scroll),
         ) {
-            Text(info.title, color = C.gold, fontSize = 28.sp, fontWeight = FontWeight.Bold, lineHeight = 34.sp)
+            Text(info.title, color = C.gold, fontSize = Sz.title, fontWeight = FontWeight.Bold, lineHeight = 34.sp)
             if (info.meta.isNotBlank()) {
                 Spacer(Modifier.height(6.dp))
-                Text(info.meta, color = C.text2, fontSize = 15.sp)
+                Text(info.meta, color = C.text2, fontSize = Sz.body)
             }
             Spacer(Modifier.height(16.dp))
-            Text(info.plot ?: "", color = Color(0xFFEDEDED), fontSize = 17.sp, lineHeight = 25.sp)
+            Text(info.plot ?: "", color = Color(0xFFEDEDED), fontSize = Sz.emph, lineHeight = 25.sp)
             info.director?.let {
                 Spacer(Modifier.height(14.dp))
-                Text("Dirección: $it", color = C.text2, fontSize = 15.sp)
+                Text("Dirección: $it", color = C.text2, fontSize = Sz.body)
             }
             info.cast?.let {
                 Spacer(Modifier.height(6.dp))
-                Text("Reparto: $it", color = C.text2, fontSize = 15.sp, lineHeight = 21.sp)
+                Text("Reparto: $it", color = C.text2, fontSize = Sz.body, lineHeight = 21.sp)
             }
             Spacer(Modifier.height(20.dp))
-            Text("▲▼ desplazar · Atrás para cerrar", color = C.gold, fontSize = 13.sp)
+            Text("▲▼ desplazar · Atrás para cerrar", color = C.gold, fontSize = Sz.small)
         }
     }
 }
@@ -652,7 +652,7 @@ fun SeriesDetailScreen(item: Item) {
                     det.seasons.isEmpty() -> this.item(key = "empty") {
                         Text(
                             if (failed) "No se pudieron cargar los episodios." else "No se han encontrado episodios.",
-                            color = C.text2, fontSize = 15.sp, modifier = Modifier.padding(start = 48.dp),
+                            color = C.text2, fontSize = Sz.body, modifier = Modifier.padding(start = 48.dp),
                         )
                     }
                     else -> det.seasons.forEach { (season, eps) ->
@@ -714,12 +714,12 @@ private fun SeasonRow(season: Int, count: Int, expanded: Boolean, onClick: () ->
     ) {
         FocusBar(focused)
         val tc = if (expanded || focused) C.gold else Color.White
-        Text(if (expanded) "▾" else "▸", color = tc, fontSize = 16.sp, modifier = Modifier.width(22.dp))
+        Text(if (expanded) "▾" else "▸", color = tc, fontSize = Sz.emph, modifier = Modifier.width(22.dp))
         Text(
-            "Temporada $season", color = tc, fontSize = 19.sp,
+            "Temporada $season", color = tc, fontSize = Sz.sub,
             fontWeight = if (focused) FontWeight.ExtraBold else FontWeight.SemiBold, modifier = Modifier.weight(1f),
         )
-        Text("$count episodios", color = C.text2, fontSize = 13.sp)
+        Text("$count episodios", color = C.text2, fontSize = Sz.small)
     }
 }
 
@@ -737,11 +737,11 @@ private fun EpisodeRow(ep: Episode, progress: Prefs.Progress?, focusKey: String,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         FocusBar(focused, height = 22.dp)
-        Text("${ep.number}", color = C.gold, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(38.dp))
+        Text("${ep.number}", color = C.gold, fontSize = Sz.body, fontWeight = FontWeight.Bold, modifier = Modifier.width(38.dp))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(ep.title, color = when { focused -> C.gold; watched -> C.text2; else -> Color.White }, fontSize = 15.sp, fontWeight = if (focused) FontWeight.Bold else FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                if (watched) Text("  ✓ visto", color = C.gold, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text(ep.title, color = when { focused -> C.gold; watched -> C.text2; else -> Color.White }, fontSize = Sz.body, fontWeight = if (focused) FontWeight.Bold else FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                if (watched) Text("  ✓ visto", color = C.gold, fontSize = Sz.small, fontWeight = FontWeight.SemiBold)
             }
             if (progress != null && progress.dur > 0) {
                 Spacer(Modifier.height(4.dp))
@@ -750,6 +750,6 @@ private fun EpisodeRow(ep: Episode, progress: Prefs.Progress?, focusKey: String,
                 }
             }
         }
-        ep.duration?.let { Text(it, color = C.text2, fontSize = 13.sp) }
+        ep.duration?.let { Text(it, color = C.text2, fontSize = Sz.small) }
     }
 }
