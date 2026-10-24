@@ -28,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import kotlin.math.roundToInt
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.text.font.FontWeight
@@ -101,7 +102,8 @@ private fun TopBar(restoring: Boolean, compact: Boolean = false) {
     }
     Column(Modifier.fillMaxWidth()) {
         Row(
-            Modifier.fillMaxWidth().height(68.dp).padding(horizontal = 24.dp),
+            Modifier.fillMaxWidth().height(68.dp).padding(horizontal = 24.dp)
+                .onFocusChanged { UiState.topBarFocused = it.hasFocus },
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Logo(34.dp)

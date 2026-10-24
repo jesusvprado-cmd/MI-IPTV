@@ -118,7 +118,7 @@ object Logos {
      */
     private val DARKEN_NAMES = Regex(
         "^(tcm|axn( movies| white| black)?|star( channel)?|comedy central|eurosport ?[0-9]*|" +
-            "nat ?geo( wild)?|national geographic( wild)?|bbc (earth|lifestyle)|disney channel|mezzo( live)?|sundance( tv)?)\\b"
+            "nat ?geo( wild)?|national geographic( wild)?|bbc lifestyle|disney channel|mezzo( live)?)\\b"
     )
 
     private fun darkenByName(name: String): Boolean {
@@ -369,6 +369,9 @@ object Logos {
             Pick(Regex("^bbc food$"), lp("5/51/BBC-FOOD.svg", 800), onWhite = true),
             // BBC News: logo oficial en negro sobre fondo blanco.
             Pick(Regex("^bbc news\\b"), OWN_LOGOS + "bbcnews.png", onWhite = true),
+            // Sundance TV y BBC Earth: logos propios en alta resolución, en negro sobre blanco (el «TV» de Sundance en su color).
+            Pick(Regex("^sundance( tv| channel)?\\b"), OWN_LOGOS + "sundancetv.png", onWhite = true),
+            Pick(Regex("^bbc earth\\b"), OWN_LOGOS + "bbcearth.png", onWhite = true),
             // DAZN Baloncesto 1, 2, 3...: logo propio (DAZN + «Baloncesto» y el número debajo), negro sobre blanco.
             *(1..10).map { n ->
                 Pick(Regex("^dazn (baloncesto|basket|basketball) ?$n$"), OWN_LOGOS + "dazn-baloncesto$n.png", onWhite = true)

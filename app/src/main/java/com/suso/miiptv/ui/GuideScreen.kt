@@ -59,6 +59,7 @@ import com.suso.miiptv.data.Prefs
 import com.suso.miiptv.data.Repo
 import com.suso.miiptv.player.PlayQueue
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -77,7 +78,10 @@ private val HM = SimpleDateFormat("HH:mm", Locale("es", "ES"))
 private val DAY = SimpleDateFormat("EEE d", Locale("es", "ES"))
 
 /** Programa con el cursor, para el panel de arriba. */
-private data class Focused(val ch: Item, val e: EpgEntry?)
+private data class Focused(val ch: Item, val e: EpgEntry?, val loading: Boolean = false)
+
+/** Canales de la categoría cuya guía se carga por adelantado (los demás, al aparecer en pantalla). */
+private const val PREFETCH_MAX = 150
 
 /**
  * Guía en parrilla: canales en filas y programas a lo largo del tiempo.
@@ -99,6 +103,17 @@ fun GuideScreen() {
         GuideState.sel = s
         channels = null
         channels = runCatching { if (s == FAV) Repo.favorites(Kind.LIVE) else Repo.items(Kind.LIVE, s) }.getOrDefault(emptyList())
+    }
+    // La guía de todos los canales de la categoría se pide por adelantado, de 3 en 3 y de arriba abajo:
+    // al bajar rápido las filas ya están listas, en vez de pedirse una a una al aparecer en pantalla.
+    LaunchedEffect(channels) {
+        val l = channels ?: return@LaunchedEffect
+        val permits = kotlinx.coroutines.sync.Semaphore(3)
+        kotlinx.coroutines.coroutineScope {
+            l.take(PREFETCH_MAX).forEach { ch ->
+                launch { permits.acquire(); try { Repo.guideEpg(ch) } finally { permits.release() } }
+            }
+        }
     }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
@@ -188,7 +203,7 @@ fun GuideScreen() {
                                         winEnd = winEnd,
                                         now = now,
                                         pv = pv,
-                                        onFocus = { e -> focused = Focused(ch, e) },
+                                        onFocus = { e, loading -> focused = Focused(ch, e, loading) },
                                         onShift = { delta ->
                                             val min = minWindow(ch, now)
                                             val max = floorHalfHour(now) + 24 * 3600_000L
@@ -202,7 +217,8 @@ fun GuideScreen() {
                                         },
                                         onPick = { e -> pick(ctx, list, i, ch, e, now) },
                                         liveFr = remember(ch.key) { androidx.compose.ui.focus.FocusRequester() }.also { liveFrs[i] = it },
-                                        onVertical = { d -> jump(i + d) },
+                                        // Mantener ▲ en la primera fila no se sale al menú de arriba (una pulsación suelta, sí).
+                                        onVertical = { d, repeat -> jump(i + d) || (repeat && i + d < 0) },
                                     )
                                 }
                             }
@@ -260,7 +276,7 @@ private fun InfoPanel(f: Focused?, now: Long, touch: Boolean = false) {
         val e = f.e
         Text(e?.title ?: f.ch.name, color = C.gold, fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Spacer(Modifier.height(2.dp))
-        val whenTxt = if (e == null) "Sin guía" else {
+        val whenTxt = if (e == null) (if (f.loading) "Cargando la guía…" else "Sin guía") else {
             val day = if (DAY.format(Date(e.start)) != DAY.format(Date(now))) DAY.format(Date(e.start)) + " · " else ""
             val state = when {
                 e.start <= now && e.end > now -> "  ·  EN EMISIÓN"
@@ -311,14 +327,24 @@ private fun GuideRow(
     winEnd: Long,
     now: Long,
     pv: Int,
-    onFocus: (EpgEntry?) -> Unit,
+    onFocus: (EpgEntry?, Boolean) -> Unit,
     onShift: (Long) -> Boolean,
     onPick: (EpgEntry?) -> Unit,
     liveFr: androidx.compose.ui.focus.FocusRequester,
-    onVertical: (Int) -> Boolean,
+    onVertical: (Int, Boolean) -> Boolean,
 ) {
     var epg by remember(ch.key) { mutableStateOf<List<EpgEntry>?>(null) }
-    LaunchedEffect(ch.key) { epg = Repo.guideEpg(ch) }
+    // ¿Está el cursor en esta fila? Si estaba en la casilla «Cargando…» cuando llega la guía, pasa a lo que se emite ahora.
+    var rowFocused by remember { mutableStateOf(false) }
+    LaunchedEffect(ch.key) {
+        val l = Repo.guideEpg(ch)
+        val had = rowFocused
+        epg = l
+        if (had) {
+            delay(60)
+            runCatching { liveFr.requestFocus() }
+        }
+    }
     val logo = remember(ch.key, Logos.version) { Logos.url(ch.name, ch.image) }
     Row(Modifier.fillMaxWidth().height(58.dp).padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
         // Canal: logo y nombre
@@ -343,15 +369,22 @@ private fun GuideRow(
             Text(ch.name, color = Color(0xFFCFCFCF), fontSize = if (compact) 10.sp else 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 14.sp)
         }
         // Programas
-        Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(6.dp))) {
+        Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(6.dp)).onFocusChanged { rowFocused = it.hasFocus }) {
             val l = epg
             val visible = l?.filter { it.end > winStart && it.start < winEnd }.orEmpty()
-            if (l != null && visible.isEmpty()) {
-                // Sin guía en esta franja: una sola casilla para poder ver el canal.
+            // Casilla a la que va el cursor al subir o bajar: lo que se emite ahora o, si no está en la franja, la primera.
+            val target = visible.firstOrNull { it.start <= now && it.end > now } ?: visible.firstOrNull()
+            if (l == null || visible.isEmpty()) {
+                // Cargando, o sin guía en esta franja: una sola casilla, para que el cursor pueda pasar por la fila
+                // (antes, mientras cargaba, la fila no tenía dónde ponerse y el cursor se iba lejos o al menú).
                 ProgramCell(
-                    title = if (l.isEmpty()) "Sin guía" else "Sin programación en esta franja",
-                    x = 0.dp, w = perMin * WIN_MIN.toFloat(), live = true, past = false, reminder = false, archived = false,
-                    onFocus = { onFocus(null) },
+                    title = when {
+                        l == null -> "Cargando la guía…"
+                        l.isEmpty() -> "Sin guía"
+                        else -> "Sin programación en esta franja"
+                    },
+                    x = 0.dp, w = perMin * WIN_MIN.toFloat(), live = l != null, past = false, reminder = false, archived = false,
+                    onFocus = { onFocus(null, l == null) },
                     onLeft = { onShift(-60 * 60_000L) },
                     onRight = { onShift(60 * 60_000L) },
                     onClick = { onPick(null) },
@@ -374,12 +407,12 @@ private fun GuideRow(
                         reminder = remember(pv, e.start) { Repo.prefs.hasReminder("${ch.key}@${e.start}") },
                         // ↺ solo si el programa está grabado (o si el proveedor no lo indica y el canal guarda lo emitido).
                         archived = past && ch.archive > 0 && e.archived != false,
-                        onFocus = { onFocus(e) },
+                        onFocus = { onFocus(e, false) },
                         // En el primero/último visible, ◀ ▶ mueven la franja horaria en lugar de salir de la fila.
                         onLeft = { if (idx == 0) onShift(-60 * 60_000L) else false },
                         onRight = { if (idx == visible.lastIndex) onShift(60 * 60_000L) || true else false },
                         onClick = { onPick(e) },
-                        liveFr = if (e.start <= now && e.end > now) liveFr else null,
+                        liveFr = if (e === target) liveFr else null,
                         onVertical = onVertical,
                     )
                 }
@@ -407,7 +440,7 @@ private fun ProgramCell(
     onRight: () -> Boolean,
     onClick: () -> Unit,
     liveFr: androidx.compose.ui.focus.FocusRequester? = null,
-    onVertical: (Int) -> Boolean = { false },
+    onVertical: (Int, Boolean) -> Boolean = { _, _ -> false },
 ) {
     var focused by remember { mutableStateOf(false) }
     var pressed by remember { mutableStateOf(false) }
@@ -432,8 +465,8 @@ private fun ProgramCell(
                 when {
                     e.type == KeyEventType.KeyDown && e.key == Key.DirectionLeft -> onLeft()
                     e.type == KeyEventType.KeyDown && e.key == Key.DirectionRight -> onRight()
-                    e.type == KeyEventType.KeyDown && e.key == Key.DirectionDown -> onVertical(1)
-                    e.type == KeyEventType.KeyDown && e.key == Key.DirectionUp -> onVertical(-1)
+                    e.type == KeyEventType.KeyDown && e.key == Key.DirectionDown -> onVertical(1, e.nativeKeyEvent.repeatCount > 0)
+                    e.type == KeyEventType.KeyDown && e.key == Key.DirectionUp -> onVertical(-1, e.nativeKeyEvent.repeatCount > 0)
                     e.key == Key.DirectionCenter || e.key == Key.Enter || e.key == Key.NumPadEnter -> {
                         if (e.type == KeyEventType.KeyDown && e.nativeKeyEvent.repeatCount == 0) pressed = true
                         if (e.type == KeyEventType.KeyUp && pressed) {

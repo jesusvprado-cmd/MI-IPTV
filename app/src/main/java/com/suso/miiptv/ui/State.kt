@@ -54,6 +54,9 @@ class BrowseState {
 /** Estado de navegación que sobrevive al ir y volver de las fichas y del reproductor. */
 object UiState {
     var tab by mutableStateOf(Tab.HOME)
+
+    /** true mientras el cursor está en el menú de arriba (pestañas o ajustes). */
+    var topBarFocused by mutableStateOf(false)
     val stack = mutableStateListOf<Screen>()
     private val focusStack = ArrayList<String?>()
 

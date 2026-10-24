@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -183,6 +184,27 @@ object Repo {
         if (!prefs.epgEnabled || item.kind != Kind.LIVE) return emptyList()
         val now = System.currentTimeMillis()
         synchronized(guideCache) { guideCache[item.key] }?.let { if (now - it.first < 15 * 60_000L) return it.second }
+        // Si ya se está pidiendo (la carga anticipada de la guía y la fila en pantalla a la vez), se espera a esa.
+        val running = guideInFlight[item.key]
+        if (running != null) return running.await()
+        val job = repoScope.async {
+            try {
+                loadGuide(item)
+            } finally {
+                guideInFlight.remove(item.key)
+            }
+        }
+        guideInFlight[item.key] = job
+        return job.await()
+    }
+
+    private val guideInFlight = HashMap<String, kotlinx.coroutines.Deferred<List<EpgEntry>>>()
+
+    /** Para las cargas compartidas: siguen aunque la pantalla que las pidió ya no esté (el resultado queda guardado). */
+    private val repoScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.Main)
+
+    private suspend fun loadGuide(item: Item): List<EpgEntry> {
+        val now = System.currentTimeMillis()
         val full = try {
             if (prefs.epgMode == "external") emptyList() else src().fullEpg(item)
         } catch (e: Exception) {

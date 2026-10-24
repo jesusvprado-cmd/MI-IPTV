@@ -50,6 +50,9 @@ fun AppRoot(activity: Activity) {
                     BackHandler {
                         when {
                             top != null -> UiState.pop()
+                            // Dentro de una sección (Guía, TV...): Atrás lleva primero a su título en el menú de arriba.
+                            UiState.tab != Tab.HOME && !UiState.topBarFocused && !com.suso.miiptv.data.Device.touch &&
+                                runCatching { UiState.tabRequester(UiState.tab).requestFocus() }.isSuccess -> {}
                             UiState.tab != Tab.HOME -> {
                                 UiState.tab = Tab.HOME
                                 runCatching { UiState.tabRequester(Tab.HOME).requestFocus() }
