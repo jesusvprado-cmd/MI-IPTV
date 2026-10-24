@@ -385,6 +385,8 @@ object Logos {
             // Sundance TV y BBC Earth: logos propios en alta resolución, en negro sobre blanco (el «TV» de Sundance en su color).
             Pick(Regex("^sundance( tv| channel)?\\b"), OWN_LOGOS + "sundancetv.png", onWhite = true),
             Pick(Regex("^bbc earth\\b"), OWN_LOGOS + "bbcearth.png", onWhite = true),
+            // DAZN 1-4: logos propios en alta resolución (recuadro DAZN y número, en blanco sobre la tarjeta oscura).
+            *(1..4).map { n -> Pick(Regex("^(m |m\\+ |movistar )?dazn ?$n$"), OWN_LOGOS + "dazn$n.png") }.toTypedArray(),
             // DAZN Baloncesto 1, 2, 3...: logo propio (DAZN + «Baloncesto» y el número debajo), negro sobre blanco.
             *(1..10).map { n ->
                 Pick(Regex("^dazn (baloncesto|basket|basketball) ?$n$"), OWN_LOGOS + "dazn-baloncesto$n.png", onWhite = true)
