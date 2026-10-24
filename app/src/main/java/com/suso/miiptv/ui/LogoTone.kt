@@ -78,6 +78,7 @@ object LogoTone {
 /**
  * Retoca los colores de un logo:
  *  - «swap»: logos de dos colores (p. ej. rojo con letras blancas) → se intercambian: lo de color pasa a blanco y lo blanco al color.
+ *  - «c»: lo que tiene color se oscurece (más contraste sobre fondo blanco).
  *  - «k»: lo blanco/gris pasa a negro (y lo negro a blanco); lo que tiene color se queda igual.
  *  - «d»: solo lo blanco/gris claro pasa a negro; lo oscuro y lo que tiene color se quedan igual.
  */
@@ -93,7 +94,17 @@ class LogoRecolor(private val mode: String) : coil.transform.Transformation {
             val r = (p shr 16) and 0xFF; val g = (p shr 8) and 0xFF; val b = p and 0xFF
             return maxOf(r, g, b) - minOf(r, g, b)
         }
-        if (mode == "swap") {
+        if (mode == "c") {
+            // Más contraste sobre blanco: lo que tiene color se oscurece (el blanco y el negro se quedan igual).
+            for (i in px.indices) {
+                val p = px[i]
+                if ((p ushr 24) == 0 || sat(p) < 60) continue
+                val r = ((p shr 16) and 0xFF) * 62 / 100
+                val g = ((p shr 8) and 0xFF) * 62 / 100
+                val b = (p and 0xFF) * 62 / 100
+                px[i] = (p and 0xFF000000.toInt()) or (r shl 16) or (g shl 8) or b
+            }
+        } else if (mode == "swap") {
             // Color principal: la media de los píxeles opacos con color.
             var n = 0L; var sr = 0L; var sg = 0L; var sb = 0L
             for (p in px) if ((p ushr 24) > 200 && sat(p) > 80) { n++; sr += (p shr 16) and 0xFF; sg += (p shr 8) and 0xFF; sb += p and 0xFF }

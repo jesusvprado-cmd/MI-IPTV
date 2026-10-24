@@ -474,7 +474,8 @@ object Logos {
         if (HYPERMOTION.containsMatchIn(n)) {
             val num = Regex("(?i)hypermotion\\s*(\\d{1,2})(?!\\d)").find(n)?.groupValues?.get(1)?.toIntOrNull()
             val file = num?.let { HYPERMOTION_N[it] } ?: "b/b5/LaLiga_TV_Hypermotion.svg"
-            return white(LOGOPEDIA + file + "/revision/latest/scale-to-width-down/600")
+            // «x=c»: el turquesa claro del logo se oscurece para que contraste con el fondo blanco.
+            return white(LOGOPEDIA + file + "/revision/latest/scale-to-width-down/600") + "&x=c"
         }
         if (DAZN_LALIGA.containsMatchIn(n)) {
             // Logos actuales (2024) de Logopedia: el de DAZN LaLiga 2 lleva el «2» en blanco sobre fondo negro.
