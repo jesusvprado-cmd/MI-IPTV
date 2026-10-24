@@ -369,8 +369,10 @@ object Logos {
             Pick(Regex("^bbc food$"), lp("5/51/BBC-FOOD.svg", 800), onWhite = true),
             // BBC News: logo oficial en negro sobre fondo blanco.
             Pick(Regex("^bbc news\\b"), OWN_LOGOS + "bbcnews.png", onWhite = true),
-            // DAZN Baloncesto 1: igual que el de DAZN Baloncesto 2 (logo DAZN con el número al lado), con el 1.
-            Pick(Regex("^dazn (baloncesto|basket|basketball) ?1$"), TV_LOGOS_RAW + "countries/spain/dazn-1-es.png"),
+            // DAZN Baloncesto 1, 2, 3...: logo propio (DAZN + «Baloncesto» y el número debajo), negro sobre blanco.
+            *(1..10).map { n ->
+                Pick(Regex("^dazn (baloncesto|basket|basketball) ?$n$"), OWN_LOGOS + "dazn-baloncesto$n.png", onWhite = true)
+            }.toTypedArray(),
             // TVG: solo la «G» azul, centrada (el texto «GALICIA» es blanco y no se ve sobre el fondo blanco).
             Pick(Regex("^(tvg|tv galicia|television de galicia|galicia)( europa| america| internacional| int)?$"), OWN_LOGOS + "tvg.png", onWhite = true),
             Pick(Regex("^caza (y|and|&)? ?pesca\\b"), OWN_LOGOS + "cazaypesca.png", onWhite = true),
