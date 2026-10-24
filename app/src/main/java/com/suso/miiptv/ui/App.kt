@@ -36,6 +36,7 @@ fun AppRoot(activity: Activity) {
         androidx.compose.runtime.LaunchedEffect(Unit) {
             kotlinx.coroutines.delay(5000)
             runCatching { com.suso.miiptv.data.Updater.check(ctx) }
+                .onFailure { com.suso.miiptv.data.ErrorLog.add("Actualizaciones: no se pudo comprobar (${it.message ?: it.javaClass.simpleName})") }
         }
         Box(Modifier.fillMaxSize().background(C.bg).systemBarsPadding()) {
             when {

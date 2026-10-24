@@ -63,6 +63,10 @@ android {
     buildFeatures {
         compose = true
     }
+    testOptions {
+        // La prueba de logos lee los datos y los logos propios que van en assets.
+        unitTests.isIncludeAndroidResources = true
+    }
     lint {
         checkReleaseBuilds = false
         abortOnError = false
@@ -99,6 +103,10 @@ dependencies {
     // Fila «Continuar viendo» de la pantalla de inicio de Android TV.
     implementation("androidx.tvprovider:tvprovider:1.0.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+
+    // Prueba automática de logos (se ejecuta en GitHub antes de publicar cada versión).
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.13")
 }
 
 // Copia la carpeta «logos» del proyecto a assets/logos/ dentro del APK.

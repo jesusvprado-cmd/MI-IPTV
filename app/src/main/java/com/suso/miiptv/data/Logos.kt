@@ -82,6 +82,14 @@ object Logos {
         if (Repo.prefs.hqLogos) ensureLoaded()
     }
 
+    /** Solo para la prueba automática de logos: prepara el índice al momento, sin hilos ni red. */
+    internal fun loadForTest(ctx: Context) {
+        appCtx = ctx.applicationContext
+        dir = ctx.applicationContext.filesDir
+        load()
+        synchronized(cache) { cache.clear() }
+    }
+
     fun ensureLoaded() {
         if (loading || !::dir.isInitialized || tvLogos.isNotEmpty()) return
         loading = true
@@ -91,7 +99,8 @@ object Logos {
                 synchronized(cache) { cache.clear() }
                 version++
             } catch (e: Exception) {
-                // Sin conexión o bancos caídos: se usan los logos de la lista.
+                // Sin datos de logos: se usan los de la lista (y queda apuntado).
+                ErrorLog.add("Logos: no se pudo preparar la lista de logos (${e.message ?: e.javaClass.simpleName})")
             } finally {
                 loading = false
             }
@@ -711,9 +720,11 @@ object Logos {
         // Lista de tv-logos que va dentro de la app; solo si faltara se pide a GitHub.
         val paths = bundledList().ifEmpty {
             allBundled = false
+            ErrorLog.add("Logos: la lista de tv-logos no va dentro de la app; se pide a GitHub")
             try {
                 githubTree()
             } catch (e: Exception) {
+                ErrorLog.add("Logos: GitHub no respondió (${e.message ?: e.javaClass.simpleName})")
                 emptyList()
             }
         }
@@ -731,11 +742,13 @@ object Logos {
         val org = try {
             iptvOrgIndex()
         } catch (e: Exception) {
+            ErrorLog.add("Logos: datos de iptv-org no disponibles (${e.message ?: e.javaClass.simpleName})")
             emptyMap()
         }
         val com = try {
             commonsIndex()
         } catch (e: Exception) {
+            ErrorLog.add("Logos: datos de Wikimedia no disponibles (${e.message ?: e.javaClass.simpleName})")
             emptyMap()
         }
         if (tv.isEmpty() && org.isEmpty() && com.isEmpty()) throw IllegalStateException("sin índice")

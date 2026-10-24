@@ -54,10 +54,13 @@ class XtreamSource(private val cfg: Config) : Source {
             Kind.MOVIE -> "get_vod_categories"
             Kind.SERIES -> "get_series_categories"
         }
-        val arr = try {
-            JSONArray(Http.text(api(action)))
-        } catch (e: JSONException) {
-            JSONArray()
+        // Guardadas en el aparato (6 h): la app arranca sin esperar al servidor.
+        val arr = DiskCache.read(api(action), DiskCache.CATALOG_AGE, valid = { it.length() > 0 }) { input ->
+            try {
+                JSONArray(input.bufferedReader(Charsets.UTF_8).readText())
+            } catch (e: JSONException) {
+                JSONArray()
+            }
         }
         val out = ArrayList<Category>()
         for (i in 0 until arr.length()) {
@@ -75,11 +78,11 @@ class XtreamSource(private val cfg: Config) : Source {
             Kind.SERIES -> "get_series"
         }
         val extra = if (categoryId != null) "&category_id=${Uri.encode(categoryId)}" else ""
-        val out = ArrayList<Item>()
-        Http.open(api(action, extra)).use { r ->
-            val body = r.body ?: return@use
+        // Guardados en el aparato (6 h): la app arranca sin esperar al servidor.
+        DiskCache.read(api(action, extra), DiskCache.CATALOG_AGE, valid = { it.isNotEmpty() }) { input ->
+            val out = ArrayList<Item>()
             try {
-                readFlatArray(body.byteStream()) { m ->
+                readFlatArray(input) { m ->
                     val cat = m["category_id"] ?: ""
                     val item = when (kind) {
                         Kind.LIVE -> m["stream_id"]?.let { id ->
@@ -118,8 +121,8 @@ class XtreamSource(private val cfg: Config) : Source {
             } catch (e: Exception) {
                 if (out.isEmpty()) throw IOException("El servidor devolvió una respuesta no válida.")
             }
+            out
         }
-        out
     }
 
     override suspend fun movieDetail(item: Item): MovieDetail = io {
@@ -229,7 +232,14 @@ class XtreamSource(private val cfg: Config) : Source {
 
     override suspend fun fullEpg(item: Item): List<EpgEntry> = io {
         if (item.kind != Kind.LIVE) return@io emptyList()
-        val o = json(api("get_simple_data_table", "&stream_id=${item.id}"))
+        // Guardada en el aparato (2 h): al volver a la guía no hay que pedirla otra vez.
+        val o = DiskCache.read(api("get_simple_data_table", "&stream_id=${item.id}"), DiskCache.GUIDE_AGE, valid = { it.has("epg_listings") }) { input ->
+            try {
+                JSONObject(input.bufferedReader(Charsets.UTF_8).readText())
+            } catch (e: JSONException) {
+                JSONObject()
+            }
+        }
         val arr = o.optJSONArray("epg_listings") ?: return@io emptyList()
         val out = ArrayList<EpgEntry>()
         for (i in 0 until arr.length()) {

@@ -41,6 +41,7 @@ object ExternalEpg {
                 byKey = try {
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { load(url) }
                 } catch (e: Exception) {
+                    ErrorLog.add("Guía externa: no se pudo descargar (${e.message ?: e.javaClass.simpleName})")
                     emptyMap()
                 }
             }

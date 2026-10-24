@@ -132,7 +132,7 @@ fun TvButton(
     var focused by remember { mutableStateOf(false) }
     @Suppress("UNUSED_VARIABLE") val principal = filled // «Reproducir» se comporta como los demás.
     // Verde vivo para el botón con el cursor (el verde pastel se veía apagado sobre fondo oscuro).
-    val fg = if (focused) Color(0xFF4FD65A) else Color(0xFFBDBDBD) // mismo verde que la sección abierta en Ajustes
+    val fg = if (focused) C.greenStrong else Color(0xFFBDBDBD) // mismo verde que la sección abierta en Ajustes
     Row(
         modifier
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
@@ -157,7 +157,7 @@ fun TvButton(
 
 /** Línea verde vertical que marca dónde está el cursor en los menús que bajan (ocupa siempre 10 dp de ancho). */
 @Composable
-fun FocusBar(active: Boolean, height: androidx.compose.ui.unit.Dp = 26.dp, color: Color = Color(0xFF8FE27C)) {
+fun FocusBar(active: Boolean, height: androidx.compose.ui.unit.Dp = 26.dp, color: Color = C.greenSoft) {
     val bar = if (active) 3.dp else 0.dp
     Box(Modifier.width(bar).height(height).clip(RoundedCornerShape(2.dp)).background(color))
     Spacer(Modifier.width(10.dp - bar))
@@ -327,7 +327,7 @@ fun CategoryRow(name: String, selected: Boolean, focusKey: String, onFocused: ()
     // Como en Ajustes: sin recuadro, con una línea verde a la izquierda. Con el cursor en la lista solo se marca
     // la categoría con el cursor (nunca dos a la vez); si estás en la cuadrícula, la categoría abierta, en verde más intenso.
     val active = if (cursorInMenu) focused else selected
-    val accent = if (cursorInMenu) Color(0xFF8FE27C) else Color(0xFF4FD65A)
+    val accent = if (cursorInMenu) C.greenSoft else C.greenStrong
     val bar = if (active) (if (cursorInMenu) 3.dp else 4.dp) else 0.dp
     Row(
         Modifier

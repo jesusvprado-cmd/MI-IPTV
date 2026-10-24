@@ -24,6 +24,13 @@ object ErrorLog {
         }
     }
 
+    private val seen = HashSet<String>()
+
+    /** Como [add], pero solo la primera vez en cada sesión para esa [key] (fallos que se repetirían en cada canal). */
+    fun once(key: String, msg: String) {
+        if (synchronized(seen) { seen.add(key) }) add(msg)
+    }
+
     @Synchronized
     fun add(msg: String) {
         val f = file ?: return

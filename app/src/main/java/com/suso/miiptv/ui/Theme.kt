@@ -28,6 +28,18 @@ object C {
     /** Verde de «activado» (favoritos, interruptores). */
     val fav = Color(0xFFA6EE90)
     val divider = Color(0xFF334036)
+
+    // Verdes de la interfaz, con nombre (mismos valores que antes; cambiar aquí los cambia en toda la app).
+    /** Verde más intenso: opción con el cursor dentro de una sección de Ajustes y menú de Ajustes con el cursor. */
+    val greenIntense = Color(0xFF34D640)
+    /** Verde fuerte: botones con el cursor, interruptores activados, sección abierta, punto de la VPN. */
+    val greenStrong = Color(0xFF4FD65A)
+    /** Verde suave: línea vertical del cursor y categoría con el cursor. */
+    val greenSoft = Color(0xFF8FE27C)
+    /** Verde pálido: sección abierta en el menú de Ajustes. */
+    val greenPale = Color(0xFFB8EBAE)
+    /** Verde de los iconos del menú de arriba (la lupa), un poco más vivo que [gold] para que se vea igual. */
+    val greenIcon = Color(0xFF6FE07A)
     val playBtn = Color(0xFFDDF3F2)
     val error = Color(0xFFFF6B6B)
 }

@@ -37,6 +37,22 @@ jobs:
       - name: Datos de los logos (van dentro de la app)
         run: python3 .github/scripts/logo_data.py
 
+      - name: Prueba de logos
+        run: |
+          chmod +x gradlew
+          set -o pipefail
+          if ! ./gradlew testDebugUnitTest --no-daemon -PbuildNumber=${{ github.run_number }} 2>&1 | tee test.log; then
+            grep -E "Han cambiado|ahora:|antes:|error:|e: " test.log | head -40 | while IFS= read -r l; do echo "::error::$l"; done
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: informe-logos
+          path: app/build/logo-report.tsv
+          if-no-files-found: ignore
+
       - name: Compilar
         run: |
           chmod +x gradlew

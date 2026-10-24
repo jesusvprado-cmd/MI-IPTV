@@ -37,21 +37,22 @@ class M3uSource(private val cfg: Config) : Source {
     // ---------- Lista M3U ----------
 
     private fun parse() {
-        for (k in Kind.values()) {
-            cats[k] = mutableListOf()
-            all[k] = mutableListOf()
-        }
-        val catSeen = HashMap<Kind, HashSet<String>>()
-        val seriesIdx = HashMap<String, Item>()
+        // La lista se guarda en el aparato (6 h): la app arranca sin esperar a descargarla.
+        DiskCache.read(cfg.m3uUrl, DiskCache.CATALOG_AGE, valid = { it }) { input ->
+            for (k in Kind.values()) {
+                cats[k] = mutableListOf()
+                all[k] = mutableListOf()
+            }
+            episodes.clear()
+            val catSeen = HashMap<Kind, HashSet<String>>()
+            val seriesIdx = HashMap<String, Item>()
 
-        fun addCat(kind: Kind, group: String) {
-            val seen = catSeen.getOrPut(kind) { HashSet() }
-            if (seen.add(group)) cats[kind]!!.add(Category(group, group))
-        }
+            fun addCat(kind: Kind, group: String) {
+                val seen = catSeen.getOrPut(kind) { HashSet() }
+                if (seen.add(group)) cats[kind]!!.add(Category(group, group))
+            }
 
-        Http.open(cfg.m3uUrl).use { r ->
-            val body = r.body ?: throw IOException("La lista está vacía.")
-            val reader = BufferedReader(InputStreamReader(body.byteStream(), Charsets.UTF_8))
+            val reader = BufferedReader(InputStreamReader(input, Charsets.UTF_8))
             var attrs: Map<String, String> = emptyMap()
             var name = ""
             var pending = false
@@ -120,6 +121,7 @@ class M3uSource(private val cfg: Config) : Source {
                     }
                 }
             }
+            all.values.any { it.isNotEmpty() }
         }
         if (all.values.all { it.isEmpty() }) throw IOException("La lista está vacía o no es una lista M3U válida.")
     }

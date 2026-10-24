@@ -44,6 +44,7 @@ object Repo {
 
     fun init(ctx: Context) {
         if (isReady()) return
+        DiskCache.init(ctx.applicationContext)
         prefs = Prefs(ctx.applicationContext)
         prefs.loadConfig()?.let { activate(it, createSource(it)) }
     }
@@ -58,12 +59,15 @@ object Repo {
     }
 
     fun save(cfg: Config, src: Source = createSource(cfg)) {
+        // Lista nueva o cambiada: lo guardado de la anterior ya no sirve.
+        DiskCache.clear()
         prefs.saveConfig(cfg)
         activate(cfg, src)
     }
 
-    /** Vuelve a descargar la lista desde cero. */
+    /** Vuelve a descargar la lista desde cero (también lo guardado en el aparato). */
     fun reload() {
+        DiskCache.clear()
         config?.let { activate(it, createSource(it)) }
     }
 
@@ -145,6 +149,7 @@ object Repo {
                 try {
                     src().epg(item)
                 } catch (e: Exception) {
+                    ErrorLog.once("epg-proveedor", "Guía del proveedor: ${e.message ?: e.javaClass.simpleName}")
                     emptyList()
                 }
             }
@@ -152,6 +157,7 @@ object Repo {
                 try {
                     ExternalEpg.epg(item)
                 } catch (e: Exception) {
+                    ErrorLog.once("epg-externa", "Guía externa: ${e.message ?: e.javaClass.simpleName}")
                     emptyList()
                 }
             }
@@ -208,6 +214,7 @@ object Repo {
         val full = try {
             if (prefs.epgMode == "external") emptyList() else src().fullEpg(item)
         } catch (e: Exception) {
+            ErrorLog.once("guia-completa", "Guía en parrilla: ${e.message ?: e.javaClass.simpleName}")
             emptyList()
         }
         val shift = prefs.epgOffset * 60_000L
@@ -241,6 +248,7 @@ object Repo {
         val all = try {
             src().catchupUrls(item, start, minutes)
         } catch (e: Exception) {
+            ErrorLog.add("Ver desde el principio: ${e.message ?: e.javaClass.simpleName}")
             emptyList()
         }
         // Si el servidor rechaza una, el reproductor prueba la siguiente (ver [nextCatchup]).

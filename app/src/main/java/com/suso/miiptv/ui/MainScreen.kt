@@ -160,7 +160,7 @@ private fun TopBar(restoring: Boolean, compact: Boolean = false) {
             Spacer(Modifier.width(14.dp))
             // Con la VPN conectada, el círculo del centro de la rueda se pone verde.
             val vpnOn = com.suso.miiptv.vpn.VpnManager.state == com.suso.miiptv.vpn.VpnManager.State.ON
-            TopIcon(Icons.Filled.Settings, "Ajustes", "tab_settings", centerDot = if (vpnOn) Color(0xFF4FD65A) else null) { UiState.push(Screen.Settings) }
+            TopIcon(Icons.Filled.Settings, "Ajustes", "tab_settings", centerDot = if (vpnOn) C.greenStrong else null) { UiState.push(Screen.Settings) }
         }
         Box(Modifier.fillMaxWidth().height(1.dp).background(C.divider))
     }
@@ -250,7 +250,7 @@ private fun TopTab(
  * En un icono de trazo fino, el verde claro de las palabras se ve casi gris en la tele: los iconos usan
  * un verde algo más intenso para que se vean del mismo verde que las palabras del menú.
  */
-private fun iconTint(c: Color): Color = if (c == C.gold) Color(0xFF6FE07A) else c
+private fun iconTint(c: Color): Color = if (c == C.gold) C.greenIcon else c
 
 /** Icono del menú superior (Ajustes) con el mismo estilo que las secciones. */
 @Composable

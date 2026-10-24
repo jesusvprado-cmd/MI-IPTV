@@ -1,4 +1,4 @@
-"""Descarga los datos de los bancos de logos y los deja dentro de la app (app/src/main/assets).
+"""Datos de los bancos de logos que van dentro de la app (app/src/main/assets).
 
 Así el índice de logos sale siempre igual (en la tele y en el móvil) y no depende de que GitHub, Wikimedia o
 iptv-org respondan en casa. Cada parte es independiente: si una falla, se avisa y la app la pedirá por internet.
@@ -89,7 +89,15 @@ def iptv_org():
     print("iptv-org:", len(keep), "canales,", len(lg), "logos")
 
 
-for part in (tv_logos, commons, iptv_org):
+# Los datos van guardados en el repositorio: así los logos no cambian solos cuando cambian los bancos.
+# Solo se descargan si faltan, o todos de nuevo con LOGOS_REFRESCAR=1 (y entonces hay que revisar
+# la prueba de logos, que avisará de cada canal cuyo logo cambie).
+FILES = {tv_logos: "tvlogos.txt", commons: "commons_titles.txt", iptv_org: "iptv_channels.json"}
+refresh = os.environ.get("LOGOS_REFRESCAR") == "1"
+for part, name in FILES.items():
+    if not refresh and os.path.exists(os.path.join(ASSETS, name)):
+        print(f"{name}: se usa la copia del repositorio")
+        continue
     try:
         part()
     except Exception as e:

@@ -105,7 +105,7 @@ fun SideItem(
     val active = if (cursorInMenu) focused else selected
     val fgBase = Color(0xFF8A8A8A)
     // Verde intenso con el cursor en el menú; más claro cuando ya estás dentro de las opciones de esa sección.
-    val accent = if (cursorInMenu) PaneFocus else Color(0xFFB8EBAE)
+    val accent = if (cursorInMenu) PaneFocus else C.greenPale
     Row(
         Modifier
             .fillMaxWidth()
@@ -210,7 +210,7 @@ private fun Switch(checked: Boolean, focused: Boolean) {
     // Dibujado a mano (Canvas) para que el círculo quede siempre entero y centrado en el carril.
     // Apagado: círculo blanco a la izquierda. Encendido: círculo verde vivo a la derecha.
     val track = if (focused) Color(0xFFB9B9B9) else Color(0xFF6E6E6E)
-    val on = Color(0xFF4FD65A)
+    val on = C.greenStrong
     val knob by animateColorAsState(if (checked) on else Color.White, Motion.focusSpec(), label = "knobc")
     val pos by androidx.compose.animation.core.animateFloatAsState(if (checked) 1f else 0f, Motion.focusSpec(), label = "knob")
     androidx.compose.foundation.Canvas(Modifier.width(46.dp).height(26.dp)) {
@@ -344,4 +344,4 @@ private fun ChoiceItem(label: String, selected: Boolean, fr: FocusRequester, onC
 }
 
 /** Verde intenso de la opción con el cursor dentro de una sección de Ajustes. */
-val PaneFocus = Color(0xFF34D640)
+val PaneFocus = C.greenIntense

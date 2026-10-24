@@ -55,3 +55,75 @@ object Http {
 
     fun text(url: String): String = open(url).use { it.body?.string() ?: "" }
 }
+
+/**
+ * Respuestas del servidor guardadas en el aparato (catálogo, lista M3U, guía de cada canal).
+ * La app arranca con lo guardado al momento y solo vuelve a descargar cuando la copia es vieja;
+ * si el servidor no responde, se usa la copia aunque sea vieja. Solo se guardan respuestas que valen
+ * (nunca una lista vacía o un error del servidor). «Actualizar lista» lo borra todo.
+ */
+object DiskCache {
+    /** Catálogo (categorías, canales, películas, series, lista M3U): 6 horas. */
+    const val CATALOG_AGE = 6 * 3600_000L
+
+    /** Guía de cada canal: 2 horas. */
+    const val GUIDE_AGE = 2 * 3600_000L
+
+    @Volatile
+    private var dir: java.io.File? = null
+
+    fun init(ctx: android.content.Context) {
+        dir = java.io.File(ctx.cacheDir, "catalogo").apply { mkdirs() }
+    }
+
+    fun clear() {
+        dir?.listFiles()?.forEach { it.delete() }
+    }
+
+    private fun fileFor(url: String): java.io.File? {
+        val d = dir ?: return null
+        val h = java.security.MessageDigest.getInstance("SHA-1").digest(url.toByteArray())
+            .joinToString("") { "%02x".format(it) }
+        return java.io.File(d, h)
+    }
+
+    fun <T> read(url: String, maxAge: Long, valid: (T) -> Boolean, parse: (java.io.InputStream) -> T): T {
+        val f = fileFor(url) ?: return Http.open(url).use { r -> parse(r.body!!.byteStream()) }
+        // 1) Copia reciente: se usa tal cual.
+        if (f.exists() && System.currentTimeMillis() - f.lastModified() < maxAge) {
+            val r = runCatching { f.inputStream().buffered(65536).use(parse) }.getOrNull()
+            if (r != null && valid(r)) return r
+            f.delete()
+        }
+        // 2) Se descarga a un archivo temporal.
+        val tmp = java.io.File(f.parentFile, f.name + "." + System.nanoTime() + ".tmp")
+        try {
+            Http.open(url).use { r -> tmp.outputStream().use { out -> r.body!!.byteStream().copyTo(out, 65536) } }
+        } catch (e: Exception) {
+            tmp.delete()
+            // Sin conexión o servidor caído: la copia vieja, si la hay.
+            if (f.exists()) {
+                val r = runCatching { f.inputStream().buffered(65536).use(parse) }.getOrNull()
+                if (r != null && valid(r)) {
+                    ErrorLog.add("Servidor sin respuesta (${e.message}): se usa la copia guardada")
+                    return r
+                }
+            }
+            throw e
+        }
+        // 3) Se lee lo descargado y, si vale, pasa a ser la copia guardada.
+        try {
+            val r = tmp.inputStream().buffered(65536).use(parse)
+            if (valid(r)) {
+                f.delete()
+                if (!tmp.renameTo(f)) tmp.delete()
+            } else {
+                tmp.delete()
+            }
+            return r
+        } catch (e: Exception) {
+            tmp.delete()
+            throw e
+        }
+    }
+}
