@@ -1051,6 +1051,32 @@ private fun OptionsPanel(
             Repo.prefs.afr = !Repo.prefs.afr
             ctl.reapplyFrameRate()
         }
+        // Frecuencia a mano para vídeos con estos fps (hay aparatos en los que la automática va a saltos).
+        val vfps = ctl.videoFormat?.frameRate?.takeIf { it > 0f }
+        val view = androidx.compose.ui.platform.LocalView.current
+        if (Repo.prefs.afr && vfps != null && android.os.Build.VERSION.SDK_INT >= 23) {
+            val pv = Repo.prefs.version
+            val rates = remember(view) {
+                val d = view.display
+                val cur = d?.mode
+                d?.supportedModes.orEmpty()
+                    .filter { cur == null || (it.physicalWidth == cur.physicalWidth && it.physicalHeight == cur.physicalHeight) }
+                    .map { Math.round(it.refreshRate * 100) / 100f }.distinct().sorted()
+            }
+            if (rates.size > 1) {
+                val chosen = remember(pv, vfps) { Repo.prefs.afrHz(vfps) }
+                fun hzLabel(h: Float) = if (h == Math.round(h).toFloat()) "${Math.round(h)} Hz" else "${"%.2f".format(h)} Hz"
+                TrackRow(
+                    "Frecuencia para vídeo a ${"%.0f".format(vfps)} fps: " + (if (chosen > 0f) hzLabel(chosen) else "automática"),
+                    false, requestFocus = false,
+                ) {
+                    val opts = listOf(0f) + rates
+                    val i = opts.indexOfFirst { kotlin.math.abs(it - chosen) < 0.05f }.coerceAtLeast(0)
+                    Repo.prefs.setAfrHz(vfps, opts[(i + 1) % opts.size])
+                    ctl.reapplyFrameRate()
+                }
+            }
+        }
         // Película o episodio: quitar o poner la ✓ de «ya visto».
         val wk = ctl.current.key
         if (!ctl.current.live && !wk.startsWith("CU|")) {
