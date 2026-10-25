@@ -187,7 +187,7 @@ object Logos {
     /** Canales que van sobre fondo blanco aunque su logo venga de la lista (Movistar Plus+, FlixOlé, Cosmo, SyFy, FDF, Neox...). */
     private val WHITE_NAMES = Regex("^(r?tve )?(fl?ix ?ole|cosmo|syfy|sy fy|sci ?fi|fdf|factoria de ficcion|neox|a 3 ?series|a3 ?series|atreseries|" +
         "eurosport|gol|teledeporte|tdp|d ?max|nova|mega|ten|baby ?tv|nick|boing|clan|mtv|24 ?h|24 horas|canal 24|" +
-        "deportes|amc|odisea|u ?beat)\\b|" +
+        "deportes|amc|odisea|u ?beat|bar ?tv)\\b|" +
         // Autonómicos
         "^(tvg|galicia|telemadrid|la otra|tv ?3|3 ?cat|3 ?24|super ?3|sx ?3|33\\b|esport ?3|canal ?sur|andalucia|etb|eitb|" +
         "a ?punt|aragon|cmm|castilla|tpa|rtpa|canarias|tv ?canaria|television canaria|canal extremadura|extremadura|" +
