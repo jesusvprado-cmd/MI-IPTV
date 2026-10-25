@@ -225,7 +225,7 @@ class PlayerCtl(ctx: Context) {
         videoInfo = if (f == null) null else listOfNotNull(
             codecName(f.sampleMimeType),
             if (f.width > 0) "${f.width}×${f.height}" else null,
-            f.frameRate.takeIf { it > 0f }?.let { "${Math.round(it)} fps" },
+            (f.frameRate.takeIf { it > 0f } ?: measuredFps.takeIf { it > 0f })?.let { "${"%.0f".format(it)} fps" },
             decoderName,
         ).joinToString(" · ")
     }
@@ -288,8 +288,9 @@ class PlayerCtl(ctx: Context) {
                 }
             }
             video?.let {
-                videoFormat = it
-                onVideoFormat?.invoke(it)
+                val f = if (it.frameRate <= 0f && measuredFps > 0f) it.buildUpon().setFrameRate(measuredFps).build() else it
+                videoFormat = f
+                onVideoFormat?.invoke(f)
             }
             streamBadges = badgesOf(video, audio)
             // Película o episodio: se recupera el audio y los subtítulos que tenías puestos.
@@ -313,6 +314,42 @@ class PlayerCtl(ctx: Context) {
     }
 
 
+    /**
+     * Muchas emisiones (las de satélite, sobre todo) no dicen a cuántas imágenes por segundo van, y sin ese dato
+     * no se puede ajustar la frecuencia de la pantalla (25 fps en una pantalla a 60 Hz = microsaltos).
+     * Se mide con las marcas de tiempo de las primeras imágenes.
+     */
+    @Volatile private var measuredFps = 0f
+    private val frameTimes = LongArray(60)
+    @Volatile private var frameCount = 0
+    private val frameMeter = androidx.media3.exoplayer.video.VideoFrameMetadataListener { pts, _, _, _ ->
+        val n = frameCount
+        if (n < 0) return@VideoFrameMetadataListener
+        if (n < frameTimes.size) {
+            frameTimes[n] = pts
+            frameCount = n + 1
+            return@VideoFrameMetadataListener
+        }
+        frameCount = -1
+        val d = (1 until frameTimes.size).map { frameTimes[it] - frameTimes[it - 1] }.filter { it in 5_000..100_000 }.sorted()
+        if (d.size < 20) return@VideoFrameMetadataListener
+        val fps = 1_000_000f / d[d.size / 2]
+        // Se redondea a las frecuencias habituales (23,976 · 24 · 25 · 29,97 · 30 · 50 · 59,94 · 60).
+        val std = floatArrayOf(23.976f, 24f, 25f, 29.97f, 30f, 50f, 59.94f, 60f)
+        val near = std.minByOrNull { kotlin.math.abs(it - fps) } ?: return@VideoFrameMetadataListener
+        if (kotlin.math.abs(near - fps) > 1.5f) return@VideoFrameMetadataListener
+        handler.post {
+            measuredFps = near
+            val f = videoFormat ?: return@post
+            if (f.frameRate <= 0f) {
+                val nf = f.buildUpon().setFrameRate(near).build()
+                videoFormat = nf
+                onVideoFormat?.invoke(nf)
+                refreshVideoInfo()
+            }
+        }
+    }
+
     private val analytics = object : androidx.media3.exoplayer.analytics.AnalyticsListener {
         override fun onVideoDecoderInitialized(
             eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
@@ -335,6 +372,7 @@ class PlayerCtl(ctx: Context) {
         player.playWhenReady = true
         player.volume = 1f
         player.addListener(listener)
+        player.setVideoFrameMetadataListener(frameMeter)
         player.addAnalyticsListener(analytics)
 
         // Idiomas preferidos: los mismos que ya usa la previsualización, así al pasar a pantalla completa
@@ -599,6 +637,8 @@ class PlayerCtl(ctx: Context) {
         firstFrame = false
         noFrameTicks = 0
         videoProblem = null
+        measuredFps = 0f
+        frameCount = 0
         player.setMediaItem(b.build(), pos)
         player.prepare()
         player.play()
@@ -974,6 +1014,7 @@ class PlayerCtl(ctx: Context) {
         }
         player.removeListener(listener)
         player.removeAnalyticsListener(analytics)
+        player.clearVideoFrameMetadataListener(frameMeter)
         if (speed != 1f) player.setPlaybackSpeed(1f)
         // El reproductor es compartido: no se destruye, solo se para (salvo si sigue en la previsualización).
         if (!keepForPreview(true)) {

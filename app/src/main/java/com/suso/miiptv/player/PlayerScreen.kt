@@ -1040,8 +1040,9 @@ private fun OptionsPanel(
             TrackRow("Formato de emisión: ${ctl.liveFormatLabel()} (cambiar)", false, requestFocus = false) { ctl.toggleLiveFormat() }
         }
         // Datos técnicos del vídeo (para saber por qué un canal no se ve o va a saltos).
+        val hz = androidx.compose.ui.platform.LocalView.current.display?.refreshRate?.let { " · pantalla a ${"%.0f".format(it)} Hz" } ?: ""
         ctl.videoInfo?.let {
-            Text("Vídeo: $it", color = C.text2, fontSize = Sz.small, modifier = Modifier.padding(start = 10.dp, top = 6.dp, bottom = 6.dp))
+            Text("Vídeo: $it$hz", color = C.text2, fontSize = Sz.small, modifier = Modifier.padding(start = 10.dp, top = 6.dp, bottom = 6.dp))
         }
         val fps = ctl.videoFormat?.frameRate?.takeIf { it > 0f }?.let { " · vídeo a ${"%.0f".format(it)} fps" } ?: ""
         TrackRow(
