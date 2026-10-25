@@ -629,7 +629,8 @@ class PlayerCtl(ctx: Context) {
     /** Activa o quita la reproducción en túnel según el ajuste (se aplica al momento). */
     fun applyTunnel() {
         val ts = player.trackSelector as? androidx.media3.exoplayer.trackselection.DefaultTrackSelector ?: return
-        val on = Repo.prefs.tunnel
+        // Probado en la Mi Box sin mejora: se deja siempre desactivado (y se quita si se activó).
+        val on = false
         if (ts.parameters.tunnelingEnabled == on) return
         ts.setParameters(ts.buildUponParameters().setTunnelingEnabled(on))
     }

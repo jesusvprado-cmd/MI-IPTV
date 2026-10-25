@@ -1051,11 +1051,6 @@ private fun OptionsPanel(
             Repo.prefs.afr = !Repo.prefs.afr
             ctl.reapplyFrameRate()
         }
-        // En algunos aparatos (Amlogic, como la Mi Box) quita los microsaltos.
-        TrackRow("Modo túnel (si va a microsaltos): " + (if (Repo.prefs.tunnel) "sí" else "no"), false, requestFocus = false) {
-            Repo.prefs.tunnel = !Repo.prefs.tunnel
-            ctl.applyTunnel()
-        }
         // Película o episodio: quitar o poner la ✓ de «ya visto».
         val wk = ctl.current.key
         if (!ctl.current.live && !wk.startsWith("CU|")) {
