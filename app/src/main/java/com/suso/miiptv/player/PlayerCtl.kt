@@ -262,7 +262,7 @@ class PlayerCtl(ctx: Context) {
             videoProblem = null
             if (pendingFormatSave) {
                 pendingFormatSave = false
-                current.channel?.let { Repo.prefs.setAltFormat(it.key, altLiveFormat) }
+                saveAltFormat()
             }
         }
 
@@ -603,7 +603,19 @@ class PlayerCtl(ctx: Context) {
     var altLiveFormat by mutableStateOf(false)
         private set
 
-    private fun usesAlt(it: PlayItem): Boolean = it.live && it.channel?.let { c -> Repo.prefs.usesAltFormat(c.key) } == true
+    /** En el móvil los canales SAT solo van en HLS: se abren así por defecto (si la dirección es TS). */
+    private fun defaultAlt(it: PlayItem): Boolean =
+        it.live && com.suso.miiptv.data.Device.touch && SAT_NAME.containsMatchIn(it.title) &&
+            !it.url.contains(".m3u8", true) && swapLiveFormat(it.url) != it.url
+
+    /** Lo guardado por canal es el cambio respecto al formato por defecto. */
+    private fun usesAlt(it: PlayItem): Boolean =
+        it.live && (defaultAlt(it) != (it.channel?.let { c -> Repo.prefs.usesAltFormat(c.key) } == true))
+
+    private fun saveAltFormat() {
+        val it = current
+        it.channel?.let { c -> Repo.prefs.setAltFormat(c.key, altLiveFormat != defaultAlt(it)) }
+    }
 
     /** Formato con el que se está viendo el canal: "TS" o "HLS". */
     fun liveFormatLabel(): String {
@@ -616,7 +628,7 @@ class PlayerCtl(ctx: Context) {
         if (!current.live) return
         altLiveFormat = !altLiveFormat
         // Se recuerda para este canal: la próxima vez se abre ya con el formato elegido.
-        current.channel?.let { Repo.prefs.setAltFormat(it.key, altLiveFormat) }
+        saveAltFormat()
         triedHls = false
         load(current.url, 0, false)
     }
@@ -1033,6 +1045,8 @@ class PlayerCtl(ctx: Context) {
         }
     }
 }
+
+private val SAT_NAME = Regex("\\bSAT\\b", RegexOption.IGNORE_CASE)
 
 /** Nombre del formato de vídeo para mostrarlo. */
 internal fun codecName(mime: String?): String = when (mime) {
