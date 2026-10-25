@@ -1,6 +1,7 @@
 package com.suso.miiptv.player
 
 import android.app.Activity
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.graphics.toArgb
 import com.suso.miiptv.ui.Sz
 import android.view.ViewGroup
@@ -243,6 +244,8 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
         when {
             ctl.commitScrub() -> show()
             ctl.error != null -> ctl.retry()
+            // Sin imagen en la app: OK abre la lista de reproductores para verlo con otro.
+            ctl.videoProblem != null -> playersOpen = true
             showNext -> ctl.playNext()
             // En directo, OK solo enseña la barra (antes cambiaba el favorito y se tocaba sin querer).
             item.live -> show()
@@ -424,6 +427,27 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
                     "Pulsa OK para reintentar" + if (item.live) " · ▲▼ para cambiar de canal" else "",
                     color = C.text2, fontSize = Sz.body,
                     modifier = Modifier.focusProperties { canFocus = false }.clickable { ctl.retry() },
+                )
+            }
+        }
+
+        val vp = ctl.videoProblem
+        if (vp != null && err == null && !playersOpen && !listOpen && !tracksOpen) {
+            Column(
+                Modifier.align(Alignment.Center).padding(40.dp).widthIn(max = 560.dp).clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xDD000000)).padding(28.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(item.title, color = C.gold, fontSize = Sz.sub, fontWeight = FontWeight.Bold)
+                Text(
+                    "No se puede mostrar la imagen en la app: $vp. Otros reproductores del aparato sí pueden.",
+                    color = Color.White, fontSize = Sz.body, textAlign = TextAlign.Center,
+                )
+                Text(
+                    "Pulsa OK para abrirlo con otro reproductor" + if (item.live) " · ▲▼ para cambiar de canal" else "",
+                    color = C.text2, fontSize = Sz.small,
+                    modifier = Modifier.focusProperties { canFocus = false }.clickable { playersOpen = true },
                 )
             }
         }
@@ -988,6 +1012,10 @@ private fun OptionsPanel(
         // Si un canal va a saltos: probar el otro formato de emisión o ajustar la frecuencia de la pantalla al vídeo.
         if (ctl.current.live) {
             TrackRow("Formato de emisión: ${ctl.liveFormatLabel()} (cambiar)", false, requestFocus = false) { ctl.toggleLiveFormat() }
+        }
+        // Datos técnicos del vídeo (para saber por qué un canal no se ve o va a saltos).
+        ctl.videoInfo?.let {
+            Text("Vídeo: $it", color = C.text2, fontSize = Sz.small, modifier = Modifier.padding(start = 10.dp, top = 6.dp, bottom = 6.dp))
         }
         val fps = ctl.videoFormat?.frameRate?.takeIf { it > 0f }?.let { " · vídeo a ${"%.0f".format(it)} fps" } ?: ""
         TrackRow(

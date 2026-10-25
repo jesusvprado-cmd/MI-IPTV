@@ -170,6 +170,39 @@ class PlayerCtl(ctx: Context) {
 
     private var loudness: LoudnessEnhancer? = null
 
+    /**
+     * La app no consigue mostrar la imagen de este vídeo (formato que el aparato no decodifica, o el
+     * decodificador no saca ninguna imagen): texto con el formato, para avisar y ofrecer otro reproductor.
+     */
+    var videoProblem by mutableStateOf<String?>(null)
+        private set
+
+    /** Datos técnicos del vídeo (formato, tamaño, decodificador), para las opciones del reproductor. */
+    var videoInfo by mutableStateOf<String?>(null)
+        private set
+
+    private var firstFrame = false
+    private var videoSelected = false
+    private var noFrameTicks = 0
+    private var decoderName: String? = null
+    private var lastVideoFormat: Format? = null
+
+    private fun reportVideoProblem(what: String) {
+        if (videoProblem != null) return
+        videoProblem = what
+        com.suso.miiptv.data.ErrorLog.add("Sin imagen en «${current.title}»: $what" + (decoderName?.let { " · decodificador $it" } ?: ""))
+    }
+
+    private fun refreshVideoInfo() {
+        val f = lastVideoFormat
+        videoInfo = if (f == null) null else listOfNotNull(
+            codecName(f.sampleMimeType),
+            if (f.width > 0) "${f.width}×${f.height}" else null,
+            f.frameRate.takeIf { it > 0f }?.let { "${Math.round(it)} fps" },
+            decoderName,
+        ).joinToString(" · ")
+    }
+
     private var triedHls = false
     private var retries = 0
     private var started = false
@@ -197,8 +230,23 @@ class PlayerCtl(ctx: Context) {
             handleError(e)
         }
 
+        override fun onRenderedFirstFrame() {
+            firstFrame = true
+            videoProblem = null
+        }
+
         override fun onTracksChanged(tracks: Tracks) {
             tracksVersion++
+            // ¿Hay vídeo y el aparato no sabe decodificarlo? (pasa con algunos canales SAT en MPEG-2)
+            val videoGroups = tracks.groups.filter { it.type == C.TRACK_TYPE_VIDEO }
+            videoSelected = videoGroups.any { g -> (0 until g.length).any { g.isTrackSelected(it) } }
+            if (videoGroups.isNotEmpty()) {
+                lastVideoFormat = videoGroups.first().getTrackFormat(0)
+                refreshVideoInfo()
+                if (videoGroups.none { g -> (0 until g.length).any { g.isTrackSupported(it) } }) {
+                    reportVideoProblem("este aparato no decodifica su vídeo (${codecName(lastVideoFormat?.sampleMimeType)}) en la app")
+                }
+            }
             var video: Format? = null
             var audio: Format? = null
             for (g in tracks.groups) {
@@ -234,12 +282,29 @@ class PlayerCtl(ctx: Context) {
     }
 
 
+    private val analytics = object : androidx.media3.exoplayer.analytics.AnalyticsListener {
+        override fun onVideoDecoderInitialized(
+            eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
+            name: String,
+            initializedTimestampMs: Long,
+            initializationDurationMs: Long,
+        ) {
+            decoderName = name
+            refreshVideoInfo()
+        }
+
+        override fun onVideoCodecError(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, videoCodecError: Exception) {
+            com.suso.miiptv.data.ErrorLog.add("Error del decodificador de vídeo en «${current.title}»: ${videoCodecError.message}")
+        }
+    }
+
     init {
         val prefs = Repo.prefs
         player = PlayerHolder.get(ctx)
         player.playWhenReady = true
         player.volume = 1f
         player.addListener(listener)
+        player.addAnalyticsListener(analytics)
 
         // Idiomas preferidos: los mismos que ya usa la previsualización, así al pasar a pantalla completa
         // no se vuelven a elegir pistas (eso obligaba a recargar el canal).
@@ -494,6 +559,9 @@ class PlayerCtl(ctx: Context) {
         val b = MediaItem.Builder().setUri(url)
         if (forceHls || url.contains(".m3u8", ignoreCase = true)) b.setMimeType(MimeTypes.APPLICATION_M3U8)
         buffering = true
+        firstFrame = false
+        noFrameTicks = 0
+        videoProblem = null
         player.setMediaItem(b.build(), pos)
         player.prepare()
         player.play()
@@ -787,6 +855,11 @@ class PlayerCtl(ctx: Context) {
         // Refresca la guía cuando termina el programa actual.
         val e = epg.firstOrNull()
         if (current.live && e != null && e.end < System.currentTimeMillis() - 60_000) loadEpg()
+        // Se oye pero no se ve: el vídeo está elegido y avanza, pero en 8 s no ha salido ninguna imagen.
+        if (!firstFrame && videoSelected && player.isPlaying) {
+            noFrameTicks++
+            if (noFrameTicks >= 16) reportVideoProblem("el decodificador de este aparato no muestra su vídeo (${codecName(lastVideoFormat?.sampleMimeType)})")
+        }
         watchdog()
     }
 
@@ -835,6 +908,7 @@ class PlayerCtl(ctx: Context) {
             // Sin importancia.
         }
         player.removeListener(listener)
+        player.removeAnalyticsListener(analytics)
         if (speed != 1f) player.setPlaybackSpeed(1f)
         // El reproductor es compartido: no se destruye, solo se para (salvo si sigue en la previsualización).
         if (!keepForPreview(true)) {
@@ -842,6 +916,17 @@ class PlayerCtl(ctx: Context) {
             player.clearMediaItems()
         }
     }
+}
+
+/** Nombre del formato de vídeo para mostrarlo. */
+internal fun codecName(mime: String?): String = when (mime) {
+    MimeTypes.VIDEO_MPEG2 -> "MPEG-2"
+    MimeTypes.VIDEO_H264 -> "H.264"
+    MimeTypes.VIDEO_H265 -> "H.265"
+    MimeTypes.VIDEO_AV1 -> "AV1"
+    MimeTypes.VIDEO_VP9 -> "VP9"
+    null -> "desconocido"
+    else -> mime.substringAfter('/').uppercase()
 }
 
 /** El otro formato de emisión de un canal: «.ts» ↔ «.m3u8» (si la dirección no acaba en ninguno, igual). */
