@@ -495,6 +495,10 @@ class PlayerCtl(ctx: Context) {
         if (i !in items.indices) return
         if (i != index && items.getOrNull(index)?.live == true) prevIndex = index
         resetWatchdog()
+        noImageReloads = 0
+        lastVideoFormat = null
+        decoderName = null
+        videoInfo = null
         saveProgress()
         scrubPos = null
         restoredFor = null
@@ -708,6 +712,8 @@ class PlayerCtl(ctx: Context) {
     private var stuckSince = 0L
     private var freezeCount = 0
     private var freezeWindow = 0L
+    /** Reconexiones de este canal sin haber salido nunca ninguna imagen. */
+    private var noImageReloads = 0
 
     private fun resetWatchdog() {
         lastPos = -1L
@@ -716,7 +722,7 @@ class PlayerCtl(ctx: Context) {
 
     /** Se llama cada medio segundo: si la imagen de un directo no avanza, se reconecta el canal solo. */
     private fun watchdog() {
-        if (!current.live || error != null || !player.playWhenReady || player.mediaItemCount == 0) {
+        if (!current.live || error != null || videoProblem != null || !player.playWhenReady || player.mediaItemCount == 0) {
             stuckSince = 0L
             return
         }
@@ -741,6 +747,19 @@ class PlayerCtl(ctx: Context) {
             freezeCount = 0
         }
         freezeCount++
+        val estado = when (player.playbackState) { Player.STATE_BUFFERING -> "cargando"; Player.STATE_READY -> "parado"; else -> "estado ${player.playbackState}" }
+        com.suso.miiptv.data.ErrorLog.add(
+            "Imagen congelada en «${current.title}» ($estado" + (if (firstFrame) "" else ", sin ninguna imagen") + ") · vídeo: " +
+                (videoInfo ?: "sin datos del vídeo"),
+        )
+        // Nunca salió imagen y ya se reconectó: no es un corte, es que el aparato no muestra este vídeo.
+        if (!firstFrame && player.playbackState == Player.STATE_READY) {
+            noImageReloads++
+            if (noImageReloads >= 2) {
+                reportVideoProblem("no consigue mostrar su vídeo (" + (videoInfo ?: codecName(lastVideoFormat?.sampleMimeType)) + ")")
+                return
+            }
+        }
         // Tres cortes en dos minutos: plan B con la VPN (si está permitido).
         if (freezeCount >= 3 && tryVpnFallback()) return
         notice = "Imagen congelada · reconectando el canal"

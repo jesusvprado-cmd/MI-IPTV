@@ -444,6 +444,7 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
                     "No se puede mostrar la imagen en la app: $vp. Otros reproductores del aparato sí pueden.",
                     color = Color.White, fontSize = Sz.body, textAlign = TextAlign.Center,
                 )
+                ctl.videoInfo?.let { Text("Vídeo: $it", color = C.text2, fontSize = Sz.small, textAlign = TextAlign.Center) }
                 Text(
                     "Pulsa OK para abrirlo con otro reproductor" + if (item.live) " · ▲▼ para cambiar de canal" else "",
                     color = C.text2, fontSize = Sz.small,
