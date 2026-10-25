@@ -38,6 +38,8 @@ class PlayerActivity : ComponentActivity() {
     }
 
     private var afrApplied = -1f
+    private var afrLogged = false
+    private var afrKicked = false
 
     /** Vuelve a la frecuencia normal de la pantalla (al desactivar el ajuste desde las opciones). */
     private fun resetFrameRate() {
@@ -79,6 +81,26 @@ class PlayerActivity : ComponentActivity() {
             if (lp.preferredDisplayModeId != b.modeId) {
                 lp.preferredDisplayModeId = b.modeId
                 window.attributes = lp
+            }
+            if (!afrLogged) {
+                afrLogged = true
+                com.suso.miiptv.data.ErrorLog.add(
+                    "Frecuencia: vídeo a $fps fps · pantalla en ${cur.refreshRate} Hz (modo ${cur.modeId}) · se pide modo ${b.modeId} (${b.refreshRate} Hz) · modos: " +
+                        display.supportedModes.joinToString { "${it.modeId}=${it.physicalWidth}x${it.physicalHeight}@${"%.2f".format(it.refreshRate)}" },
+                )
+            }
+            // En la Mi Box el primer cambio al empezar el vídeo no siempre se queda bien (va a saltos) y apagar y
+            // encender el ajuste lo arregla: se repite eso mismo solo, una vez, a los 2 s.
+            if (!afrKicked) {
+                afrKicked = true
+                val target = fps
+                window.decorView.postDelayed({
+                    if (isFinishing || !Repo.prefs.afr) return@postDelayed
+                    resetFrameRate()
+                    window.decorView.postDelayed({
+                        if (!isFinishing && Repo.prefs.afr) matchFrameRate(target)
+                    }, 400)
+                }, 2000)
             }
         } catch (e: Exception) {
             // Este dispositivo no permite cambiar la frecuencia.
