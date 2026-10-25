@@ -1044,9 +1044,8 @@ private fun OptionsPanel(
         ctl.videoInfo?.let {
             Text("Vídeo: $it$hz", color = C.text2, fontSize = Sz.small, modifier = Modifier.padding(start = 10.dp, top = 6.dp, bottom = 6.dp))
         }
-        val fps = ctl.videoFormat?.frameRate?.takeIf { it > 0f }?.let { " · vídeo a ${"%.0f".format(it)} fps" } ?: ""
         TrackRow(
-            "Ajustar frecuencia de la pantalla: " + (if (Repo.prefs.afr) "sí" else "no") + fps,
+            "Ajustar frecuencia de la pantalla: " + (if (Repo.prefs.afr) "sí" else "no"),
             false, requestFocus = false,
         ) {
             Repo.prefs.afr = !Repo.prefs.afr
@@ -1131,7 +1130,7 @@ private fun TrackRow(label: String, selected: Boolean, requestFocus: Boolean, on
             fontSize = Sz.emph, fontWeight = FontWeight.Bold,
             modifier = Modifier.width(26.dp),
         )
-        Text(label, color = if (focused) C.gold else Color.White, fontSize = Sz.body, fontWeight = if (focused) FontWeight.Bold else FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(label, color = if (focused) C.gold else Color.White, fontSize = Sz.body, fontWeight = if (focused) FontWeight.Bold else FontWeight.Normal, maxLines = 3, overflow = TextOverflow.Ellipsis)
     }
 }
 

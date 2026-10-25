@@ -61,22 +61,22 @@ class PlayerActivity : ComponentActivity() {
         try {
             val display = window.decorView.display ?: return
             val cur = display.mode
-            var best: android.view.Display.Mode? = null
-            var bestMult = Int.MAX_VALUE
-            for (m in display.supportedModes) {
-                if (m.physicalWidth != cur.physicalWidth || m.physicalHeight != cur.physicalHeight) continue
+            fun fits(m: android.view.Display.Mode): Boolean {
                 val ratio = m.refreshRate / fps
                 val n = Math.round(ratio)
-                if (n < 1 || kotlin.math.abs(ratio - n) > 0.01f * n) continue
-                if (n < bestMult) {
-                    bestMult = n
-                    best = m
-                }
+                return n >= 1 && kotlin.math.abs(ratio - n) <= 0.01f * n
             }
-            val b = best ?: return
+            // Si la pantalla ya va a una frecuencia múltiplo de la del vídeo (25 fps a 50 Hz), se deja tal cual.
+            // Antes se elegía la frecuencia más baja (25 Hz para un vídeo a 25 fps) y muchas teles van a saltos así.
+            // Las frecuencias bajas (24/25/30 Hz) solo se usan para cine a 24 fps.
+            val b = if (fits(cur)) cur else display.supportedModes
+                .filter { it.physicalWidth == cur.physicalWidth && it.physicalHeight == cur.physicalHeight && fits(it) }
+                .filter { it.refreshRate >= 47f || fps < 24.5f }
+                .minByOrNull { it.refreshRate }
+                ?: return
             afrApplied = fps
-            if (b.modeId != cur.modeId) {
-                val lp = window.attributes
+            val lp = window.attributes
+            if (lp.preferredDisplayModeId != b.modeId) {
                 lp.preferredDisplayModeId = b.modeId
                 window.attributes = lp
             }
