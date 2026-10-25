@@ -68,11 +68,8 @@ class PlayerActivity : ComponentActivity() {
                 val n = Math.round(ratio)
                 return n >= 1 && kotlin.math.abs(ratio - n) <= 0.01f * n
             }
-            // Frecuencia elegida a mano para vídeos con estos fps (Opciones del reproductor); si no, la automática:
-            // la más baja que sea múltiplo de los fps del vídeo.
-            val forced = Repo.prefs.afrHz(fps)
-            val b = (if (forced > 0f) same.firstOrNull { kotlin.math.abs(it.refreshRate - forced) < 0.05f } else null)
-                ?: same.filter { fits(it) }.minByOrNull { it.refreshRate }
+            // La frecuencia más baja que sea múltiplo de los fps del vídeo.
+            val b = same.filter { fits(it) }.minByOrNull { it.refreshRate }
                 ?: return
             afrApplied = fps
             val lp = window.attributes

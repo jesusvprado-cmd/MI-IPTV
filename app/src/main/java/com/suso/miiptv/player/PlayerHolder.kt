@@ -76,7 +76,7 @@ object PlayerHolder {
         }
         val http = OkHttpDataSource.Factory(Http.client).setUserAgent(Http.userAgent)
         // El decodificador de audio de la app (FFmpeg) se usa como respaldo, o siempre si así se ha elegido.
-        val renderers = DefaultRenderersFactory(ctx.applicationContext)
+        val renderers = NoVsyncRenderersFactory(ctx.applicationContext, noVsync = !com.suso.miiptv.data.Device.touch)
             .setEnableDecoderFallback(true)
             .setExtensionRendererMode(
                 if (prefs.audioDecode) DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
@@ -176,4 +176,34 @@ object PlayerHolder {
     fun onMainVisible() {
         epoch++
     }
+}
+
+
+/**
+ * El reproductor coloca cada imagen en el «golpe» de pantalla más cercano usando la frecuencia que dice Android.
+ * Algunos aparatos (la Mi Box, con chip Amlogic) dicen una frecuencia equivocada (24 Hz cuando la tele va a 50 Hz)
+ * hasta que la frecuencia cambia con el vídeo ya en marcha: las imágenes caen en golpes erróneos y el vídeo va a
+ * microsaltos. En los aparatos de tele se le oculta la pantalla al decodificador de vídeo para que no haga ese ajuste
+ * y entregue cada imagen a su hora (el aparato ya la sincroniza con la pantalla).
+ */
+private class NoVsyncRenderersFactory(ctx: Context, private val noVsync: Boolean) : DefaultRenderersFactory(ctx) {
+    override fun buildVideoRenderers(
+        context: Context,
+        extensionRendererMode: Int,
+        mediaCodecSelector: androidx.media3.exoplayer.mediacodec.MediaCodecSelector,
+        enableDecoderFallback: Boolean,
+        eventHandler: android.os.Handler,
+        eventListener: androidx.media3.exoplayer.video.VideoRendererEventListener,
+        allowedVideoJoiningTimeMs: Long,
+        out: java.util.ArrayList<androidx.media3.exoplayer.Renderer>,
+    ) {
+        val c = if (noVsync) NoDisplayContext(context.applicationContext) else context
+        super.buildVideoRenderers(c, extensionRendererMode, mediaCodecSelector, enableDecoderFallback, eventHandler, eventListener, allowedVideoJoiningTimeMs, out)
+    }
+}
+
+/** Contexto que no da acceso a la lista de pantallas (el tamaño de la pantalla se sigue obteniendo por otra vía). */
+private class NoDisplayContext(base: Context) : android.content.ContextWrapper(base) {
+    override fun getApplicationContext(): Context = this
+    override fun getSystemService(name: String): Any? = if (name == Context.DISPLAY_SERVICE) null else super.getSystemService(name)
 }
