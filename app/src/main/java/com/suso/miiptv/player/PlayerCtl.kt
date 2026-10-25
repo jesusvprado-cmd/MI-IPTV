@@ -373,6 +373,7 @@ class PlayerCtl(ctx: Context) {
         player.volume = 1f
         player.addListener(listener)
         player.setVideoFrameMetadataListener(frameMeter)
+        applyTunnel()
         player.addAnalyticsListener(analytics)
 
         // Idiomas preferidos: los mismos que ya usa la previsualización, así al pasar a pantalla completa
@@ -625,6 +626,14 @@ class PlayerCtl(ctx: Context) {
         private set
 
     /** Vuelve a aplicar (o quitar) el ajuste de la frecuencia de la pantalla con el vídeo actual. */
+    /** Activa o quita la reproducción en túnel según el ajuste (se aplica al momento). */
+    fun applyTunnel() {
+        val ts = player.trackSelector as? androidx.media3.exoplayer.trackselection.DefaultTrackSelector ?: return
+        val on = Repo.prefs.tunnel
+        if (ts.parameters.tunnelingEnabled == on) return
+        ts.setParameters(ts.buildUponParameters().setTunnelingEnabled(on))
+    }
+
     fun reapplyFrameRate() {
         videoFormat?.let { onVideoFormat?.invoke(it) }
     }

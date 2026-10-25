@@ -245,6 +245,11 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("afr", false)
         set(v) = putBool("afr", v)
 
+    /** Reproducción «en túnel»: el vídeo y el sonido se sincronizan en el propio chip (quita microsaltos en algunos aparatos). */
+    var tunnel: Boolean
+        get() = sp.getBoolean("tunnel", false)
+        set(v) = putBool("tunnel", v)
+
     /** Al terminar un episodio, empieza solo el siguiente (también el primero de la temporada siguiente). */
     var autoNext: Boolean
         get() = sp.getBoolean("autoNext", true)
