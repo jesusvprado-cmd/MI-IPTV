@@ -608,13 +608,14 @@ class PlayerCtl(ctx: Context) {
         it.live && com.suso.miiptv.data.Device.touch && SAT_NAME.containsMatchIn(it.title) &&
             !it.url.contains(".m3u8", true) && swapLiveFormat(it.url) != it.url
 
-    /** Lo guardado por canal es el cambio respecto al formato por defecto. */
     private fun usesAlt(it: PlayItem): Boolean =
-        it.live && (defaultAlt(it) != (it.channel?.let { c -> Repo.prefs.usesAltFormat(c.key) } == true))
+        it.live && (defaultAlt(it) || it.channel?.let { c -> Repo.prefs.usesAltFormat(c.key) } == true)
 
+    /** Se recuerda el formato elegido para el canal (los SAT del móvil vuelven siempre a HLS al abrirlos). */
     private fun saveAltFormat() {
         val it = current
-        it.channel?.let { c -> Repo.prefs.setAltFormat(c.key, altLiveFormat != defaultAlt(it)) }
+        if (defaultAlt(it)) return
+        it.channel?.let { c -> Repo.prefs.setAltFormat(c.key, altLiveFormat) }
     }
 
     /** Formato con el que se está viendo el canal: "TS" o "HLS". */
