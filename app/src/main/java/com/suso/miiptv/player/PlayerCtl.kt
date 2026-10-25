@@ -187,8 +187,35 @@ class PlayerCtl(ctx: Context) {
     private var decoderName: String? = null
     private var lastVideoFormat: Format? = null
 
+    /** Ya se probó solo el otro formato (TS ↔ HLS) en este canal. */
+    private var autoSwitched = false
+    /** El cambio automático de formato está pendiente de confirmar (se guarda al salir la primera imagen). */
+    private var pendingFormatSave = false
+
+    /**
+     * El canal no va: se reconecta una vez con el otro formato de emisión (TS ↔ HLS).
+     * Si con él sale imagen, se recuerda para ese canal. Devuelve false si ya se probó o no hay otro formato.
+     */
+    private fun tryOtherFormat(why: String): Boolean {
+        val it = current
+        if (!it.live || autoSwitched || swapLiveFormat(it.url) == it.url) return false
+        autoSwitched = true
+        pendingFormatSave = true
+        altLiveFormat = !altLiveFormat
+        com.suso.miiptv.data.ErrorLog.add("«${it.title}»: $why · se prueba en ${liveFormatLabel()}")
+        notice = "El canal no va · probando en formato ${liveFormatLabel()}"
+        error = null
+        triedHls = false
+        retries = 0
+        resetWatchdog()
+        val idx = index
+        handler.post { if (idx == index) load(current.url, 0, false) }
+        return true
+    }
+
     private fun reportVideoProblem(what: String) {
         if (videoProblem != null) return
+        if (tryOtherFormat("sin imagen")) return
         videoProblem = what
         com.suso.miiptv.data.ErrorLog.add("Sin imagen en «${current.title}»: $what" + (decoderName?.let { " · decodificador $it" } ?: ""))
     }
@@ -233,6 +260,10 @@ class PlayerCtl(ctx: Context) {
         override fun onRenderedFirstFrame() {
             firstFrame = true
             videoProblem = null
+            if (pendingFormatSave) {
+                pendingFormatSave = false
+                current.channel?.let { Repo.prefs.setAltFormat(it.key, altLiveFormat) }
+            }
         }
 
         override fun onTracksChanged(tracks: Tracks) {
@@ -496,6 +527,8 @@ class PlayerCtl(ctx: Context) {
         if (i != index && items.getOrNull(index)?.live == true) prevIndex = index
         resetWatchdog()
         noImageReloads = 0
+        autoSwitched = false
+        pendingFormatSave = false
         lastVideoFormat = null
         decoderName = null
         videoInfo = null
@@ -630,6 +663,8 @@ class PlayerCtl(ctx: Context) {
             }
         }
         com.suso.miiptv.data.ErrorLog.add("Reproducción («${it.title}»): ${e.errorCodeName} (${e.message ?: "sin detalle"})")
+        // Directo que no abre: antes de dar el error, se prueba solo el otro formato (TS ↔ HLS).
+        if (it.live && code in 2000..4999 && tryOtherFormat("no abre")) return
         // Directo que no hay manera de abrir: plan B con la VPN antes de dar el error.
         if (it.live && code in 2000..2999 && tryVpnFallback()) return
         buffering = false
@@ -752,6 +787,8 @@ class PlayerCtl(ctx: Context) {
             "Imagen congelada en «${current.title}» ($estado" + (if (firstFrame) "" else ", sin ninguna imagen") + ") · vídeo: " +
                 (videoInfo ?: "sin datos del vídeo"),
         )
+        // Sin ninguna imagen, o cortes repetidos: se prueba solo el otro formato (TS ↔ HLS).
+        if ((!firstFrame || freezeCount >= 2) && tryOtherFormat("imagen congelada")) return
         // Nunca salió imagen y ya se reconectó: no es un corte, es que el aparato no muestra este vídeo.
         if (!firstFrame && player.playbackState == Player.STATE_READY) {
             noImageReloads++
@@ -855,6 +892,15 @@ class PlayerCtl(ctx: Context) {
         val target = (player.currentPosition + ms).coerceAtLeast(0).let { if (d > 0) it.coerceAtMost(d - 1000) else it }
         player.seekTo(target)
         position = target
+    }
+
+    /** Arrastrando la barra (móvil): se mueve la marca y se ve el minuto; se salta al soltar. */
+    fun scrubToFraction(f: Float) {
+        if (current.live) return
+        val d = player.duration
+        if (d <= 0) return
+        handler.removeCallbacks(commitScrubRunnable)
+        scrubPos = (d * f.coerceIn(0f, 1f)).toLong().coerceAtMost(d - 1000).coerceAtLeast(0)
     }
 
     fun seekToFraction(f: Float) {

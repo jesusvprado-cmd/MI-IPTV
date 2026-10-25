@@ -1,6 +1,7 @@
 package com.suso.miiptv.player
 
 import android.app.Activity
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.graphics.toArgb
 import com.suso.miiptv.ui.Sz
@@ -747,7 +748,10 @@ private fun VodOverlay(ctl: PlayerCtl, item: PlayItem) {
                     Text(fmtTime(shownPos), color = if (ctl.scrubPos != null) C.gold else Color.White, fontSize = Sz.body)
                     Spacer(Modifier.width(14.dp))
                     val frac = if (ctl.duration > 0) (shownPos.toFloat() / ctl.duration).coerceIn(0f, 1f) else 0f
-                    SeekBar(frac, Modifier.weight(1f), preview = ctl.scrubPos) { f -> ctl.seekToFraction(f) }
+                    SeekBar(
+                        frac, Modifier.weight(1f), preview = ctl.scrubPos,
+                        onScrub = { f -> ctl.scrubToFraction(f) }, onScrubEnd = { ctl.commitScrub() },
+                    ) { f -> ctl.seekToFraction(f) }
                     Spacer(Modifier.width(14.dp))
                     Text(fmtTime(ctl.duration), color = Color.White, fontSize = Sz.body)
                 }
@@ -757,19 +761,37 @@ private fun VodOverlay(ctl: PlayerCtl, item: PlayItem) {
 }
 
 @Composable
-private fun SeekBar(fraction: Float, modifier: Modifier, preview: Long? = null, onSeek: (Float) -> Unit) {
+private fun SeekBar(
+    fraction: Float,
+    modifier: Modifier,
+    preview: Long? = null,
+    onScrub: (Float) -> Unit = {},
+    onScrubEnd: () -> Unit = {},
+    onSeek: (Float) -> Unit,
+) {
     BoxWithConstraints(
         modifier
-            .height(20.dp)
+            .height(if (com.suso.miiptv.data.Device.touch) 32.dp else 20.dp)
             .pointerInput(Unit) {
                 detectTapGestures { o -> if (size.width > 0) onSeek(o.x / size.width) }
+            }
+            // Arrastrar el dedo por la barra: se ve el minuto al que irá y salta al soltar.
+            .pointerInput(Unit) {
+                androidx.compose.foundation.gestures.detectHorizontalDragGestures(
+                    onDragStart = { o -> if (size.width > 0) onScrub(o.x / size.width) },
+                    onDragEnd = { onScrubEnd() },
+                    onDragCancel = { onScrubEnd() },
+                ) { change, _ ->
+                    change.consume()
+                    if (size.width > 0) onScrub(change.position.x / size.width)
+                }
             },
         contentAlignment = Alignment.CenterStart,
     ) {
         val w = maxWidth
         // Minuto al que vas, sobre la barra, mientras avanzas o retrocedes.
         if (preview != null) {
-            val tw = 90.dp
+            val tw = 76.dp
             val x = ((w * fraction) - tw / 2).coerceIn(0.dp, (w - tw).coerceAtLeast(0.dp))
             Box(
                 Modifier
@@ -782,8 +804,10 @@ private fun SeekBar(fraction: Float, modifier: Modifier, preview: Long? = null, 
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    fmtTime(preview), color = Color.White, fontSize = Sz.emph, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xCC111111)).padding(horizontal = 10.dp, vertical = 4.dp),
+                    fmtTime(preview), color = Color.White, fontSize = Sz.small, fontWeight = FontWeight.SemiBold,
+                    maxLines = 1, softWrap = false,
+                    modifier = Modifier.wrapContentWidth(unbounded = true).clip(RoundedCornerShape(5.dp))
+                        .background(Color(0xCC111111)).padding(horizontal = 7.dp, vertical = 2.dp),
                 )
             }
         }
