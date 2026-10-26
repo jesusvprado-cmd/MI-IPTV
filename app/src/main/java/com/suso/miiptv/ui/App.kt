@@ -46,11 +46,11 @@ fun AppRoot(activity: Activity) {
         var picking by remember {
             mutableStateOf(!ProfileSession.chosen && Repo.prefs.askProfile && Repo.prefs.profiles().size > 1)
         }
-        // Al abrir la app mira si hay versión nueva (como mucho cada 6 horas).
+        // Cada vez que se abre la app mira si hay versión nueva y, si la hay, sale el aviso.
         val ctx = androidx.compose.ui.platform.LocalContext.current
         androidx.compose.runtime.LaunchedEffect(Unit) {
-            kotlinx.coroutines.delay(5000)
-            runCatching { com.suso.miiptv.data.Updater.check(ctx) }
+            kotlinx.coroutines.delay(1500)
+            runCatching { com.suso.miiptv.data.Updater.check(ctx, force = true) }
                 .onFailure { com.suso.miiptv.data.ErrorLog.add("Actualizaciones: no se pudo comprobar (${it.message ?: it.javaClass.simpleName})") }
         }
         Box(Modifier.fillMaxSize().background(C.bg).systemBarsPadding()) {
