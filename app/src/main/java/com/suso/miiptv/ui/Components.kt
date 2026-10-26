@@ -241,7 +241,8 @@ fun PosterCard(
         Text(
             title,
             color = if (focused) Color.White else C.text3,
-            fontSize = Sz.small,
+            // En el móvil, un punto menos: el título no le quita protagonismo a la carátula.
+            fontSize = if (isCompactPhone()) (Sz.small.value - 1f).sp else Sz.small,
             fontWeight = FontWeight.Medium,
             maxLines = 1,
             overflow = if (focused) TextOverflow.Clip else TextOverflow.Ellipsis,

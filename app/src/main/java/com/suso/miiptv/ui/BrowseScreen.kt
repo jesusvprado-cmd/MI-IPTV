@@ -244,21 +244,21 @@ fun CategoryChips(cats: List<Category>, selected: String?, onPick: (String) -> U
     val state = androidx.compose.foundation.lazy.rememberLazyListState()
     androidx.compose.foundation.lazy.LazyRow(
         state = state,
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(7.dp),
     ) {
         items(cats.size) { i ->
             val c = cats[i]
             val sel = c.id == selected
             Text(
-                c.name, maxLines = 1, fontSize = Sz.body,
+                c.name, maxLines = 1, fontSize = Sz.small,
                 color = if (sel) Color.Black else Color(0xFFDDDDDD),
                 fontWeight = if (sel) FontWeight.Bold else FontWeight.Medium,
                 modifier = Modifier
-                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(18.dp))
+                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
                     .background(if (sel) C.gold else Color(0xFF1F2A21))
                     .clickable { onPick(c.id) }
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
             )
         }
     }
