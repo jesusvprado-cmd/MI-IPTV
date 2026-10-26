@@ -188,14 +188,18 @@ fun BrowseScreen(kind: Kind) {
                     val phoneGrid = kind == Kind.LIVE && compact
                     val fontScale = androidx.compose.ui.platform.LocalDensity.current.fontScale
                     BoxWithConstraints(Modifier.fillMaxSize()) {
-                    // Móvil: carátulas del tamaño justo para que quepan dos filas enteras con su título
-                    // (con el alto real de la cuadrícula y el tamaño de letra del teléfono).
-                    val posterFit: androidx.compose.ui.unit.Dp? = if (chips && kind != Kind.LIVE) {
+                    // Móvil o tableta: carátulas del tamaño justo para que quepan enteras con su título
+                    // (dos filas en vertical, una en horizontal), con el alto real y el tamaño de letra del teléfono.
+                    val gapH = if (compact) 14.dp else 18.dp
+                    val posterFit: androidx.compose.ui.unit.Dp? = if (com.suso.miiptv.data.Device.touch && kind != Kind.LIVE) {
+                        val rows = if (maxHeight > maxWidth) 2 else 1
                         val titleH = 7.dp + (Sz.small.value * 1.5f * fontScale).dp + 4.dp
-                        val h = (maxHeight - 12.dp - (titleH.value * 2).dp - 20.dp - 8.dp) / 2
+                        val h = (maxHeight - 12.dp - (titleH.value * rows).dp - (20 * (rows - 1)).dp - 8.dp) / rows
                         val w = h * 2f / 3f
-                        val natural = (maxWidth - 32.dp - 14.dp) / 2
-                        if (w < natural) w else null
+                        val pads = if (compact) 32.dp else 44.dp
+                        val n = ((maxWidth - pads + gapH) / (128.dp + gapH)).toInt().coerceAtLeast(1)
+                        val natural = (maxWidth - pads - (gapH.value * (n - 1)).dp) / n
+                        if (w < natural && w > 60.dp) w else null
                     } else null
                     LazyVerticalGrid(
                         // Canales pequeños para ver más de un vistazo (en la tele, 6 por fila).
@@ -213,7 +217,7 @@ fun BrowseScreen(kind: Kind) {
                             .fadeInOnChange(its),
                         contentPadding = if (compact) PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 40.dp)
                         else PaddingValues(start = 14.dp, end = 30.dp, top = 14.dp, bottom = 40.dp),
-                        horizontalArrangement = if (posterFit != null) Arrangement.spacedBy(14.dp, androidx.compose.ui.Alignment.CenterHorizontally)
+                        horizontalArrangement = if (posterFit != null) Arrangement.spacedBy(gapH, androidx.compose.ui.Alignment.CenterHorizontally)
                         else Arrangement.spacedBy(if (phoneGrid) 10.dp else if (compact) 14.dp else if (kind == Kind.LIVE) (if (tvGrid) 12.dp else 14.dp) else 18.dp),
                         verticalArrangement = Arrangement.spacedBy(if (phoneGrid) 10.dp else if (kind == Kind.LIVE) (if (tvGrid) 12.dp else 14.dp) else 20.dp),
                     ) {
