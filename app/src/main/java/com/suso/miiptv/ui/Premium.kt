@@ -203,11 +203,20 @@ fun isNew(item: Item?): Boolean {
 }
 
 @Composable
-fun Pill(text: String, bg: Color, fg: Color, modifier: Modifier = Modifier) {
+fun Pill(text: String, bg: Color, fg: Color, modifier: Modifier = Modifier, compact: Boolean = false) {
     Box(
-        modifier.clip(RoundedCornerShape(5.dp)).background(bg).padding(horizontal = 6.dp, vertical = 2.dp),
+        modifier.clip(RoundedCornerShape(if (compact) 4.dp else 5.dp)).background(bg)
+            .padding(horizontal = if (compact) 4.dp else 6.dp, vertical = if (compact) 1.dp else 2.dp),
     ) {
-        Text(text, color = fg, fontSize = Sz.label, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.5.sp)
+        Text(
+            text, color = fg, fontSize = Sz.label, fontWeight = FontWeight.ExtraBold,
+            letterSpacing = if (compact) 0.sp else 0.5.sp,
+            // Compacta: sin el margen interior de la fuente, para que el recuadro se ajuste al texto.
+            style = if (compact) androidx.compose.ui.text.TextStyle(
+                platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false),
+                lineHeight = Sz.label,
+            ) else androidx.compose.material3.LocalTextStyle.current,
+        )
     }
 }
 
@@ -254,5 +263,5 @@ fun BoxScope.PosterBadges(item: Item?, favBadge: Boolean = true) {
     }
     // Calidad arriba a la derecha (debajo del corazón si lo hay).
     if (q != null) Pill(q, Color(0xCC000000), Color.White, Modifier.align(Alignment.TopEnd).padding(end = 6.dp, top = if (fav) 32.dp else 6.dp))
-    if (r != null) Pill("★ $r", Color(0xCC000000), C.gold, Modifier.align(Alignment.BottomStart).padding(6.dp))
+    if (r != null) Pill("★ $r", Color(0xCC000000), C.gold, Modifier.align(Alignment.BottomStart).padding(6.dp), compact = true)
 }
