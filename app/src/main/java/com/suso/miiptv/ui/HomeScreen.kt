@@ -175,11 +175,12 @@ fun HomeRowView(row: HomeRow) {
                 itemsIndexed(row.items, key = { i, x -> "$i:${x.key}" }) { i, x ->
                     val fk = "${row.key}:${x.key}"
                     if (x.kind == Kind.LIVE) {
-                        // En la tele, del mismo tamaño que en la sección TV.
+                        // Del mismo tamaño que en la sección TV (tele y móvil).
                         val tv = !com.suso.miiptv.data.Device.touch
+                        val phone = isCompactPhone()
                         ChannelCard(
-                            x.name, x.image, fk, Modifier.width(if (tv) 100.dp else 170.dp), onLong = { Actions.toggleFav(ctx, x) },
-                            nameSize = if (tv) (Sz.body.value - 1.5f).sp else Sz.body,
+                            x.name, x.image, fk, Modifier.width(if (tv) 100.dp else if (phone) 112.dp else 170.dp), onLong = { Actions.toggleFav(ctx, x) },
+                            nameSize = if (tv) (Sz.body.value - 1.5f).sp else if (phone) Sz.small else Sz.body,
                         ) {
                             Actions.playLive(ctx, row.items, i)
                         }
