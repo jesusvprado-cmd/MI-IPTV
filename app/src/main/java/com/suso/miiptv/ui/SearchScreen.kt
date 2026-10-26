@@ -15,6 +15,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.foundation.clickable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -57,18 +58,34 @@ fun SearchScreen() {
         loading = false
     }
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 22.dp, bottom = 40.dp)) {
+    // En el móvil: márgenes estrechos, cuadro en forma de cápsula y texto de ayuda corto (en una línea).
+    val phone = isCompactPhone()
+    val gap = sideGap()
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = if (phone) 14.dp else 22.dp, bottom = 40.dp)) {
         item {
           androidx.compose.foundation.layout.Row(
-              Modifier.padding(end = 40.dp),
+              Modifier.padding(end = gap),
               verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
           ) {
             OutlinedTextField(
                 value = q,
                 onValueChange = { q = it },
                 singleLine = true,
-                placeholder = { Text("Buscar canales, películas o series") },
+                placeholder = {
+                    Text(
+                        if (phone) "Buscar…" else "Buscar canales, películas o series",
+                        maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    )
+                },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                // Borrar lo escrito de un toque.
+                trailingIcon = if (phone && q.isNotEmpty()) ({
+                    Text(
+                        "✕", color = C.text2, fontSize = Sz.emph,
+                        modifier = Modifier.clickable { q = "" }.padding(12.dp),
+                    )
+                }) else null,
+                shape = if (phone) androidx.compose.foundation.shape.RoundedCornerShape(28.dp) else OutlinedTextFieldDefaults.shape,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { kb?.hide() }),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -77,7 +94,7 @@ fun SearchScreen() {
                     cursorColor = C.gold,
                 ),
                 modifier = Modifier
-                    .padding(start = 40.dp)
+                    .padding(start = gap)
                     .weight(1f)
                     .memFocus("search_field"),
             )
@@ -89,17 +106,17 @@ fun SearchScreen() {
             loading -> item {
                 Text(
                     "Buscando… (la primera búsqueda tarda más porque se carga todo el catálogo)",
-                    color = C.text2, fontSize = Sz.body, modifier = Modifier.padding(horizontal = 40.dp),
+                    color = C.text2, fontSize = Sz.body, modifier = Modifier.padding(horizontal = gap),
                 )
             }
             r == null -> item {
                 Text(
                     "Escribe al menos 2 letras.",
-                    color = C.text2, fontSize = Sz.body, modifier = Modifier.padding(horizontal = 40.dp),
+                    color = C.text2, fontSize = Sz.body, modifier = Modifier.padding(horizontal = gap),
                 )
             }
             r.live.isEmpty() && r.movies.isEmpty() && r.series.isEmpty() -> item {
-                Text("Sin resultados", color = C.text2, fontSize = Sz.body, modifier = Modifier.padding(horizontal = 40.dp))
+                Text("Sin resultados", color = C.text2, fontSize = Sz.body, modifier = Modifier.padding(horizontal = gap))
             }
             else -> {
                 if (r.live.isNotEmpty()) item { HomeRowView(HomeRow("search_live", "Canales (${r.live.size})", Kind.LIVE, r.live)) }
