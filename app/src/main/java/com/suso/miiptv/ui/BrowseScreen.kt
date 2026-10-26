@@ -142,6 +142,14 @@ fun BrowseScreen(kind: Kind) {
         val narrow = maxWidth < 700.dp
         // Móvil en vertical: categorías en una fila deslizable arriba en vez de la columna de la izquierda.
         val chips = com.suso.miiptv.data.Device.touch && maxWidth < 600.dp
+        // Móvil: carátulas del tamaño justo para que quepan dos filas enteras con su título.
+        val posterFit: androidx.compose.ui.unit.Dp? = if (chips && kind != Kind.LIVE) {
+            val gridH = maxHeight - 46.dp - 12.dp
+            val h = (gridH - 2 * 26.dp - 20.dp - 6.dp) / 2
+            val w = h * 2f / 3f
+            val natural = (maxWidth - 32.dp - 14.dp) / 2
+            if (w < natural) w else null
+        } else null
         Row(Modifier.fillMaxSize()) {
             if (!chips) LazyColumn(
                 state = st.cats,
@@ -189,6 +197,7 @@ fun BrowseScreen(kind: Kind) {
                     LazyVerticalGrid(
                         // Canales pequeños para ver más de un vistazo (en la tele, 6 por fila).
                         columns = if (phoneGrid) GridCells.Fixed(3)
+                        else if (posterFit != null) GridCells.FixedSize(posterFit)
                         else GridCells.Adaptive(if (kind == Kind.LIVE) (if (tvGrid) 92.dp else 112.dp) else 128.dp),
                         state = st.grid,
                         modifier = Modifier
@@ -201,7 +210,8 @@ fun BrowseScreen(kind: Kind) {
                             .fadeInOnChange(its),
                         contentPadding = if (compact) PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 40.dp)
                         else PaddingValues(start = 14.dp, end = 30.dp, top = 14.dp, bottom = 40.dp),
-                        horizontalArrangement = Arrangement.spacedBy(if (phoneGrid) 10.dp else if (compact) 14.dp else if (kind == Kind.LIVE) (if (tvGrid) 12.dp else 14.dp) else 18.dp),
+                        horizontalArrangement = if (posterFit != null) Arrangement.spacedBy(14.dp, Alignment.CenterHorizontally)
+                        else Arrangement.spacedBy(if (phoneGrid) 10.dp else if (compact) 14.dp else if (kind == Kind.LIVE) (if (tvGrid) 12.dp else 14.dp) else 18.dp),
                         verticalArrangement = Arrangement.spacedBy(if (phoneGrid) 10.dp else if (kind == Kind.LIVE) (if (tvGrid) 12.dp else 14.dp) else 20.dp),
                     ) {
                         itemsIndexed(its, key = { i, x -> "$i:${x.key}" }) { i, x ->
