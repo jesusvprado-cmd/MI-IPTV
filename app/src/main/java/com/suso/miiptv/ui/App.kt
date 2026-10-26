@@ -16,6 +16,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import com.suso.miiptv.data.Repo
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -26,6 +40,7 @@ fun AppRoot(activity: Activity) {
         var configured by remember { mutableStateOf(Repo.source != null) }
         // Salir con Atrás desde Inicio: hay que pulsarlo dos veces seguidas (un toque de más no cierra la app).
         var lastBack by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
+        var exitHint by remember { mutableStateOf(0L) }
         var editing by remember { mutableStateOf(false) }
         // Varios perfiles: se pregunta quién está viendo al abrir la app.
         var picking by remember {
@@ -52,7 +67,8 @@ fun AppRoot(activity: Activity) {
                         when {
                             top != null -> UiState.pop()
                             // Dentro de una sección (Guía, TV...): Atrás lleva primero a su título en el menú de arriba.
-                            UiState.tab != Tab.HOME && !UiState.topBarFocused && !com.suso.miiptv.data.Device.touch &&
+                            // También en Inicio: primero vuelve a «Inicio» arriba, y desde ahí ya avisa para salir.
+                            !UiState.topBarFocused && !com.suso.miiptv.data.Device.touch &&
                                 runCatching { UiState.tabRequester(UiState.tab).requestFocus() }.isSuccess -> {}
                             UiState.tab != Tab.HOME -> {
                                 UiState.tab = Tab.HOME
@@ -64,7 +80,7 @@ fun AppRoot(activity: Activity) {
                                     activity.finish()
                                 } else {
                                     lastBack = now
-                                    Actions.toast(ctx, "Pulsa Atrás otra vez para salir")
+                                    exitHint = now
                                 }
                             }
                         }
@@ -80,8 +96,43 @@ fun AppRoot(activity: Activity) {
                 }
             }
             if (configured && !editing && !picking) UpdateDialog()
+            ExitHint(exitHint)
             SplashOverlay()
         }
       }
+    }
+}
+
+
+/** Aviso «Pulsa Atrás otra vez para salir» con el aspecto de la app (en lugar del aviso del sistema). */
+@Composable
+private fun BoxScope.ExitHint(shownAt: Long) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(shownAt) {
+        if (shownAt == 0L) return@LaunchedEffect
+        visible = true
+        kotlinx.coroutines.delay(2300)
+        visible = false
+    }
+    androidx.compose.animation.AnimatedVisibility(
+        visible,
+        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 56.dp),
+        enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInVertically { it / 2 },
+        exit = androidx.compose.animation.fadeOut(),
+    ) {
+        Row(
+            Modifier
+                .clip(RoundedCornerShape(50))
+                .background(C.card)
+                .border(1.dp, C.gold.copy(alpha = 0.55f), RoundedCornerShape(50))
+                .padding(horizontal = 22.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("↩", color = C.gold, fontSize = Sz.emph, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.width(10.dp))
+            Text("Pulsa ", color = Color.White, fontSize = Sz.body)
+            Text("Atrás", color = C.gold, fontSize = Sz.body, fontWeight = FontWeight.Bold)
+            Text(" otra vez para salir", color = Color.White, fontSize = Sz.body)
+        }
     }
 }
