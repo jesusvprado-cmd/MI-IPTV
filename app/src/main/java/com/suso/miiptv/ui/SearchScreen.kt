@@ -61,6 +61,7 @@ fun SearchScreen() {
     // En el móvil: márgenes estrechos, cuadro en forma de cápsula y texto de ayuda corto (en una línea).
     val phone = isCompactPhone()
     val gap = sideGap()
+    val touch = com.suso.miiptv.data.Device.touch
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = if (phone) 14.dp else 22.dp, bottom = 40.dp)) {
         item {
           androidx.compose.foundation.layout.Row(
@@ -79,13 +80,13 @@ fun SearchScreen() {
                 },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                 // Borrar lo escrito de un toque.
-                trailingIcon = if (phone && q.isNotEmpty()) ({
+                trailingIcon = if (touch && q.isNotEmpty()) ({
                     Text(
                         "✕", color = C.text2, fontSize = Sz.emph,
                         modifier = Modifier.clickable { q = "" }.padding(12.dp),
                     )
                 }) else null,
-                shape = if (phone) androidx.compose.foundation.shape.RoundedCornerShape(28.dp) else OutlinedTextFieldDefaults.shape,
+                shape = if (touch) androidx.compose.foundation.shape.RoundedCornerShape(28.dp) else OutlinedTextFieldDefaults.shape,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { kb?.hide() }),
                 colors = OutlinedTextFieldDefaults.colors(
