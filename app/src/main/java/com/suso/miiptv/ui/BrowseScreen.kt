@@ -145,7 +145,7 @@ fun BrowseScreen(kind: Kind) {
         // Móvil: carátulas del tamaño justo para que quepan dos filas enteras con su título.
         val posterFit: androidx.compose.ui.unit.Dp? = if (chips && kind != Kind.LIVE) {
             val gridH = maxHeight - 46.dp - 12.dp
-            val h = (gridH - 2 * 26.dp - 20.dp - 6.dp) / 2
+            val h = (gridH - 52.dp - 20.dp - 6.dp) / 2
             val w = h * 2f / 3f
             val natural = (maxWidth - 32.dp - 14.dp) / 2
             if (w < natural) w else null
@@ -210,7 +210,7 @@ fun BrowseScreen(kind: Kind) {
                             .fadeInOnChange(its),
                         contentPadding = if (compact) PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 40.dp)
                         else PaddingValues(start = 14.dp, end = 30.dp, top = 14.dp, bottom = 40.dp),
-                        horizontalArrangement = if (posterFit != null) Arrangement.spacedBy(14.dp, Alignment.CenterHorizontally)
+                        horizontalArrangement = if (posterFit != null) Arrangement.spacedBy(14.dp, androidx.compose.ui.Alignment.CenterHorizontally)
                         else Arrangement.spacedBy(if (phoneGrid) 10.dp else if (compact) 14.dp else if (kind == Kind.LIVE) (if (tvGrid) 12.dp else 14.dp) else 18.dp),
                         verticalArrangement = Arrangement.spacedBy(if (phoneGrid) 10.dp else if (kind == Kind.LIVE) (if (tvGrid) 12.dp else 14.dp) else 20.dp),
                     ) {
