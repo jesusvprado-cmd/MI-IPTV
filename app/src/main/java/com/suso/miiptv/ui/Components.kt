@@ -263,6 +263,7 @@ fun ChannelCard(
     modifier: Modifier = Modifier,
     onFocus: ((Boolean) -> Unit)? = null,
     onLong: (() -> Unit)? = null,
+    nameSize: androidx.compose.ui.unit.TextUnit = Sz.body,
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
@@ -311,7 +312,7 @@ fun ChannelCard(
         Text(
             title,
             color = if (focused) Color.White else C.text3,
-            fontSize = Sz.body,
+            fontSize = nameSize,
             fontWeight = FontWeight.Medium,
             maxLines = 1,
             overflow = if (focused) TextOverflow.Clip else TextOverflow.Ellipsis,

@@ -182,9 +182,10 @@ fun BrowseScreen(kind: Kind) {
                         else "No hay contenido en esta categoría"
                     )
                     else -> CompositionLocalProvider(LocalBringIntoViewSpec provides RevealBringIntoView) {
+                    val tvGrid = !com.suso.miiptv.data.Device.touch
                     LazyVerticalGrid(
-                        // Canales más pequeños (5 por fila en vez de 3) para ver más de un vistazo.
-                        columns = GridCells.Adaptive(if (kind == Kind.LIVE) 112.dp else 128.dp),
+                        // Canales pequeños para ver más de un vistazo (en la tele, 6 por fila).
+                        columns = GridCells.Adaptive(if (kind == Kind.LIVE) (if (tvGrid) 92.dp else 112.dp) else 128.dp),
                         state = st.grid,
                         modifier = Modifier
                             .fillMaxSize()
@@ -195,8 +196,8 @@ fun BrowseScreen(kind: Kind) {
                             .focusGroup()
                             .fadeInOnChange(its),
                         contentPadding = PaddingValues(start = 14.dp, end = 30.dp, top = 14.dp, bottom = 40.dp),
-                        horizontalArrangement = Arrangement.spacedBy(if (kind == Kind.LIVE) 14.dp else 18.dp),
-                        verticalArrangement = Arrangement.spacedBy(if (kind == Kind.LIVE) 14.dp else 20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(if (kind == Kind.LIVE) (if (tvGrid) 12.dp else 14.dp) else 18.dp),
+                        verticalArrangement = Arrangement.spacedBy(if (kind == Kind.LIVE) (if (tvGrid) 12.dp else 14.dp) else 20.dp),
                     ) {
                         itemsIndexed(its, key = { i, x -> "$i:${x.key}" }) { i, x ->
                             val fk = "g_${kind.name}_${sel}_${x.key}"
@@ -211,6 +212,7 @@ fun BrowseScreen(kind: Kind) {
                                     x.name, x.image, fk, m,
                                     onFocus = { f -> if (f) { st.focused = x; st.lastIdx = i } },
                                     onLong = { Actions.toggleFav(ctx, x) },
+                                    nameSize = if (tvGrid) (Sz.body.value - 1.5f).sp else Sz.body,
                                 ) { Actions.playLive(ctx, its, i, fromPreview = !narrow) }
                             } else {
                                 PosterCard(
