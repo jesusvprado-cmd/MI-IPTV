@@ -206,6 +206,42 @@ fun SettingsScreen(onChangeList: () -> Unit) {
     var urlDialog by remember { mutableStateOf(false) }
     var epgUrlDialog by remember { mutableStateOf(false) }
     var nameDialog by remember { mutableStateOf<Int?>(null) }
+    var serverDialog by remember { mutableStateOf(false) }
+    var serverBusy by remember { mutableStateOf(false) }
+
+    /** Cambia solo la dirección del servidor (mismo usuario y contraseña); antes comprueba que responde. */
+    fun changeServer(raw: String) {
+        val cfg = Repo.config ?: return
+        var srv = raw.trim().trimEnd('/')
+        if (!srv.contains("://")) srv = "http://$srv"
+        val u = Uri.parse(srv)
+        val base = "${u.scheme}://${u.encodedAuthority}"
+        val newCfg = if (cfg.type == "xtream") cfg.copy(server = base) else {
+            val old = Uri.parse(cfg.m3uUrl)
+            cfg.copy(m3uUrl = old.buildUpon().scheme(u.scheme).encodedAuthority(u.encodedAuthority).build().toString())
+        }
+        val oldBase = if (cfg.type == "xtream") cfg.server else Uri.parse(cfg.m3uUrl).let { "${it.scheme}://${it.encodedAuthority}" }
+        if (newCfg == cfg) {
+            Actions.toast(ctx, "Ya estás usando ese servidor")
+            return
+        }
+        serverBusy = true
+        Actions.toast(ctx, "Comprobando el servidor…")
+        scope.launch {
+            try {
+                val src = Repo.createSource(newCfg)
+                src.check()
+                p.rememberServer(oldBase)
+                p.rememberServer(base)
+                Repo.save(newCfg, src)
+                Actions.toast(ctx, "Servidor cambiado")
+            } catch (e: Exception) {
+                Actions.toast(ctx, "Ese servidor no responde (${e.message ?: "error"}). Sigues con el anterior.")
+            } finally {
+                serverBusy = false
+            }
+        }
+    }
     var logOpen by remember { mutableStateOf(false) }
 
     // ---- Copia de seguridad ----
@@ -306,6 +342,18 @@ fun SettingsScreen(onChangeList: () -> Unit) {
                 }
                 if (t == null) Actions.toast(ctx, "No se pudo leer ${f.name}") else useConf(t, f.name)
             }
+        }
+        return
+    }
+    if (serverDialog) {
+        val cfg = Repo.config
+        val cur = if (cfg?.type == "xtream") cfg.server else cfg?.m3uUrl?.let { Uri.parse(it).let { u -> "${u.scheme}://${u.encodedAuthority}" } }.orEmpty()
+        UrlEntry(
+            title = "Dirección del servidor", button = "Conectar", initial = cur,
+            hint = "http://servidor.com:8080", onCancel = { serverDialog = false },
+        ) { url ->
+            serverDialog = false
+            changeServer(url)
         }
         return
     }
@@ -488,7 +536,11 @@ fun SettingsScreen(onChangeList: () -> Unit) {
                         }
                     }
                     when (sec) {
-                        Sec.ACCOUNT -> item(key = "acc") { AccountSection(onChangeList) { t, o, s, f -> ask(t, o, s, f) } }
+                        Sec.ACCOUNT -> item(key = "acc") { AccountSection(
+                            onChangeList,
+                            onServer = { picked -> if (picked == null) serverDialog = true else changeServer(picked) },
+                            busy = serverBusy,
+                        ) { t, o, s, f -> ask(t, o, s, f) } }
                         Sec.VPN -> item(key = "vpn") {
                             VpnSection(
                                 onMode = { ask("Conexión VPN", VPN_MODE, p.vpnMode) { setVpnMode(it) } },
@@ -534,7 +586,7 @@ private fun <T> Ask.of(title: String, options: List<Pair<String, T>>, selected: 
 // ---------------- Secciones ----------------
 
 @Composable
-private fun AccountSection(onChangeList: () -> Unit, ask: Ask) {
+private fun AccountSection(onChangeList: () -> Unit, onServer: (String?) -> Unit, busy: Boolean, ask: Ask) {
     @Suppress("UNUSED_VARIABLE")
     val sv = Repo.prefs.settingsVersion // se redibuja al momento al cambiar un ajuste
     val ctx = LocalContext.current
@@ -579,6 +631,21 @@ private fun AccountSection(onChangeList: () -> Unit, ask: Ask) {
         SettingRow("Recargar lista", "set_reload", subtitle = "Vuelve a descargar canales, películas y series") {
             Repo.reload()
             Actions.toast(ctx, "Lista recargada")
+        }
+        if (cfg != null) {
+            val cur = if (cfg.type == "xtream") cfg.server else Uri.parse(cfg.m3uUrl).let { "${it.scheme}://${it.encodedAuthority}" }
+            SettingRow(
+                "Cambiar servidor", "set_server",
+                subtitle = if (busy) "Comprobando el servidor…" else "Misma cuenta (usuario y contraseña), otra dirección",
+            ) {
+                if (busy) return@SettingRow
+                // Con servidores usados antes: se elige de la lista o se escribe otro.
+                val prev = Repo.prefs.serverHistory().filter { it != cur }
+                if (prev.isEmpty()) onServer(null)
+                else ask.of("Cambiar servidor", prev.map { it to it } + ("Escribir otra dirección…" to "__custom"), "") { v ->
+                    onServer(if (v == "__custom") null else v)
+                }
+            }
         }
         SettingRow("Cambiar lista o cuenta", "set_change", subtitle = "Otro servidor, usuario o lista M3U") { onChangeList() }
         if (cfg != null && cfg.type == "xtream") {

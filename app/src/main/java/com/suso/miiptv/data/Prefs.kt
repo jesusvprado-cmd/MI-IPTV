@@ -245,6 +245,14 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("afr", false)
         set(v) = putBool("afr", v)
 
+    /** Últimos servidores usados (el más reciente primero), para volver a uno sin escribirlo. */
+    fun serverHistory(): List<String> = sp.getString("serverHistory", "").orEmpty().split('\n').filter { it.isNotBlank() }
+
+    fun rememberServer(server: String) {
+        val l = (listOf(server) + serverHistory().filter { it != server }).take(6)
+        sp.edit().putString("serverHistory", l.joinToString("\n")).apply()
+    }
+
     /** Frecuencia de la pantalla elegida a mano para vídeos con estos fps (0 = automática). */
     fun afrHz(fps: Float): Float = sp.getFloat("afrhz_" + Math.round(fps * 100), 0f)
 
