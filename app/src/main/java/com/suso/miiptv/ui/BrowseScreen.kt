@@ -191,15 +191,20 @@ fun BrowseScreen(kind: Kind) {
                     // Móvil o tableta: carátulas del tamaño justo para que quepan enteras con su título
                     // (dos filas en vertical, una en horizontal), con el alto real y el tamaño de letra del teléfono.
                     val gapH = if (compact) 14.dp else 18.dp
-                    val posterFit: androidx.compose.ui.unit.Dp? = if (com.suso.miiptv.data.Device.touch && kind != Kind.LIVE) {
-                        val rows = if (maxHeight > maxWidth) 2 else 1
+                    // En la tele: dos filas enteras con título y al menos 5 carátulas por fila.
+                    val posterFit: androidx.compose.ui.unit.Dp? = if (kind != Kind.LIVE) {
+                        val rows = if (tvGrid || maxHeight > maxWidth) 2 else 1
                         val titleH = 7.dp + (Sz.small.value * 1.5f * fontScale).dp + 4.dp
                         val h = (maxHeight - 12.dp - (titleH.value * rows).dp - (20 * (rows - 1)).dp - 8.dp) / rows
                         val w = h * 2f / 3f
                         val pads = if (compact) 32.dp else 44.dp
                         val n = ((maxWidth - pads + gapH) / (128.dp + gapH)).toInt().coerceAtLeast(1)
                         val natural = (maxWidth - pads - (gapH.value * (n - 1)).dp) / n
-                        if (w < natural && w > 60.dp) w else null
+                        if (tvGrid) {
+                            // 5 por fila como mínimo (con margen para el zoom de la seleccionada).
+                            val five = (maxWidth - pads - (gapH.value * 4).dp - 12.dp) / 5
+                            minOf(w, five).takeIf { it > 60.dp }
+                        } else if (w < natural && w > 60.dp) w else null
                     } else null
                     LazyVerticalGrid(
                         // Canales pequeños para ver más de un vistazo (en la tele, 6 por fila).
