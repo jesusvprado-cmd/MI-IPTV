@@ -390,7 +390,12 @@ fun EmptyText(text: String) {
 
 @Composable
 fun SectionTitle(text: String, modifier: Modifier = Modifier) {
-    Text(text, color = Color.White, fontSize = Sz.sub, fontWeight = FontWeight.SemiBold, modifier = modifier)
+    // En el móvil, más pequeño: así los títulos de las filas de Inicio caben en una línea.
+    val phone = isCompactPhone()
+    Text(
+        text, color = Color.White, fontSize = if (phone) Sz.emph else Sz.sub, fontWeight = FontWeight.SemiBold,
+        maxLines = if (phone) 1 else Int.MAX_VALUE, overflow = TextOverflow.Ellipsis, modifier = modifier,
+    )
 }
 
 /** Marco de la miniatura con el cursor: degradado en diagonal del verde claro (arriba a la izquierda) a blanco,

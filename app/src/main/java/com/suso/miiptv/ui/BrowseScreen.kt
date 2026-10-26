@@ -142,14 +142,6 @@ fun BrowseScreen(kind: Kind) {
         val narrow = maxWidth < 700.dp
         // Móvil en vertical: categorías en una fila deslizable arriba en vez de la columna de la izquierda.
         val chips = com.suso.miiptv.data.Device.touch && maxWidth < 600.dp
-        // Móvil: carátulas del tamaño justo para que quepan dos filas enteras con su título.
-        val posterFit: androidx.compose.ui.unit.Dp? = if (chips && kind != Kind.LIVE) {
-            val gridH = maxHeight - 46.dp - 12.dp
-            val h = (gridH - 52.dp - 20.dp - 6.dp) / 2
-            val w = h * 2f / 3f
-            val natural = (maxWidth - 32.dp - 14.dp) / 2
-            if (w < natural) w else null
-        } else null
         Row(Modifier.fillMaxSize()) {
             if (!chips) LazyColumn(
                 state = st.cats,
@@ -194,6 +186,17 @@ fun BrowseScreen(kind: Kind) {
                     // Móvil: canales 3 por fila, con los márgenes iguales a ambos lados.
                     val compact = isCompactPhone()
                     val phoneGrid = kind == Kind.LIVE && compact
+                    val fontScale = androidx.compose.ui.platform.LocalDensity.current.fontScale
+                    BoxWithConstraints(Modifier.fillMaxSize()) {
+                    // Móvil: carátulas del tamaño justo para que quepan dos filas enteras con su título
+                    // (con el alto real de la cuadrícula y el tamaño de letra del teléfono).
+                    val posterFit: androidx.compose.ui.unit.Dp? = if (chips && kind != Kind.LIVE) {
+                        val titleH = 7.dp + (Sz.small.value * 1.5f * fontScale).dp + 4.dp
+                        val h = (maxHeight - 12.dp - (titleH.value * 2).dp - 20.dp - 8.dp) / 2
+                        val w = h * 2f / 3f
+                        val natural = (maxWidth - 32.dp - 14.dp) / 2
+                        if (w < natural) w else null
+                    } else null
                     LazyVerticalGrid(
                         // Canales pequeños para ver más de un vistazo (en la tele, 6 por fila).
                         columns = if (phoneGrid) GridCells.Fixed(3)
@@ -239,6 +242,7 @@ fun BrowseScreen(kind: Kind) {
                                 ) { Actions.open(x) }
                             }
                         }
+                    }
                     }
                     }
                 }
