@@ -184,7 +184,8 @@ fun BrowseScreen(kind: Kind) {
                     else -> CompositionLocalProvider(LocalBringIntoViewSpec provides RevealBringIntoView) {
                     val tvGrid = !com.suso.miiptv.data.Device.touch
                     // Móvil: canales 3 por fila, con los márgenes iguales a ambos lados.
-                    val phoneGrid = kind == Kind.LIVE && isCompactPhone()
+                    val compact = isCompactPhone()
+                    val phoneGrid = kind == Kind.LIVE && compact
                     LazyVerticalGrid(
                         // Canales pequeños para ver más de un vistazo (en la tele, 6 por fila).
                         columns = if (phoneGrid) GridCells.Fixed(3)
@@ -198,9 +199,9 @@ fun BrowseScreen(kind: Kind) {
                             }
                             .focusGroup()
                             .fadeInOnChange(its),
-                        contentPadding = if (phoneGrid) PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 40.dp)
+                        contentPadding = if (compact) PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 40.dp)
                         else PaddingValues(start = 14.dp, end = 30.dp, top = 14.dp, bottom = 40.dp),
-                        horizontalArrangement = Arrangement.spacedBy(if (phoneGrid) 10.dp else if (kind == Kind.LIVE) (if (tvGrid) 12.dp else 14.dp) else 18.dp),
+                        horizontalArrangement = Arrangement.spacedBy(if (phoneGrid) 10.dp else if (compact) 14.dp else if (kind == Kind.LIVE) (if (tvGrid) 12.dp else 14.dp) else 18.dp),
                         verticalArrangement = Arrangement.spacedBy(if (phoneGrid) 10.dp else if (kind == Kind.LIVE) (if (tvGrid) 12.dp else 14.dp) else 20.dp),
                     ) {
                         itemsIndexed(its, key = { i, x -> "$i:${x.key}" }) { i, x ->
