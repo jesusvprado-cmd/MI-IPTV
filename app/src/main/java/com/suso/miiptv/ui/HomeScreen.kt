@@ -27,6 +27,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.suso.miiptv.data.Category
 import com.suso.miiptv.data.Item
 import com.suso.miiptv.data.Kind
@@ -174,7 +175,12 @@ fun HomeRowView(row: HomeRow) {
                 itemsIndexed(row.items, key = { i, x -> "$i:${x.key}" }) { i, x ->
                     val fk = "${row.key}:${x.key}"
                     if (x.kind == Kind.LIVE) {
-                        ChannelCard(x.name, x.image, fk, Modifier.width(170.dp), onLong = { Actions.toggleFav(ctx, x) }) {
+                        // En la tele, del mismo tamaño que en la sección TV.
+                        val tv = !com.suso.miiptv.data.Device.touch
+                        ChannelCard(
+                            x.name, x.image, fk, Modifier.width(if (tv) 100.dp else 170.dp), onLong = { Actions.toggleFav(ctx, x) },
+                            nameSize = if (tv) (Sz.body.value - 1.5f).sp else Sz.body,
+                        ) {
                             Actions.playLive(ctx, row.items, i)
                         }
                     } else {
