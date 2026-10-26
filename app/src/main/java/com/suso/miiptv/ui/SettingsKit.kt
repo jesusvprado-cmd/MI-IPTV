@@ -167,14 +167,20 @@ fun SettingRow(
     ) {
         FocusBar(focused, height = 30.dp, color = PaneFocus)
         Spacer(Modifier.width(10.dp))
+        // En el móvil el valor va debajo del texto: al lado no cabe y el título se parte en varias líneas.
+        val valueBelow = value != null && isCompactPhone()
         Column(Modifier.weight(1f)) {
             Text(title, color = if (focused) PaneFocus else Color.White, fontSize = Sz.emph, fontWeight = if (focused) FontWeight.ExtraBold else FontWeight.Medium)
             if (subtitle != null) {
                 Spacer(Modifier.height(2.dp))
                 Text(subtitle, color = C.text2, fontSize = Sz.small, lineHeight = 17.sp)
             }
+            if (valueBelow) {
+                Spacer(Modifier.height(4.dp))
+                Text(value!!, color = C.gold, fontSize = Sz.body, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
         }
-        if (value != null) {
+        if (value != null && !valueBelow) {
             Spacer(Modifier.width(16.dp))
             Text(
                 value,
