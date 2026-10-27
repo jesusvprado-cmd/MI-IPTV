@@ -32,13 +32,38 @@ class PlayerActivity : ComponentActivity() {
         c.onFinished = { finish() }
         // La frecuencia de la pantalla se ajusta (o se deja como estaba) según el ajuste, que también se cambia desde las opciones.
         // Solo en los canales SAT: en el resto el cambio de frecuencia solo provoca un corte de imagen al entrar.
-        c.onVideoFormat = { f -> if (Repo.prefs.afr && isSatChannel(c.current)) matchFrameRate(f.frameRate) else resetFrameRate() }
+        c.onVideoFormat = { f -> if (Repo.prefs.afr && isSatChannel(c.current)) matchWhenStable(f.frameRate) else resetFrameRate() }
         ctl = c
         c.start()
         setContent { AppTheme { PlayerScreen(c) { finish() } } }
     }
 
     private var afrApplied = -1f
+    private var afrPending = -1f
+
+    /**
+     * En la Mi Box, si la frecuencia cambia mientras el vídeo arranca, se queda a microsaltos; cambiándola con el
+     * vídeo ya en marcha (lo que pasaba al apagar y encender el ajuste) va fino. Se espera a que el vídeo lleve
+     * 2 s mostrándose y entonces se hace el cambio, una sola vez.
+     */
+    private fun matchWhenStable(fps: Float) {
+        if (fps <= 0f || fps == afrApplied) return
+        afrPending = fps
+        val c = ctl ?: return
+        val now = android.os.SystemClock.elapsedRealtime()
+        val wait = if (c.firstFrameAt == 0L) 1000L else (c.firstFrameAt + 2000L - now)
+        window.decorView.postDelayed({
+            if (isFinishing || afrPending != fps) return@postDelayed
+            val cc = ctl ?: return@postDelayed
+            if (!Repo.prefs.afr || !isSatChannel(cc.current)) return@postDelayed
+            if (cc.firstFrameAt == 0L || android.os.SystemClock.elapsedRealtime() - cc.firstFrameAt < 2000L) {
+                matchWhenStable(fps) // aún arrancando: se vuelve a mirar en un momento
+                return@postDelayed
+            }
+            afrPending = -1f
+            matchFrameRate(fps)
+        }, wait.coerceAtLeast(0L))
+    }
     private var afrLogged = false
 
     /** Vuelve a la frecuencia normal de la pantalla (al desactivar el ajuste desde las opciones). */

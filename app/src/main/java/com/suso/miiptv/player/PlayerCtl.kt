@@ -182,6 +182,9 @@ class PlayerCtl(ctx: Context) {
         private set
 
     private var firstFrame = false
+    /** Momento (elapsedRealtime) en que salió la primera imagen; 0 si aún no ha salido. */
+    var firstFrameAt = 0L
+        private set
     private var videoSelected = false
     private var noFrameTicks = 0
     private var decoderName: String? = null
@@ -259,6 +262,7 @@ class PlayerCtl(ctx: Context) {
 
         override fun onRenderedFirstFrame() {
             firstFrame = true
+            firstFrameAt = android.os.SystemClock.elapsedRealtime()
             videoProblem = null
             if (pendingFormatSave) {
                 pendingFormatSave = false
@@ -545,6 +549,7 @@ class PlayerCtl(ctx: Context) {
             // El vídeo ya estaba en marcha en la previsualización: no llegará un aviso de «pistas nuevas», así que
             // se toman ahora sus datos (y se vuelven a medir los fps) para ajustar la frecuencia de la pantalla.
             firstFrame = true
+            firstFrameAt = android.os.SystemClock.elapsedRealtime() - 10_000
             measuredFps = 0f
             frameCount = 0
             player.videoFormat?.let { vf ->
@@ -670,6 +675,7 @@ class PlayerCtl(ctx: Context) {
         if (forceHls || url.contains(".m3u8", ignoreCase = true)) b.setMimeType(MimeTypes.APPLICATION_M3U8)
         buffering = true
         firstFrame = false
+        firstFrameAt = 0L
         noFrameTicks = 0
         videoProblem = null
         measuredFps = 0f
