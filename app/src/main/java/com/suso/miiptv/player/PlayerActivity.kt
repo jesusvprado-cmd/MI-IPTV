@@ -51,50 +51,35 @@ class PlayerActivity : ComponentActivity() {
         if (m == null) "?" else "modo ${m.modeId} (${"%.2f".format(m.refreshRate)} Hz)"
 
     private var switchListener: android.hardware.display.DisplayManager.DisplayListener? = null
+    /** Cada cambio pedido lleva un número: si llega otro cambio a mitad, los pasos pendientes del anterior se ignoran. */
+    private var switchGen = 0
 
-    /**
-     * Pide a la pantalla el modo [modeId] (0 = el normal del aparato). Si de verdad va a cambiar, el vídeo se para
-     * antes, se espera a que la pantalla termine el cambio (y a que la tele se asiente) y entonces se vuelve a abrir.
-     * Así el vídeo arranca ya con la frecuencia nueva, como cuando se apagaba y encendía el ajuste a mano.
-     */
-    private fun applyMode(modeId: Int, why: String) {
+    private fun setPref(modeId: Int) {
         val lp = window.attributes
-        if (lp.preferredDisplayModeId == modeId) return
-        val display = window.decorView.display
-        val before = display?.mode
-        if (modeId != 0 && before?.modeId == modeId) {
-            lp.preferredDisplayModeId = modeId
-            window.attributes = lp
-            return
-        }
-        com.suso.miiptv.data.ErrorLog.add(
-            "Frecuencia ($why): pantalla en ${modeText(before)} · HDMI ${sys("/sys/class/display/mode")} · se pide " +
-                (if (modeId == 0) "la normal" else modeText(display?.supportedModes?.firstOrNull { it.modeId == modeId })),
-        )
-        val c = ctl
-        c?.holdForDisplaySwitch()
+        lp.preferredDisplayModeId = modeId
+        window.attributes = lp
+    }
+
+    private fun later(gen: Int, ms: Long, step: () -> Unit) {
+        window.decorView.postDelayed({ if (gen == switchGen && !isFinishing) step() }, ms)
+    }
+
+    /** Espera a que la pantalla deje el modo [fromId] (o [timeoutMs] como mucho) y sigue con [then]. */
+    private fun waitForChange(gen: Int, fromId: Int?, timeoutMs: Long, then: () -> Unit) {
         val dm = getSystemService(android.hardware.display.DisplayManager::class.java)
         switchListener?.let { runCatching { dm?.unregisterDisplayListener(it) } }
         var done = false
-        val finishSwitch = object : Runnable {
-            override fun run() {
-                if (done) return
+        val go = {
+            if (!done) {
                 done = true
                 switchListener?.let { runCatching { dm?.unregisterDisplayListener(it) } }
                 switchListener = null
-                // La tele tarda un poco en mostrar imagen tras el cambio: se espera antes de volver a abrir el vídeo.
-                window.decorView.postDelayed({
-                    com.suso.miiptv.data.ErrorLog.add(
-                        "Frecuencia: ya en ${modeText(window.decorView.display?.mode)} · HDMI ${sys("/sys/class/display/mode")}",
-                    )
-                    if (!isFinishing) ctl?.resumeAfterDisplaySwitch()
-                }, 1200)
+                if (gen == switchGen && !isFinishing) then()
             }
         }
         val l = object : android.hardware.display.DisplayManager.DisplayListener {
             override fun onDisplayChanged(displayId: Int) {
-                val now = window.decorView.display?.mode?.modeId
-                if (now != before?.modeId) finishSwitch.run()
+                if (window.decorView.display?.mode?.modeId != fromId) go()
             }
 
             override fun onDisplayAdded(displayId: Int) {}
@@ -102,10 +87,54 @@ class PlayerActivity : ComponentActivity() {
         }
         switchListener = l
         runCatching { dm?.registerDisplayListener(l, android.os.Handler(android.os.Looper.getMainLooper())) }
-        lp.preferredDisplayModeId = modeId
-        window.attributes = lp
-        // Por si el aparato no avisa del cambio.
-        window.decorView.postDelayed(finishSwitch, if (modeId == 0) 2500 else 4000)
+        window.decorView.postDelayed({ go() }, timeoutMs)
+    }
+
+    /**
+     * Pide a la pantalla el modo [modeId] (0 = el normal del aparato) con el vídeo parado, y lo vuelve a abrir al acabar.
+     *
+     * En la Mi Box el primer paso a la frecuencia del vídeo deja la imagen a microsaltos, y se arregla al volver a
+     * pedirla una segunda vez (lo que pasaba al apagar y encender el ajuste a mano, comprobado en el registro).
+     * Por eso, al llegar a la frecuencia nueva se hace ese «rebote» solo (normal → la del vídeo) mientras la pantalla
+     * aún está en negro por el primer cambio, y el vídeo no se vuelve a abrir hasta que todo ha terminado.
+     */
+    private fun applyMode(modeId: Int, why: String) {
+        val lp = window.attributes
+        if (lp.preferredDisplayModeId == modeId) return
+        val display = window.decorView.display
+        val before = display?.mode
+        if (modeId != 0 && before?.modeId == modeId) {
+            setPref(modeId)
+            return
+        }
+        val gen = ++switchGen
+        com.suso.miiptv.data.ErrorLog.add(
+            "Frecuencia ($why): pantalla en ${modeText(before)} · se pide " +
+                (if (modeId == 0) "la normal" else modeText(display?.supportedModes?.firstOrNull { it.modeId == modeId })),
+        )
+        ctl?.holdForDisplaySwitch()
+        val resume = {
+            later(gen, 1200) {
+                com.suso.miiptv.data.ErrorLog.add("Frecuencia: ya en ${modeText(window.decorView.display?.mode)}")
+                ctl?.resumeAfterDisplaySwitch()
+            }
+        }
+        setPref(modeId)
+        waitForChange(gen, before?.modeId, if (modeId == 0) 2500 else 4000) {
+            if (modeId == 0) {
+                resume()
+                return@waitForChange
+            }
+            // Rebote: un momento en la frecuencia nueva, vuelta a la normal y otra vez a la nueva.
+            later(gen, 1500) {
+                setPref(0)
+                later(gen, 400) {
+                    setPref(modeId)
+                    // Se da tiempo a que la pantalla vuelva (o no llegue a salir) de la frecuencia nueva.
+                    later(gen, 2500) { resume() }
+                }
+            }
+        }
     }
 
     /** Vuelve a la frecuencia normal de la pantalla (canal que no es SAT, o ajuste desactivado). */
