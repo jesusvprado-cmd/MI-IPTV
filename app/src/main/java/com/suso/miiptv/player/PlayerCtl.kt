@@ -669,6 +669,36 @@ class PlayerCtl(ctx: Context) {
         videoFormat?.let { onVideoFormat?.invoke(it) }
     }
 
+    /** La pantalla está cambiando de frecuencia: el vídeo espera parado. */
+    var displaySwitching = false
+        private set
+
+    /**
+     * Antes de cambiar la frecuencia de la pantalla se para el vídeo (y se suelta el decodificador). En la Mi Box,
+     * si la frecuencia cambia con el vídeo en marcha, este se queda a microsaltos hasta que algo lo reinicia.
+     */
+    fun holdForDisplaySwitch() {
+        if (displaySwitching) return
+        displaySwitching = true
+        resetWatchdog()
+        handler.removeCallbacks(clearNoticeRunnable)
+        notice = "Ajustando la pantalla al vídeo…"
+        buffering = true
+        player.stop()
+    }
+
+    /** La pantalla ya ha cambiado: se vuelve a abrir el vídeo desde cero, ya sincronizado con la nueva frecuencia. */
+    fun resumeAfterDisplaySwitch() {
+        if (!displaySwitching) return
+        displaySwitching = false
+        handler.postDelayed(clearNoticeRunnable, 2500)
+        if (current.live) load(current.url, 0, triedHls) else {
+            player.prepare()
+            player.play()
+        }
+    }
+    private val clearNoticeRunnable = Runnable { if (notice == "Ajustando la pantalla al vídeo…") notice = null }
+
     private fun load(rawUrl: String, pos: Long, forceHls: Boolean) {
         val url = if (altLiveFormat && current.live) swapLiveFormat(rawUrl) else rawUrl
         val b = MediaItem.Builder().setUri(url)
@@ -838,7 +868,7 @@ class PlayerCtl(ctx: Context) {
 
     /** Se llama cada medio segundo: si la imagen de un directo no avanza, se reconecta el canal solo. */
     private fun watchdog() {
-        if (!current.live || error != null || videoProblem != null || !player.playWhenReady || player.mediaItemCount == 0) {
+        if (!current.live || error != null || videoProblem != null || displaySwitching || !player.playWhenReady || player.mediaItemCount == 0) {
             stuckSince = 0L
             return
         }

@@ -32,48 +32,88 @@ class PlayerActivity : ComponentActivity() {
         c.onFinished = { finish() }
         // La frecuencia de la pantalla se ajusta (o se deja como estaba) según el ajuste, que también se cambia desde las opciones.
         // Solo en los canales SAT: en el resto el cambio de frecuencia solo provoca un corte de imagen al entrar.
-        c.onVideoFormat = { f -> if (Repo.prefs.afr && isSatChannel(c.current)) matchWhenStable(f.frameRate) else resetFrameRate() }
+        c.onVideoFormat = { f -> if (Repo.prefs.afr && isSatChannel(c.current)) matchFrameRate(f.frameRate) else resetFrameRate() }
         ctl = c
         c.start()
         setContent { AppTheme { PlayerScreen(c) { finish() } } }
     }
 
     private var afrApplied = -1f
-    private var afrPending = -1f
+
+    /** Lee un archivo del sistema (en los aparatos Amlogic, /sys/class/display/mode dice la salida HDMI real). */
+    private fun sys(path: String): String = try {
+        java.io.File(path).readText().trim()
+    } catch (e: Exception) {
+        "?"
+    }
+
+    private fun modeText(m: android.view.Display.Mode?): String =
+        if (m == null) "?" else "modo ${m.modeId} (${"%.2f".format(m.refreshRate)} Hz)"
+
+    private var switchListener: android.hardware.display.DisplayManager.DisplayListener? = null
 
     /**
-     * En la Mi Box, si la frecuencia cambia mientras el vídeo arranca, se queda a microsaltos; cambiándola con el
-     * vídeo ya en marcha (lo que pasaba al apagar y encender el ajuste) va fino. Se espera a que el vídeo lleve
-     * 2 s mostrándose y entonces se hace el cambio, una sola vez.
+     * Pide a la pantalla el modo [modeId] (0 = el normal del aparato). Si de verdad va a cambiar, el vídeo se para
+     * antes, se espera a que la pantalla termine el cambio (y a que la tele se asiente) y entonces se vuelve a abrir.
+     * Así el vídeo arranca ya con la frecuencia nueva, como cuando se apagaba y encendía el ajuste a mano.
      */
-    private fun matchWhenStable(fps: Float) {
-        if (fps <= 0f || fps == afrApplied) return
-        afrPending = fps
-        val c = ctl ?: return
-        val now = android.os.SystemClock.elapsedRealtime()
-        val wait = if (c.firstFrameAt == 0L) 1000L else (c.firstFrameAt + 2000L - now)
-        window.decorView.postDelayed({
-            if (isFinishing || afrPending != fps) return@postDelayed
-            val cc = ctl ?: return@postDelayed
-            if (!Repo.prefs.afr || !isSatChannel(cc.current)) return@postDelayed
-            if (cc.firstFrameAt == 0L || android.os.SystemClock.elapsedRealtime() - cc.firstFrameAt < 2000L) {
-                matchWhenStable(fps) // aún arrancando: se vuelve a mirar en un momento
-                return@postDelayed
+    private fun applyMode(modeId: Int, why: String) {
+        val lp = window.attributes
+        if (lp.preferredDisplayModeId == modeId) return
+        val display = window.decorView.display
+        val before = display?.mode
+        if (modeId != 0 && before?.modeId == modeId) {
+            lp.preferredDisplayModeId = modeId
+            window.attributes = lp
+            return
+        }
+        com.suso.miiptv.data.ErrorLog.add(
+            "Frecuencia ($why): pantalla en ${modeText(before)} · HDMI ${sys("/sys/class/display/mode")} · se pide " +
+                (if (modeId == 0) "la normal" else modeText(display?.supportedModes?.firstOrNull { it.modeId == modeId })),
+        )
+        val c = ctl
+        c?.holdForDisplaySwitch()
+        val dm = getSystemService(android.hardware.display.DisplayManager::class.java)
+        switchListener?.let { runCatching { dm?.unregisterDisplayListener(it) } }
+        var done = false
+        val finishSwitch = object : Runnable {
+            override fun run() {
+                if (done) return
+                done = true
+                switchListener?.let { runCatching { dm?.unregisterDisplayListener(it) } }
+                switchListener = null
+                // La tele tarda un poco en mostrar imagen tras el cambio: se espera antes de volver a abrir el vídeo.
+                window.decorView.postDelayed({
+                    com.suso.miiptv.data.ErrorLog.add(
+                        "Frecuencia: ya en ${modeText(window.decorView.display?.mode)} · HDMI ${sys("/sys/class/display/mode")}",
+                    )
+                    if (!isFinishing) ctl?.resumeAfterDisplaySwitch()
+                }, 1200)
             }
-            afrPending = -1f
-            matchFrameRate(fps)
-        }, wait.coerceAtLeast(0L))
-    }
-    private var afrLogged = false
+        }
+        val l = object : android.hardware.display.DisplayManager.DisplayListener {
+            override fun onDisplayChanged(displayId: Int) {
+                val now = window.decorView.display?.mode?.modeId
+                if (now != before?.modeId) finishSwitch.run()
+            }
 
-    /** Vuelve a la frecuencia normal de la pantalla (al desactivar el ajuste desde las opciones). */
+            override fun onDisplayAdded(displayId: Int) {}
+            override fun onDisplayRemoved(displayId: Int) {}
+        }
+        switchListener = l
+        runCatching { dm?.registerDisplayListener(l, android.os.Handler(android.os.Looper.getMainLooper())) }
+        lp.preferredDisplayModeId = modeId
+        window.attributes = lp
+        // Por si el aparato no avisa del cambio.
+        window.decorView.postDelayed(finishSwitch, if (modeId == 0) 2500 else 4000)
+    }
+
+    /** Vuelve a la frecuencia normal de la pantalla (canal que no es SAT, o ajuste desactivado). */
     private fun resetFrameRate() {
         if (afrApplied <= 0f) return
         afrApplied = -1f
         try {
-            val lp = window.attributes
-            lp.preferredDisplayModeId = 0
-            window.attributes = lp
+            applyMode(0, "normal")
         } catch (e: Exception) {
             // Sin importancia.
         }
@@ -98,18 +138,7 @@ class PlayerActivity : ComponentActivity() {
             val b = same.filter { fits(it) }.minByOrNull { it.refreshRate }
                 ?: return
             afrApplied = fps
-            val lp = window.attributes
-            if (lp.preferredDisplayModeId != b.modeId) {
-                lp.preferredDisplayModeId = b.modeId
-                window.attributes = lp
-            }
-            if (!afrLogged) {
-                afrLogged = true
-                com.suso.miiptv.data.ErrorLog.add(
-                    "Frecuencia: vídeo a $fps fps · pantalla en ${cur.refreshRate} Hz (modo ${cur.modeId}) · se pide modo ${b.modeId} (${b.refreshRate} Hz) · modos: " +
-                        display.supportedModes.joinToString { "${it.modeId}=${it.physicalWidth}x${it.physicalHeight}@${"%.2f".format(it.refreshRate)}" },
-                )
-            }
+            applyMode(b.modeId, "vídeo a $fps fps")
         } catch (e: Exception) {
             // Este dispositivo no permite cambiar la frecuencia.
         }
@@ -132,6 +161,7 @@ class PlayerActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        switchListener?.let { l -> runCatching { getSystemService(android.hardware.display.DisplayManager::class.java)?.unregisterDisplayListener(l) } }
         ctl?.release()
         ctl = null
         PlayerHolder.fullscreen = false
