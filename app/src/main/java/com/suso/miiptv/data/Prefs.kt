@@ -17,6 +17,11 @@ class Prefs(ctx: Context) {
 
     private val sp = ctx.getSharedPreferences("miiptv", Context.MODE_PRIVATE)
 
+    init {
+        // Una sola vez: el ajuste de frecuencia de la pantalla pasa a desactivado (se activa a mano si hace falta).
+        if (!sp.getBoolean("afrOff209", false)) sp.edit().putBoolean("afr", false).putBoolean("afrOff209", true).apply()
+    }
+
     /** Cambia cada vez que cambian favoritos o progreso, para refrescar la interfaz. */
     var version by mutableIntStateOf(0)
         private set
