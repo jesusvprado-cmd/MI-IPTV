@@ -542,6 +542,18 @@ class PlayerCtl(ctx: Context) {
             if (!player.isPlaying) player.play()
             it.channel?.let { ch -> Repo.prefs.lastLive = ch.key }
             loadEpg()
+            // El vídeo ya estaba en marcha en la previsualización: no llegará un aviso de «pistas nuevas», así que
+            // se toman ahora sus datos (y se vuelven a medir los fps) para ajustar la frecuencia de la pantalla.
+            firstFrame = true
+            measuredFps = 0f
+            frameCount = 0
+            player.videoFormat?.let { vf ->
+                videoSelected = true
+                lastVideoFormat = vf
+                videoFormat = vf
+                refreshVideoInfo()
+                onVideoFormat?.invoke(vf)
+            }
             return
         }
         play(PlayQueue.index, PlayQueue.startPos)
