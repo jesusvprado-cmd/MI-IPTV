@@ -800,7 +800,7 @@ private fun VideoSection(ask: Ask) {
         }
         ToggleRow(
             "Ajustar la frecuencia de la pantalla", "set_afr", p.afr,
-            subtitle = "Cambia a 24, 25, 50 o 60 Hz según el vídeo, si tu tele lo permite",
+            subtitle = "Solo en los canales SAT: cambia la frecuencia de la pantalla a la del vídeo, si tu tele lo permite",
         ) { p.afr = it }
         SettingRow(
             "Modo ligero", "set_light",

@@ -1049,6 +1049,9 @@ class PlayerCtl(ctx: Context) {
 
 private val SAT_NAME = Regex("\\bSAT\\b", RegexOption.IGNORE_CASE)
 
+/** Canal de satélite («SAT» en el nombre). */
+internal fun isSatChannel(it: com.suso.miiptv.data.PlayItem): Boolean = it.live && SAT_NAME.containsMatchIn(it.title)
+
 /** Nombre del formato de vídeo para mostrarlo. */
 internal fun codecName(mime: String?): String = when (mime) {
     MimeTypes.VIDEO_MPEG2 -> "MPEG-2"

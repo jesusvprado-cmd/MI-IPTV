@@ -31,7 +31,8 @@ class PlayerActivity : ComponentActivity() {
         val c = PlayerCtl(this)
         c.onFinished = { finish() }
         // La frecuencia de la pantalla se ajusta (o se deja como estaba) según el ajuste, que también se cambia desde las opciones.
-        c.onVideoFormat = { f -> if (Repo.prefs.afr) matchFrameRate(f.frameRate) else resetFrameRate() }
+        // Solo en los canales SAT: en el resto el cambio de frecuencia solo provoca un corte de imagen al entrar.
+        c.onVideoFormat = { f -> if (Repo.prefs.afr && isSatChannel(c.current)) matchFrameRate(f.frameRate) else resetFrameRate() }
         ctl = c
         c.start()
         setContent { AppTheme { PlayerScreen(c) { finish() } } }
