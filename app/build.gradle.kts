@@ -24,12 +24,16 @@ android {
         }
     }
 
+    // Firma de la app: la llave (pepino.p12) va cifrada y su contraseña NO está en el código; la pone GitHub
+    // desde el secreto SIGNING_PASSWORD (o, en un ordenador, la propiedad -PsigningPassword=...).
+    val signingPass: String? = System.getenv("SIGNING_PASSWORD")?.takeIf { it.isNotBlank() }
+        ?: (project.findProperty("signingPassword") as String?)
     signingConfigs {
         create("propia") {
-            storeFile = file("miiptv.keystore")
-            storePassword = "miiptv123"
-            keyAlias = "miiptv"
-            keyPassword = "miiptv123"
+            storeFile = file("pepino.p12")
+            storePassword = signingPass
+            keyAlias = "pepino"
+            keyPassword = signingPass
             storeType = "pkcs12"
         }
     }
@@ -46,10 +50,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("propia")
-        }
-        debug {
-            signingConfig = signingConfigs.getByName("propia")
+            signingConfig = if (signingPass != null) signingConfigs.getByName("propia") else null
         }
     }
 

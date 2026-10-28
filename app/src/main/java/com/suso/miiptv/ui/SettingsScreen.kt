@@ -263,10 +263,35 @@ fun SettingsScreen(onChangeList: () -> Unit) {
             ContextCompat.checkSelfPermission(ctx, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
         ) writePerm.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE) else doBackup()
     }
+    fun restartApp() {
+        val i = ctx.packageManager.getLaunchIntentForPackage(ctx.packageName)
+            ?.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        if (i != null) ctx.startActivity(i)
+        Runtime.getRuntime().exit(0)
+    }
+    // Copia elegida con el selector de archivos: tras reinstalar la app, Android no deja leer directamente
+    // la copia que guardó la instalación anterior en Download (móviles y tablets con Android 11 o más).
+    val restoreDoc = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri != null) {
+            try {
+                val text = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) }
+                    ?: throw IllegalStateException("No se pudo leer el archivo")
+                com.suso.miiptv.data.Backup.restoreText(ctx, text)
+                restartApp()
+            } catch (e: Exception) {
+                Actions.toast(ctx, e.message ?: "No se pudo restaurar la copia")
+            }
+        }
+    }
     fun doRestore() {
         val d = com.suso.miiptv.data.Backup.date()
         if (d == null) {
-            Actions.toast(ctx, "No hay ninguna copia en la carpeta Download")
+            try {
+                Actions.toast(ctx, "Elige el archivo ${com.suso.miiptv.data.Backup.FILE_NAME} (en Descargas)")
+                restoreDoc.launch(arrayOf("application/json", "application/octet-stream", "*/*"))
+            } catch (e: Exception) {
+                Actions.toast(ctx, "No hay ninguna copia en la carpeta Download")
+            }
             return
         }
         val fecha = java.text.SimpleDateFormat("d/M/yyyy HH:mm", java.util.Locale("es", "ES")).format(java.util.Date(d))
@@ -274,10 +299,7 @@ fun SettingsScreen(onChangeList: () -> Unit) {
             if (!yes) return@ask
             try {
                 com.suso.miiptv.data.Backup.restore(ctx)
-                val i = ctx.packageManager.getLaunchIntentForPackage(ctx.packageName)
-                    ?.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                if (i != null) ctx.startActivity(i)
-                Runtime.getRuntime().exit(0)
+                restartApp()
             } catch (e: Exception) {
                 Actions.toast(ctx, e.message ?: "No se pudo restaurar la copia")
             }

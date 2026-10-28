@@ -95,7 +95,12 @@ object Backup {
     /** Restaura la copia. Lanza una excepción con un mensaje legible si el archivo no vale. */
     fun restore(ctx: Context, f: File = file()) {
         if (!f.exists()) throw IllegalStateException("No hay ninguna copia en la carpeta Download ($FILE_NAME)")
-        val root = JSONObject(f.readText())
+        restoreText(ctx, f.readText())
+    }
+
+    /** Restaura desde el contenido de una copia (por ejemplo, elegida con el selector de archivos). */
+    fun restoreText(ctx: Context, text: String) {
+        val root = JSONObject(text)
         if (root.optString("app") != "pepino-iptv") throw IllegalStateException("Ese archivo no es una copia de Pepino IPTV")
         val d = root.getJSONObject("datos")
         val e = ctx.getSharedPreferences("miiptv", Context.MODE_PRIVATE).edit().clear()

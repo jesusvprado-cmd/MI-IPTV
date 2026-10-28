@@ -54,7 +54,13 @@ jobs:
           if-no-files-found: ignore
 
       - name: Compilar
+        env:
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
         run: |
+          if [ -z "$SIGNING_PASSWORD" ]; then
+            echo "::error::Falta el secreto SIGNING_PASSWORD (contraseña de la llave de firma) en Settings → Secrets and variables → Actions"
+            exit 1
+          fi
           chmod +x gradlew
           set -o pipefail
           if ! ./gradlew assembleRelease --stacktrace --no-daemon -PbuildNumber=${{ github.run_number }} 2>&1 | tee build.log; then

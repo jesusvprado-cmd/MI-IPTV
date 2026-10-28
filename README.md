@@ -28,7 +28,7 @@ No trae canales: se usa con tu propia lista (Xtream Codes o M3U).
    Si el repositorio es público, la Mi Box puede descargarlo con la app Downloader desde:
    `https://github.com/TU_USUARIO/TU_REPOSITORIO/releases/latest/download/MiIPTV.apk`
 
-Cada versión nueva se instala encima de la anterior sin perder los datos (va firmada siempre con la misma clave `app/miiptv.keystore`).
+Cada versión nueva se instala encima de la anterior sin perder los datos: va firmada siempre con la misma llave, `app/pepino.p12`, que está cifrada. Su contraseña no está en el código: la pone GitHub desde el secreto `SIGNING_PASSWORD` (Settings → Secrets and variables → Actions). Sin ese secreto la compilación se para.
 
 ## Compilar en el ordenador (opcional)
 
