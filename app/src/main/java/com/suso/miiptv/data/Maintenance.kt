@@ -64,13 +64,16 @@ object ErrorLog {
     fun device(): String = "${Build.MANUFACTURER} ${Build.MODEL} · Android ${Build.VERSION.RELEASE}"
 }
 
-/** Copia de seguridad de ajustes, lista, favoritos y perfiles en un archivo de la carpeta Download. */
+/**
+ * Copia de seguridad de ajustes, lista, favoritos y perfiles en un archivo de la carpeta Download,
+ * cifrada con un PIN de 4 números (sin él no se puede leer ni restaurar).
+ */
 object Backup {
     const val FILE_NAME = "pepino-iptv-copia.json"
 
     fun file(): File = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), FILE_NAME)
 
-    fun export(ctx: Context): File {
+    fun export(ctx: Context, pin: String): File {
         val sp = ctx.getSharedPreferences("miiptv", Context.MODE_PRIVATE)
         val o = JSONObject()
         for ((k, v) in sp.all) {
@@ -79,30 +82,53 @@ object Backup {
                 is Int -> JSONObject().put("t", "i").put("v", v)
                 is Long -> JSONObject().put("t", "l").put("v", v)
                 is Float -> JSONObject().put("t", "f").put("v", v.toDouble())
-                is String -> JSONObject().put("t", "s").put("v", v)
+                // La cuenta y el perfil WireGuard van cifrados con la llave de este aparato, que no sirve en otro:
+                // en la copia van en claro, pero dentro del cifrado con el PIN.
+                is String -> JSONObject().put("t", "s").put("v", if (k == "config" || k == "wgConf") Secure.open(v) ?: continue else v)
                 is Set<*> -> JSONObject().put("t", "set").put("v", JSONArray(v.map { it.toString() }))
                 else -> continue
             }
             o.put(k, t)
         }
-        val root = JSONObject().put("app", "pepino-iptv").put("fecha", System.currentTimeMillis()).put("datos", o)
+        val root = JSONObject().put("app", "pepino-iptv").put("fecha", System.currentTimeMillis())
+            .put("cifrado", Secure.encryptBackup(o.toString(), pin))
         val f = file()
         f.parentFile?.mkdirs()
         f.writeText(root.toString(1))
         return f
     }
 
-    /** Restaura la copia. Lanza una excepción con un mensaje legible si el archivo no vale. */
-    fun restore(ctx: Context, f: File = file()) {
-        if (!f.exists()) throw IllegalStateException("No hay ninguna copia en la carpeta Download ($FILE_NAME)")
-        restoreText(ctx, f.readText())
+    /** Lee el archivo de copia de la carpeta Download; null si no existe o Android no deja leerlo. */
+    fun readFile(): String? = try {
+        file().takeIf { it.exists() }?.readText()
+    } catch (e: Exception) {
+        null
     }
 
-    /** Restaura desde el contenido de una copia (por ejemplo, elegida con el selector de archivos). */
-    fun restoreText(ctx: Context, text: String) {
-        val root = JSONObject(text)
+    /** Comprueba que es una copia de Pepino IPTV. Lanza una excepción con un mensaje legible si no. */
+    private fun parse(text: String): JSONObject {
+        val root = try {
+            JSONObject(text)
+        } catch (e: Exception) {
+            throw IllegalStateException("Ese archivo no es una copia de Pepino IPTV")
+        }
         if (root.optString("app") != "pepino-iptv") throw IllegalStateException("Ese archivo no es una copia de Pepino IPTV")
-        val d = root.getJSONObject("datos")
+        return root
+    }
+
+    fun isEncrypted(text: String): Boolean = runCatching { parse(text).has("cifrado") }.getOrDefault(false)
+
+    fun date(text: String): Long? = runCatching { parse(text).optLong("fecha").takeIf { it > 0 } }.getOrNull()
+
+    /** Restaura desde el contenido de una copia. [pin] solo hace falta si la copia está cifrada. */
+    fun restoreText(ctx: Context, text: String, pin: String?) {
+        val root = parse(text)
+        val d = if (root.has("cifrado")) {
+            if (pin == null) throw IllegalStateException("Esta copia necesita su PIN")
+            JSONObject(Secure.decryptBackup(root.getJSONObject("cifrado"), pin))
+        } else {
+            root.getJSONObject("datos")
+        }
         val e = ctx.getSharedPreferences("miiptv", Context.MODE_PRIVATE).edit().clear()
         for (k in d.keys()) {
             val o = d.getJSONObject(k)
@@ -111,6 +137,7 @@ object Backup {
                 "i" -> e.putInt(k, o.getInt("v"))
                 "l" -> e.putLong(k, o.getLong("v"))
                 "f" -> e.putFloat(k, o.getDouble("v").toFloat())
+                // Al arrancar de nuevo, la app vuelve a cifrar la cuenta con la llave de este aparato.
                 "s" -> e.putString(k, o.getString("v"))
                 "set" -> {
                     val a = o.getJSONArray("v")
@@ -119,12 +146,6 @@ object Backup {
             }
         }
         e.commit()
-    }
-
-    fun date(f: File = file()): Long? = try {
-        if (f.exists()) JSONObject(f.readText()).optLong("fecha").takeIf { it > 0 } else null
-    } catch (e: Exception) {
-        null
     }
 }
 

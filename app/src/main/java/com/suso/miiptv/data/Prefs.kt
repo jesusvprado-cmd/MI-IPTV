@@ -20,6 +20,20 @@ class Prefs(ctx: Context) {
     init {
         // Una sola vez: el ajuste de frecuencia de la pantalla pasa a desactivado (se activa a mano si hace falta).
         if (!sp.getBoolean("afrOff209", false)) sp.edit().putBoolean("afr", false).putBoolean("afrOff209", true).apply()
+        // Datos delicados: la cuenta y el perfil WireGuard se guardan cifrados con la llave del aparato,
+        // y del PIN solo su huella. Los que aún estén sin cifrar (versiones anteriores o una copia restaurada) se cifran ahora.
+        try {
+            val e = sp.edit()
+            for (k in listOf("config", "wgConf")) {
+                val v = sp.getString(k, null)
+                if (v != null && !Secure.isSealed(v)) Secure.seal(v)?.let { e.putString(k, it) }
+            }
+            val pin = sp.getString("pin", "") ?: ""
+            if (pin.isNotEmpty() && !pin.startsWith("p1:")) e.putString("pin", Secure.pinHash(pin))
+            e.apply()
+        } catch (e: Exception) {
+            // Si algo falla, se sigue con los datos como estaban.
+        }
     }
 
     /** Cambia cada vez que cambian favoritos o progreso, para refrescar la interfaz. */
@@ -31,10 +45,10 @@ class Prefs(ctx: Context) {
     }
 
     fun loadConfig(): Config? =
-        sp.getString("config", null)?.let { runCatching { Config.fromJson(JSONObject(it)) }.getOrNull() }
+        Secure.open(sp.getString("config", null))?.let { runCatching { Config.fromJson(JSONObject(it)) }.getOrNull() }
 
     fun saveConfig(c: Config) {
-        sp.edit().putString("config", c.toJson().toString()).apply()
+        sp.edit().putString("config", Secure.seal(c.toJson().toString())).apply()
     }
 
     var lastLive: String?
@@ -319,8 +333,8 @@ class Prefs(ctx: Context) {
         set(v) = putStr("warpConf", v)
 
     var wgConf: String?
-        get() = sp.getString("wgConf", null)
-        set(v) = putStr("wgConf", v)
+        get() = Secure.open(sp.getString("wgConf", null))
+        set(v) = putStr("wgConf", Secure.seal(v))
 
     var wgName: String?
         get() = sp.getString("wgName", null)
@@ -365,10 +379,13 @@ class Prefs(ctx: Context) {
         sp.edit().putStringSet("seenCats", seen).apply()
     }
 
-    /** PIN para ver o cambiar las categorías ocultas. "" = sin PIN. */
-    var pin: String
-        get() = str("pin", "")
-        set(v) = putStr("pin", v)
+    /** PIN para ver o cambiar las categorías ocultas (se guarda solo su huella). */
+    val hasPin: Boolean get() = str("pin", "").isNotEmpty()
+
+    fun pinMatches(p: String): Boolean = Secure.pinMatches(p, str("pin", ""))
+
+    /** "" quita el PIN. */
+    fun setPin(p: String) = putStr("pin", if (p.isEmpty()) "" else Secure.pinHash(p))
 
     // ---------- Recordatorios de programas ----------
 

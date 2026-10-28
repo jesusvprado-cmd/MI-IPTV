@@ -51,12 +51,12 @@ import kotlinx.coroutines.delay
 fun HiddenCatsScreen() {
     val ctx = LocalContext.current
     val prefs = Repo.prefs
-    var unlocked by remember { mutableStateOf(prefs.pin.isEmpty()) }
+    var unlocked by remember { mutableStateOf(!prefs.hasPin) }
     var pinMode by remember { mutableStateOf<String?>(null) } // "new" o "confirm:xxxx"
 
     if (!unlocked) {
         PinEntry("Introduce el PIN para ver las categorías ocultas", onCancel = { UiState.pop() }) { p ->
-            if (p == prefs.pin) unlocked = true else Actions.toast(ctx, "PIN incorrecto")
+            if (prefs.pinMatches(p)) unlocked = true else Actions.toast(ctx, "PIN incorrecto")
         }
         return
     }
@@ -71,7 +71,7 @@ fun HiddenCatsScreen() {
             val first = pm.removePrefix("confirm:")
             PinEntry("Repite el PIN", onCancel = { pinMode = null }) { p ->
                 if (p == first) {
-                    prefs.pin = p
+                    prefs.setPin(p)
                     Actions.toast(ctx, "PIN guardado")
                     pinMode = null
                 } else {
@@ -124,12 +124,12 @@ fun HiddenCatsScreen() {
             TvButton("Mostrar todas", "hc_all") {
                 prefs.setHidden((cats ?: emptyList()).map { prefs.catKey(kind, it.id) }, false)
             }
-            if (prefs.pin.isEmpty()) {
+            if (!prefs.hasPin) {
                 TvButton("Poner PIN", "hc_pin") { pinMode = "new" }
             } else {
                 TvButton("Cambiar PIN", "hc_pin") { pinMode = "new" }
                 TvButton("Quitar PIN", "hc_nopin") {
-                    prefs.pin = ""
+                    prefs.setPin("")
                     Actions.toast(ctx, "PIN quitado")
                 }
             }

@@ -41,7 +41,7 @@ jobs:
         run: |
           chmod +x gradlew
           set -o pipefail
-          if ! ./gradlew testDebugUnitTest --tests 'com.suso.miiptv.LogoGoldenTest' --no-daemon -PbuildNumber=${{ github.run_number }} 2>&1 | tee test.log; then
+          if ! ./gradlew testDebugUnitTest --tests 'com.suso.miiptv.LogoGoldenTest' --tests 'com.suso.miiptv.SecureTest' --no-daemon -PbuildNumber=${{ github.run_number }} 2>&1 | tee test.log; then
             grep -E "Han cambiado|ahora:|antes:|error:|e: " test.log | head -40 | while IFS= read -r l; do echo "::error::$l"; done
             exit 1
           fi

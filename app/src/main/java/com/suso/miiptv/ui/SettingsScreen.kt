@@ -244,30 +244,52 @@ fun SettingsScreen(onChangeList: () -> Unit) {
     }
     var logOpen by remember { mutableStateOf(false) }
 
-    // ---- Copia de seguridad ----
-    fun doBackup() {
+    // ---- Copia de seguridad (cifrada con un PIN de 4 números) ----
+    // backupPin: null = nada; "new" = elegir PIN; "confirm:1234" = repetirlo.
+    var backupPin by remember { mutableStateOf<String?>(null) }
+    // Copia leída que espera su PIN para restaurarse.
+    var restoreText by remember { mutableStateOf<String?>(null) }
+    var restoreBusy by remember { mutableStateOf(false) }
+    fun doBackup(pin: String) {
         scope.launch {
             try {
-                val f = io { com.suso.miiptv.data.Backup.export(ctx) }
-                Actions.toast(ctx, "Copia guardada en Download/${f.name}")
+                val f = io { com.suso.miiptv.data.Backup.export(ctx, pin) }
+                Actions.toast(ctx, "Copia cifrada guardada en Download/${f.name}")
             } catch (e: Exception) {
                 Actions.toast(ctx, "No se pudo guardar la copia: ${e.message ?: "error"}")
             }
         }
     }
     val writePerm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
-        if (ok) doBackup() else Actions.toast(ctx, "Sin permiso no se puede guardar en la carpeta Download")
+        if (ok) backupPin = "new" else Actions.toast(ctx, "Sin permiso no se puede guardar en la carpeta Download")
     }
     fun backup() {
         if (Build.VERSION.SDK_INT <= 28 &&
             ContextCompat.checkSelfPermission(ctx, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
-        ) writePerm.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE) else doBackup()
+        ) writePerm.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE) else backupPin = "new"
     }
     fun restartApp() {
         val i = ctx.packageManager.getLaunchIntentForPackage(ctx.packageName)
             ?.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)
         if (i != null) ctx.startActivity(i)
         Runtime.getRuntime().exit(0)
+    }
+    /** Restaura [text] (con su PIN si está cifrada) y reinicia la app. Con un PIN incorrecto lo vuelve a pedir. */
+    fun applyRestore(text: String, pin: String?) {
+        restoreBusy = true
+        scope.launch {
+            try {
+                io { com.suso.miiptv.data.Backup.restoreText(ctx, text, pin) }
+                restartApp()
+            } catch (e: Exception) {
+                restoreBusy = false
+                Actions.toast(ctx, e.message ?: "No se pudo restaurar la copia")
+                if (e.message?.startsWith("PIN incorrecto") != true) restoreText = null
+            }
+        }
+    }
+    fun startRestore(text: String) {
+        if (com.suso.miiptv.data.Backup.isEncrypted(text)) restoreText = text else applyRestore(text, null)
     }
     // Copia elegida con el selector de archivos: tras reinstalar la app, Android no deja leer directamente
     // la copia que guardó la instalación anterior en Download (móviles y tablets con Android 11 o más).
@@ -276,16 +298,16 @@ fun SettingsScreen(onChangeList: () -> Unit) {
             try {
                 val text = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) }
                     ?: throw IllegalStateException("No se pudo leer el archivo")
-                com.suso.miiptv.data.Backup.restoreText(ctx, text)
-                restartApp()
+                startRestore(text)
             } catch (e: Exception) {
                 Actions.toast(ctx, e.message ?: "No se pudo restaurar la copia")
             }
         }
     }
     fun doRestore() {
-        val d = com.suso.miiptv.data.Backup.date()
-        if (d == null) {
+        val text = com.suso.miiptv.data.Backup.readFile()
+        val d = text?.let { com.suso.miiptv.data.Backup.date(it) }
+        if (text == null || d == null) {
             try {
                 Actions.toast(ctx, "Elige el archivo ${com.suso.miiptv.data.Backup.FILE_NAME} (en Descargas)")
                 restoreDoc.launch(arrayOf("application/json", "application/octet-stream", "*/*"))
@@ -296,13 +318,7 @@ fun SettingsScreen(onChangeList: () -> Unit) {
         }
         val fecha = java.text.SimpleDateFormat("d/M/yyyy HH:mm", java.util.Locale("es", "ES")).format(java.util.Date(d))
         ask("¿Restaurar la copia del $fecha?", listOf("Sí, restaurar (la app se reinicia)" to true, "No" to false), false) { yes ->
-            if (!yes) return@ask
-            try {
-                com.suso.miiptv.data.Backup.restore(ctx)
-                restartApp()
-            } catch (e: Exception) {
-                Actions.toast(ctx, e.message ?: "No se pudo restaurar la copia")
-            }
+            if (yes) startRestore(text)
         }
     }
     val readPerm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
@@ -312,6 +328,34 @@ fun SettingsScreen(onChangeList: () -> Unit) {
         if (Build.VERSION.SDK_INT <= 32 &&
             ContextCompat.checkSelfPermission(ctx, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
         ) readPerm.launch(Manifest.permission.READ_EXTERNAL_STORAGE) else doRestore()
+    }
+    val bp = backupPin
+    if (bp != null) {
+        if (bp == "new") {
+            PinEntry("Elige un PIN de 4 números para cifrar la copia", onCancel = { backupPin = null }) { p ->
+                if (p.length != 4) Actions.toast(ctx, "El PIN debe tener 4 números") else backupPin = "confirm:$p"
+            }
+        } else {
+            val first = bp.removePrefix("confirm:")
+            PinEntry("Repite el PIN (te lo pedirá al restaurar)", onCancel = { backupPin = null }) { p ->
+                if (p == first) {
+                    backupPin = null
+                    doBackup(p)
+                } else {
+                    Actions.toast(ctx, "Los PIN no coinciden")
+                    backupPin = "new"
+                }
+            }
+        }
+        return
+    }
+    val rt = restoreText
+    if (rt != null) {
+        PinEntry(
+            if (restoreBusy) "Restaurando…" else "PIN de la copia de seguridad",
+            onCancel = { restoreText = null },
+        ) { p -> if (!restoreBusy) applyRestore(rt, p) }
+        return
     }
     if (logOpen) {
         ErrorLogView { logOpen = false }
@@ -965,7 +1009,7 @@ private fun ContentSection() {
         SettingRow(
             "Categorías ocultas", "set_hidden",
             subtitle = "Las de adultos se ocultan solas. Puedes proteger esta opción con un PIN.",
-            value = if (p.pin.isNotEmpty()) "Con PIN" else null,
+            value = if (p.hasPin) "Con PIN" else null,
         ) { UiState.push(Screen.HiddenCats) }
         ToggleRow(
             "Logos de canales en alta calidad", "set_logos", p.hqLogos,
@@ -1033,10 +1077,10 @@ private fun AboutSection(onLog: () -> Unit, onBackup: () -> Unit, onRestore: () 
         }
     }
     GroupLabel("Copia de seguridad")
-    val last = remember { com.suso.miiptv.data.Backup.date() }
+    val last = remember { com.suso.miiptv.data.Backup.readFile()?.let { com.suso.miiptv.data.Backup.date(it) } }
     SettingRow(
         "Guardar copia de seguridad", "set_backup",
-        subtitle = "Lista, ajustes, perfiles, favoritos y vistos en Download/${com.suso.miiptv.data.Backup.FILE_NAME}",
+        subtitle = "Lista, ajustes, perfiles, favoritos y vistos, cifrados con un PIN, en Download/${com.suso.miiptv.data.Backup.FILE_NAME}",
         chevron = false,
     ) { onBackup() }
     SettingRow(
