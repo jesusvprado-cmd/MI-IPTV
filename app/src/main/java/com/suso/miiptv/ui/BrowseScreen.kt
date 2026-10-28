@@ -140,12 +140,13 @@ fun BrowseScreen(kind: Kind) {
     var catsFocused by remember { mutableStateOf(false) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val narrow = maxWidth < 700.dp
-        // Móvil en vertical: categorías en una fila deslizable arriba en vez de la columna de la izquierda.
-        val chips = com.suso.miiptv.data.Device.touch && maxWidth < 600.dp
+        // Móvil, o tablet en vertical: categorías en una fila deslizable arriba en vez de la columna de la izquierda
+        // (así la cuadrícula usa todo el ancho).
+        val chips = com.suso.miiptv.data.Device.touch && (maxWidth < 600.dp || maxHeight > maxWidth)
         Row(Modifier.fillMaxSize()) {
             if (!chips) LazyColumn(
                 state = st.cats,
-                modifier = Modifier.width(if (narrow) 140.dp else 290.dp).fillMaxHeight()
+                modifier = Modifier.width(if (narrow) 140.dp else if (com.suso.miiptv.data.Device.touch) 240.dp else 290.dp).fillMaxHeight()
                     .onFocusChanged { catsFocused = it.hasFocus },
                 contentPadding = PaddingValues(start = if (narrow) 6.dp else 22.dp, end = 6.dp, top = 14.dp, bottom = 24.dp),
             ) {
@@ -191,13 +192,16 @@ fun BrowseScreen(kind: Kind) {
                     // Móvil o tableta: carátulas del tamaño justo para que quepan enteras con su título
                     // (dos filas en vertical, una en horizontal), con el alto real y el tamaño de letra del teléfono.
                     val gapH = if (compact) 14.dp else 18.dp
+                    // Táctil: márgenes iguales a los dos lados (16 en el móvil, 24 en la tablet).
+                    val touchPad = if (compact) 16.dp else 24.dp
                     // En la tele: dos filas enteras con título y al menos 5 carátulas por fila.
                     val posterFit: androidx.compose.ui.unit.Dp? = if (kind != Kind.LIVE) {
-                        val rows = if (tvGrid || maxHeight > maxWidth) 2 else 1
+                        // Filas enteras que caben: 2 en la tele; en táctil según el alto (móvil 2 / 1, tablet 2-4).
+                        val rows = if (tvGrid) 2 else (maxHeight / 260.dp).toInt().coerceIn(1, 4)
                         val titleH = 7.dp + (Sz.small.value * 1.5f * fontScale).dp + 4.dp
                         val h = (maxHeight - 12.dp - (titleH.value * rows).dp - (20 * (rows - 1)).dp - 8.dp) / rows
                         val w = h * 2f / 3f
-                        val pads = if (compact) 32.dp else 44.dp
+                        val pads = if (tvGrid) 44.dp else touchPad * 2
                         val n = ((maxWidth - pads + gapH) / (128.dp + gapH)).toInt().coerceAtLeast(1)
                         val natural = (maxWidth - pads - (gapH.value * (n - 1)).dp) / n
                         if (tvGrid) {
@@ -220,7 +224,7 @@ fun BrowseScreen(kind: Kind) {
                             }
                             .focusGroup()
                             .fadeInOnChange(its),
-                        contentPadding = if (compact) PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 40.dp)
+                        contentPadding = if (!tvGrid) PaddingValues(start = touchPad, end = touchPad, top = 12.dp, bottom = 40.dp)
                         else PaddingValues(start = 14.dp, end = 30.dp, top = 14.dp, bottom = 40.dp),
                         horizontalArrangement = if (posterFit != null) Arrangement.spacedBy(gapH, androidx.compose.ui.Alignment.CenterHorizontally)
                         else Arrangement.spacedBy(if (phoneGrid) 10.dp else if (compact) 14.dp else if (kind == Kind.LIVE) (if (tvGrid) 12.dp else 14.dp) else 18.dp),

@@ -179,7 +179,7 @@ fun HomeRowView(row: HomeRow) {
                         val tv = !com.suso.miiptv.data.Device.touch
                         val phone = isCompactPhone()
                         ChannelCard(
-                            x.name, x.image, fk, Modifier.width(if (tv) 100.dp else if (phone) 112.dp else 170.dp), onLong = { Actions.toggleFav(ctx, x) },
+                            x.name, x.image, fk, Modifier.width(if (tv) 100.dp else if (phone) 112.dp else 130.dp), onLong = { Actions.toggleFav(ctx, x) },
                             nameSize = if (tv) (Sz.body.value - 1.5f).sp else if (phone) Sz.small else Sz.body,
                         ) {
                             Actions.playLive(ctx, row.items, i)

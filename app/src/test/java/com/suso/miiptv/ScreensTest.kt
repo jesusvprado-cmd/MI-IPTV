@@ -17,6 +17,12 @@ import com.suso.miiptv.data.SeriesDetail
 import com.suso.miiptv.data.Source
 import com.suso.miiptv.ui.AppTheme
 import com.suso.miiptv.ui.MainScreen
+import com.suso.miiptv.ui.MovieDetailScreen
+import com.suso.miiptv.ui.SeriesDetailScreen
+import com.suso.miiptv.ui.SettingsScreen
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.suso.miiptv.ui.Tab
 import com.suso.miiptv.ui.UiState
 import org.junit.Rule
@@ -49,11 +55,26 @@ class ScreensTest {
 
     private fun shoot(prefix: String, touch: Boolean) {
         setup(touch)
-        rule.setContent { AppTheme { MainScreen() } }
+        var screen by mutableStateOf("main")
+        rule.setContent {
+            AppTheme {
+                when (screen) {
+                    "movie" -> MovieDetailScreen(FakeSource.sample(Kind.MOVIE))
+                    "series" -> SeriesDetailScreen(FakeSource.sample(Kind.SERIES))
+                    "settings" -> SettingsScreen(onChangeList = {})
+                    else -> MainScreen()
+                }
+            }
+        }
         for (t in listOf(Tab.HOME, Tab.LIVE, Tab.MOVIES, Tab.SERIES, Tab.GUIDE, Tab.SEARCH)) {
             rule.runOnIdle { UiState.tab = t }
             settle()
             save("${prefix}_${t.name.lowercase()}")
+        }
+        for (sc in listOf("movie", "series", "settings")) {
+            rule.runOnIdle { screen = sc }
+            settle()
+            save("${prefix}_z_$sc")
         }
     }
 
@@ -123,8 +144,25 @@ private object FakeSource : Source {
         }
     }
 
-    override suspend fun movieDetail(item: Item) = throw UnsupportedOperationException()
-    override suspend fun seriesDetail(item: Item) = throw UnsupportedOperationException()
+    fun sample(kind: Kind) = Item(kind, "${kind.name}1", "Kraken (2026)", rating = "6,2", added = System.currentTimeMillis() / 1000)
+
+    private const val PLOT = "Una expedición científica en los fiordos noruegos despierta a una criatura legendaria que lleva siglos " +
+        "dormida en lo más profundo del mar. Mientras el pueblo costero se prepara para lo peor, una bióloga marina intenta " +
+        "descubrir qué quiere realmente el monstruo antes de que sea demasiado tarde."
+
+    override suspend fun movieDetail(item: Item) = MovieDetail(
+        item, item.name, PLOT, "2026", "1h 52min", "Terror, Aventura", null, null, null,
+        "Ana Torrent, Luis Tosar, Marta Etura", "Pål Øie", "6.2",
+    )
+
+    override suspend fun seriesDetail(item: Item) = SeriesDetail(
+        item, "The Americans", PLOT, "2013", "Drama, Suspense", null, null, "Keri Russell, Matthew Rhys", "8.0",
+        (1..3).map { s ->
+            s to (1..8).map { e ->
+                com.suso.miiptv.data.Episode("$s-$e", s, e, "Episodio $e", "Resumen del episodio $e.", null, "45 min", "http://demo.tv/$s$e.mkv")
+            }
+        },
+    )
     override suspend fun epg(item: Item): List<EpgEntry> {
         val now = System.currentTimeMillis()
         val h = 3_600_000L
