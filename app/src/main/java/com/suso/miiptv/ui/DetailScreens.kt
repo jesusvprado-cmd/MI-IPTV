@@ -159,8 +159,7 @@ private fun BoxScope.HeroImage(url: String?) {
 
 /** Móvil en vertical: la ficha ocupa todo el ancho. */
 @Composable
-internal fun compactDetail(): Boolean =
-    com.suso.miiptv.data.Device.touch && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 600
+internal fun compactDetail(): Boolean = isNarrowTouch() // móvil, o tablet en vertical
 
 /** Ancho del texto de la ficha (62 % en TV, todo en el móvil). */
 @Composable
@@ -566,11 +565,14 @@ fun SeriesDetailScreen(item: Item) {
     val firstFr = remember { FocusRequester() }
     val restoring = remember { FocusMemory.restore != null }
     val hs = rememberHeaderState(item.key)
-    // Cursor al entrar: en el primer botón de la fila («Continuar» si hay un episodio a medias; si no, «Leer más»; si no, ♥).
+    // Sin nada empezado: botón para ver el primer episodio de la serie.
+    val firstSeason = det?.seasons?.firstOrNull { it.second.isNotEmpty() }
+    val hasPlay = lastEp != null || firstSeason != null
+    // Cursor al entrar: en el primer botón de la fila («Continuar» / «Reproducir»; si no, «Leer más»; si no, ♥).
     LaunchedEffect(det != null) {
         if (det != null && !restoring) {
             delay(160) // da tiempo a saber si la sinopsis cabe entera (y por tanto si hay «Leer más»)
-            val target = if (lastEp == null && hs.overflow) hs.moreFr else firstFr
+            val target = if (!hasPlay && hs.overflow) hs.moreFr else firstFr
             runCatching { target.requestFocus() }
         }
     }
@@ -630,6 +632,15 @@ fun SeriesDetailScreen(item: Item) {
                             filled = true,
                             focusRequester = firstFr,
                         ) { continueLast() }
+                    } else if (firstSeason != null) {
+                        val ep = firstSeason.second.first()
+                        TvButton(
+                            "Reproducir T${firstSeason.first} E${ep.number}",
+                            "s_play",
+                            icon = Icons.Filled.PlayArrow,
+                            filled = true,
+                            focusRequester = firstFr,
+                        ) { playEpisodes(firstSeason.second, 0) }
                     }
                     if (hs.overflow) TvButton("Leer más", "s_more", focusRequester = hs.moreFr) { hs.fullOpen = true }
                     TvButton(
@@ -637,7 +648,7 @@ fun SeriesDetailScreen(item: Item) {
                         "s_fav",
                         icon = if (fav) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                         iconTint = if (fav) C.fav else null,
-                        focusRequester = if (lastEp == null) firstFr else null,
+                        focusRequester = if (!hasPlay) firstFr else null,
                     ) { Actions.toggleFav(ctx, item) }
                 }
             }

@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.text.Normalizer
@@ -116,6 +117,11 @@ object Repo {
             Logos.setSections(l.associate { it.name to (names[it.categoryId] ?: "") })
         }
         itemCache[k] = l
+        // Logos de la categoría calculados por adelantado, en segundo plano: al pintar las tarjetas ya están
+        // (en la Mi Box se notaba un tirón al abrir categorías grandes).
+        if (kind == Kind.LIVE && cat != null) repoScope.launch(Dispatchers.Default) {
+            for (it in l) runCatching { Logos.url(it.name, it.image) }
+        }
         return l
     }
 

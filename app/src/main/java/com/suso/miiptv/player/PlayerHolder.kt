@@ -27,6 +27,18 @@ import com.suso.miiptv.data.Repo
  */
 @OptIn(UnstableApi::class)
 object PlayerHolder {
+    /**
+     * Vídeo con el decodificador por software de Android en vez del del aparato: se activa solo cuando el del
+     * aparato no puede con un vídeo (p. ej. H.265 marcado como 4K en una tablet que solo admite 1080p).
+     */
+    @Volatile
+    var softwareVideo = false
+
+    private val codecSelector = androidx.media3.exoplayer.mediacodec.MediaCodecSelector { mime, secure, tunneling ->
+        val l = androidx.media3.exoplayer.mediacodec.MediaCodecUtil.getDecoderInfos(mime, secure, tunneling)
+        if (softwareVideo && mime.startsWith("video/")) l.sortedBy { if (it.softwareOnly) 0 else 1 } else l
+    }
+
     private var player: ExoPlayer? = null
     private var signature = ""
 
@@ -78,6 +90,7 @@ object PlayerHolder {
         // El decodificador de audio de la app (FFmpeg) se usa como respaldo, o siempre si así se ha elegido.
         val renderers = NoVsyncRenderersFactory(ctx.applicationContext, noVsync = !com.suso.miiptv.data.Device.touch)
             .setEnableDecoderFallback(true)
+            .setMediaCodecSelector(codecSelector)
             .setExtensionRendererMode(
                 if (prefs.audioDecode) DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
                 else DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON

@@ -124,7 +124,7 @@ object PlayQueue {
             ctx.startActivity(i)
             true
         } catch (e: ActivityNotFoundException) {
-            Toast.makeText(ctx, "No se pudo abrir el otro reproductor. Se usa el de la app.", Toast.LENGTH_SHORT).show()
+            com.suso.miiptv.ui.AppToast.show("No se pudo abrir el otro reproductor. Se usa el de la app.")
             false
         }
     }
@@ -216,8 +216,28 @@ class PlayerCtl(ctx: Context) {
         return true
     }
 
+    /** Ya se probó en este vídeo el decodificador por software. */
+    private var triedSoftware = false
+
+    /** El decodificador del aparato no puede con el vídeo: se reintenta una vez con el de software de Android. */
+    private fun trySoftware(why: String): Boolean {
+        if (triedSoftware) return false
+        triedSoftware = true
+        PlayerHolder.softwareVideo = true
+        com.suso.miiptv.data.ErrorLog.add("«${current.title}»: $why · se prueba con el decodificador por software")
+        notice = "Probando otro decodificador…"
+        error = null
+        videoProblem = null
+        retries = 0
+        val idx = index
+        val pos = if (current.live) 0 else position
+        handler.post { if (idx == index) load(current.url, pos, triedHls) }
+        return true
+    }
+
     private fun reportVideoProblem(what: String) {
         if (videoProblem != null) return
+        if (trySoftware("sin imagen")) return
         if (tryOtherFormat("sin imagen")) return
         videoProblem = what
         com.suso.miiptv.data.ErrorLog.add("Sin imagen en «${current.title}»: $what" + (decoderName?.let { " · decodificador $it" } ?: ""))
@@ -583,6 +603,8 @@ class PlayerCtl(ctx: Context) {
         if (i != index && items.getOrNull(index)?.live == true) prevIndex = index
         resetWatchdog()
         noImageReloads = 0
+        triedSoftware = false
+        PlayerHolder.softwareVideo = false
         autoSwitched = false
         pendingFormatSave = false
         lastVideoFormat = null
@@ -773,6 +795,8 @@ class PlayerCtl(ctx: Context) {
                 return
             }
         }
+        // El decodificador de vídeo del aparato falla: se prueba una vez con el de software.
+        if (code in 4000..4999 && trySoftware("el decodificador del aparato falla (${e.errorCodeName})")) return
         com.suso.miiptv.data.ErrorLog.add("Reproducción («${it.title}»): ${e.errorCodeName} (${e.message ?: "sin detalle"})")
         // Directo que no abre: antes de dar el error, se prueba solo el otro formato (TS ↔ HLS).
         if (it.live && code in 2000..4999 && tryOtherFormat("no abre")) return

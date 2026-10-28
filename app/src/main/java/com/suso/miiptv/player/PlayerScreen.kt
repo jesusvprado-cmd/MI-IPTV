@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.graphics.toArgb
 import com.suso.miiptv.ui.Sz
+import com.suso.miiptv.ui.AppToastHost
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -124,7 +125,7 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
     // Permiso de Android para la VPN (solo la primera vez).
     val vpnPerm = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
         if (r.resultCode == Activity.RESULT_OK) VpnManager.connect()
-        else Toast.makeText(ctx, "Sin permiso no se puede activar la VPN", Toast.LENGTH_SHORT).show()
+        else com.suso.miiptv.ui.AppToast.show("Sin permiso no se puede activar la VPN")
     }
     fun toggleVpn() {
         val p = Repo.prefs
@@ -141,7 +142,7 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
         try {
             vpnPerm.launch(intent)
         } catch (e: android.content.ActivityNotFoundException) {
-            Toast.makeText(ctx, "Este dispositivo no permite que las apps usen VPN", Toast.LENGTH_SHORT).show()
+            com.suso.miiptv.ui.AppToast.show("Este dispositivo no permite que las apps usen VPN")
         }
     }
     // Al conectar o desconectar la VPN se vuelve a abrir el canal por la nueva ruta.
@@ -176,7 +177,7 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
 
     fun toggleFav() {
         val added = ctl.toggleFavorite() ?: return
-        Toast.makeText(ctx, if (added) "Añadido a favoritos" else "Quitado de favoritos", Toast.LENGTH_SHORT).show()
+        com.suso.miiptv.ui.AppToast.show(if (added) "Añadido a favoritos" else "Quitado de favoritos")
         show()
     }
 
@@ -195,7 +196,7 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
             if (end > 0 && System.currentTimeMillis() >= end) {
                 SleepTimer.endAt = 0L
                 ctl.player.pause()
-                Toast.makeText(ctx, "Temporizador: reproducción detenida", Toast.LENGTH_LONG).show()
+                com.suso.miiptv.ui.AppToast.show("Temporizador: reproducción detenida", true)
                 onExit()
             }
             delay(500)
@@ -207,7 +208,7 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
         delay(1600)
         val n = typed.toIntOrNull()
         typed = ""
-        if (n != null && !ctl.zapToNumber(n)) Toast.makeText(ctx, "No hay canal $n", Toast.LENGTH_SHORT).show()
+        if (n != null && !ctl.zapToNumber(n)) com.suso.miiptv.ui.AppToast.show("No hay canal $n")
     }
     // Avisos breves (reconexión, VPN...).
     val notice = ctl.notice
@@ -526,13 +527,13 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
                 onPrevious = {
                     padOpen = false
                     typed = ""
-                    if (!ctl.zapBack()) Toast.makeText(ctx, "Aún no has cambiado de canal", Toast.LENGTH_SHORT).show()
+                    if (!ctl.zapBack()) com.suso.miiptv.ui.AppToast.show("Aún no has cambiado de canal")
                 },
                 onGo = {
                     val n = typed.toIntOrNull()
                     padOpen = false
                     typed = ""
-                    if (n != null && !ctl.zapToNumber(n)) Toast.makeText(ctx, "No hay canal $n", Toast.LENGTH_SHORT).show()
+                    if (n != null && !ctl.zapToNumber(n)) com.suso.miiptv.ui.AppToast.show("No hay canal $n")
                 },
                 modifier = Modifier.align(Alignment.Center),
             )
@@ -570,7 +571,7 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
                     tracksOpen = false
                     val url = Repo.catchupUrl(ch, e)
                     if (url == null) {
-                        Toast.makeText(ctx, "Este canal no permite verlo desde el principio", Toast.LENGTH_SHORT).show()
+                        com.suso.miiptv.ui.AppToast.show("Este canal no permite verlo desde el principio")
                     } else {
                         ctl.playCatchup(
                             com.suso.miiptv.data.PlayItem("CU|${ch.key}|${e.start}", e.title, ch.name + " · desde el principio", ch.image, url, false)
@@ -586,6 +587,7 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
                 onFav = if (item.live && item.channel != null) ({ toggleFav() }) else null,
             ) { tracksOpen = false }
         }
+        AppToastHost()
     }
 }
 

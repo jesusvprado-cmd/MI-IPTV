@@ -13,7 +13,8 @@ import com.suso.miiptv.player.PlayQueue
 import kotlinx.coroutines.launch
 
 object Actions {
-    fun toast(ctx: Context, msg: String) = Toast.makeText(ctx, msg, Toast.LENGTH_SHORT).show()
+    @Suppress("UNUSED_PARAMETER")
+    fun toast(ctx: Context, msg: String) = AppToast.show(msg)
 
     fun open(item: Item) {
         when (item.kind) {

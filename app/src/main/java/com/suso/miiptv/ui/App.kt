@@ -97,6 +97,7 @@ fun AppRoot(activity: Activity) {
             }
             if (configured && !editing && !picking) UpdateDialog()
             ExitHint(exitHint)
+            AppToastHost()
             SplashOverlay()
         }
       }
