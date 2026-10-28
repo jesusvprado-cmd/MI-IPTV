@@ -61,12 +61,14 @@ fun HomeScreen() {
                 val cats: List<Category> = try {
                     Repo.categories(kind)
                 } catch (e: Exception) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
                     if (required) throw e else emptyList()
                 }
                 val first = cats.firstOrNull() ?: continue
                 val list: List<Item> = try {
                     Repo.items(kind, first.id)
                 } catch (e: Exception) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
                     emptyList()
                 }
                 if (list.isNotEmpty()) rows.add(HomeRow("home_${kind.name}", "$label · ${first.name}", kind, list.take(40)))
@@ -75,6 +77,7 @@ fun HomeScreen() {
             UiState.homeVer = ver
             base = rows
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             error = e.message ?: "No se pudo cargar la lista"
         }
     }

@@ -72,6 +72,7 @@ fun BrowseScreen(kind: Kind) {
         try {
             cats = Repo.categories(kind)
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             catErr = e.message ?: "No se pudieron cargar las categorías"
         }
     }
@@ -114,6 +115,7 @@ fun BrowseScreen(kind: Kind) {
                 else -> Repo.items(kind, sel)
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             contentErr = e.message ?: "No se pudo cargar el contenido"
             emptyList()
         }

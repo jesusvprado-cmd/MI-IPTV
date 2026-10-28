@@ -23,6 +23,12 @@ object Http {
             .build()
     }
 
+    @Volatile
+    private var busyUntil = 0L
+
+    /** El servidor ha pedido esperar (HTTP 429) hace menos de 5 minutos. */
+    fun busy(): Boolean = System.currentTimeMillis() < busyUntil
+
     fun open(url: String): Response {
         // Si la VPN se está conectando, esperamos a que termine para no salir sin ella.
         var waited = 0
@@ -45,6 +51,11 @@ object Http {
         if (!r.isSuccessful) {
             val c = r.code
             r.close()
+            // «Demasiadas peticiones»: durante 5 minutos no se pide más guía (el proveedor corta si se insiste).
+            if (c == 429) {
+                busyUntil = System.currentTimeMillis() + 5 * 60_000L
+                throw IOException("El servidor pide esperar un poco (demasiadas peticiones, HTTP 429).")
+            }
             throw IOException(
                 if (c == 401 || c == 403) "Acceso denegado (HTTP $c). Revisa usuario y contraseña."
                 else "El servidor respondió con un error (HTTP $c)."
@@ -75,6 +86,8 @@ object DiskCache {
     fun init(ctx: android.content.Context) {
         dir = java.io.File(ctx.cacheDir, "catalogo").apply { mkdirs() }
     }
+
+    fun dirOrNull(): java.io.File? = dir
 
     fun clear() {
         dir?.listFiles()?.forEach { it.delete() }

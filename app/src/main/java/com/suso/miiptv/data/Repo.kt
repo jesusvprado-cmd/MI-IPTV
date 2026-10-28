@@ -147,8 +147,14 @@ object Repo {
         } else {
             val provider = suspend {
                 try {
-                    src().epg(item)
+                    // Primero la guía completa (un solo archivo para todos los canales); si el proveedor no la da,
+                    // la de cada canal, salvo si el servidor ha pedido esperar.
+                    providerXml(item)?.filter { it.end > now }
+                        ?: if (Http.busy()) emptyList() else src().epg(item)
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
                 } catch (e: Exception) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
                     ErrorLog.once("epg-proveedor", "Guía del proveedor: ${e.message ?: e.javaClass.simpleName}")
                     emptyList()
                 }
@@ -156,7 +162,10 @@ object Repo {
             val external = suspend {
                 try {
                     ExternalEpg.epg(item)
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
                 } catch (e: Exception) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
                     ErrorLog.once("epg-externa", "Guía externa: ${e.message ?: e.javaClass.simpleName}")
                     emptyList()
                 }
@@ -175,10 +184,18 @@ object Repo {
         return l.filter { it.end > now }
     }
 
+    /** Guía completa del proveedor para este canal; null si no está disponible. */
+    private suspend fun providerXml(item: Item): List<EpgEntry>? {
+        val url = src().xmltvUrl() ?: return null
+        return ProviderEpg.entries(item, url)
+    }
+
     /** Vuelve a pedir la guía (Ajustes → Guía → Actualizar). */
     fun refreshEpg() {
         epgCache.clear()
         ExternalEpg.reset()
+        ProviderEpg.reset()
+        synchronized(guideCache) { guideCache.clear() }
     }
 
     fun streamUrl(item: Item): String = item.url ?: src().streamUrl(item)
@@ -212,8 +229,15 @@ object Repo {
     private suspend fun loadGuide(item: Item): List<EpgEntry> {
         val now = System.currentTimeMillis()
         val full = try {
-            if (prefs.epgMode == "external") emptyList() else src().fullEpg(item)
+            when {
+                prefs.epgMode == "external" -> emptyList()
+                // Guía completa en un solo archivo; si no la hay, la de cada canal (salvo si el servidor pide esperar).
+                else -> providerXml(item) ?: if (Http.busy()) emptyList() else src().fullEpg(item)
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             ErrorLog.once("guia-completa", "Guía en parrilla: ${e.message ?: e.javaClass.simpleName}")
             emptyList()
         }
@@ -232,9 +256,13 @@ object Repo {
     suspend fun archiveWorks(ch: Item): Boolean? {
         if (ch.archive <= 0) return false
         val now = System.currentTimeMillis()
+        // La guía completa (XMLTV) no dice qué está grabado: se mira la de este canal (una sola petición, guardada 2 h).
         val flags = try {
-            guideEpg(ch).filter { it.end <= now }.mapNotNull { it.archived }
+            src().fullEpg(ch).filter { it.end <= now }.mapNotNull { it.archived }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             return null
         }
         return if (flags.isEmpty()) null else flags.any { it }
@@ -248,6 +276,7 @@ object Repo {
         val all = try {
             src().catchupUrls(item, start, minutes)
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             ErrorLog.add("Ver desde el principio: ${e.message ?: e.javaClass.simpleName}")
             emptyList()
         }
@@ -282,6 +311,7 @@ object Repo {
                         allCategories(k)
                         everything.addAll(items(k, null))
                     } catch (e: Exception) {
+                        if (e is kotlinx.coroutines.CancellationException) throw e
                         // Si un tipo falla, se busca en los demás.
                     }
                 }

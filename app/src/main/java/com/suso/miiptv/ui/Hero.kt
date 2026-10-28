@@ -284,6 +284,7 @@ private fun playMovie(ctx: android.content.Context, item: Item, h: HeaderInfo?) 
             pos,
         )
     } catch (e: Exception) {
+        if (e is kotlinx.coroutines.CancellationException) throw e
         Actions.toast(ctx, e.message ?: "No se puede reproducir")
     }
 }

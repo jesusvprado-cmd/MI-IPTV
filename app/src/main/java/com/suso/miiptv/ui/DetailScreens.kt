@@ -128,6 +128,7 @@ private fun basicHeader(item: Item) = HeaderInfo(item.key, item.name, "", item.r
 internal suspend fun loadHeader(item: Item): HeaderInfo = try {
     if (item.kind == Kind.SERIES) Repo.seriesDetail(item).header() else Repo.movieDetail(item).header()
 } catch (e: Exception) {
+    if (e is kotlinx.coroutines.CancellationException) throw e
     basicHeader(item)
 }
 
@@ -185,6 +186,7 @@ private fun RelatedRow(item: Item, onPreview: (Item) -> Unit) {
         related = try {
             Repo.items(item.kind, item.categoryId).filter { it.key != item.key && Repo.visible(it) }.take(30)
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             emptyList()
         }
     }
@@ -435,6 +437,7 @@ fun MovieDetailScreen(item: Item) {
         d = try {
             Repo.movieDetail(item)
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             MovieDetail(item, item.name, null, null, null, null, item.image, null, null, null, null, null)
         }
     }
@@ -466,6 +469,7 @@ fun MovieDetailScreen(item: Item) {
                 from,
             )
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             Actions.toast(ctx, e.message ?: "No se puede reproducir")
         }
     }
@@ -537,6 +541,7 @@ fun SeriesDetailScreen(item: Item) {
         d = try {
             Repo.seriesDetail(item)
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             failed = true
             SeriesDetail(item, item.name, null, null, null, item.image, null, null, null, emptyList())
         }

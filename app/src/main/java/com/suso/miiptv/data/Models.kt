@@ -187,4 +187,6 @@ interface Source {
     fun streamUrl(item: Item): String
     /** Dirección para ver un programa ya emitido (o desde el principio); null si el proveedor no lo permite. */
     fun catchupUrls(item: Item, start: Long, minutes: Int): List<String> = emptyList()
+    /** Guía completa de todos los canales en un solo archivo (XMLTV); null si la lista no la da. */
+    fun xmltvUrl(): String? = null
 }

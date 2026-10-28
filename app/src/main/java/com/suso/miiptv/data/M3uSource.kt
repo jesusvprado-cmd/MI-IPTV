@@ -196,6 +196,7 @@ class M3uSource(private val cfg: Config) : Source {
                     try {
                         io { loadXmltv(url) }
                     } catch (e: Exception) {
+                        if (e is kotlinx.coroutines.CancellationException) throw e
                         // Sin guía: no es un error grave.
                     }
                 }
@@ -218,6 +219,7 @@ class M3uSource(private val cfg: Config) : Source {
         return try {
             if (t.length > 15) fmtTz.parse(t)?.time ?: 0 else fmtPlain.parse(t.take(14))?.time ?: 0
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             0
         }
     }

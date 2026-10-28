@@ -33,6 +33,8 @@ object ErrorLog {
 
     @Synchronized
     fun add(msg: String) {
+        // Tareas canceladas a propósito (al salir de una pantalla): no son errores.
+        if (msg.contains("left the composition") || msg.contains("was cancelled") || msg.contains("Job was cancelled")) return
         val f = file ?: return
         try {
             val stamp = SimpleDateFormat("dd/MM HH:mm:ss", Locale("es", "ES")).format(Date())

@@ -108,10 +108,18 @@ fun GuideScreen() {
     // al bajar rápido las filas ya están listas, en vez de pedirse una a una al aparecer en pantalla.
     LaunchedEffect(channels) {
         val l = channels ?: return@LaunchedEffect
-        val permits = kotlinx.coroutines.sync.Semaphore(3)
+        val permits = kotlinx.coroutines.sync.Semaphore(2)
         kotlinx.coroutines.coroutineScope {
             l.take(PREFETCH_MAX).forEach { ch ->
-                launch { permits.acquire(); try { Repo.guideEpg(ch) } finally { permits.release() } }
+                launch {
+                    permits.acquire()
+                    try {
+                        // Si el servidor ha pedido esperar (HTTP 429), no se adelanta nada más.
+                        if (!com.suso.miiptv.data.Http.busy()) Repo.guideEpg(ch)
+                    } finally {
+                        permits.release()
+                    }
+                }
             }
         }
     }

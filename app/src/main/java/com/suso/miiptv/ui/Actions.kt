@@ -27,6 +27,7 @@ object Actions {
         try {
             PlayQueue.start(ctx, list.map { Repo.playItem(it) }, index, 0, fromPreview)
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             toast(ctx, e.message ?: "No se puede reproducir")
         }
     }

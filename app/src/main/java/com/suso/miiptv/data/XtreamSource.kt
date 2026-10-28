@@ -22,6 +22,8 @@ class XtreamSource(private val cfg: Config) : Source {
         "$base/player_api.php?username=$u&password=$p" +
             (if (action != null) "&action=$action" else "") + extra
 
+    override fun xmltvUrl(): String = "$base/xmltv.php?username=$u&password=$p"
+
     private fun json(url: String): JSONObject = try {
         JSONObject(Http.text(url))
     } catch (e: JSONException) {
@@ -119,6 +121,7 @@ class XtreamSource(private val cfg: Config) : Source {
                     if (item != null) out.add(item)
                 }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 if (out.isEmpty()) throw IOException("El servidor devolvió una respuesta no válida.")
             }
             out
