@@ -165,7 +165,7 @@ fun HeroCarousel(items: List<Item>) {
             },
     ) {
         // Imagen de fondo a la derecha, que se funde con lo que hay detrás (sin bordes duros).
-        val compact = isCompactPhone()
+        val compact = isNarrowTouch()
         Box(Modifier.matchParentSize()) {
         Crossfade(
             targetState = image,

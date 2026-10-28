@@ -127,6 +127,19 @@ fun fmtTime(ms: Long): String {
 fun isCompactPhone(): Boolean =
     com.suso.miiptv.data.Device.touch && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 600
 
+/** Pantalla táctil estrecha: móvil, o tablet en vertical (se usa el diseño del móvil). */
+@Composable
+fun isNarrowTouch(): Boolean {
+    if (!com.suso.miiptv.data.Device.touch) return false
+    val c = androidx.compose.ui.platform.LocalConfiguration.current
+    return c.screenWidthDp < 600 || c.screenHeightDp > c.screenWidthDp
+}
+
 /** Margen a los lados del contenido: amplio en la tele (zona segura) y estrecho en el móvil en vertical. */
 @Composable
-fun sideGap(): androidx.compose.ui.unit.Dp = if (isCompactPhone()) 16.dp else 40.dp
+fun sideGap(): androidx.compose.ui.unit.Dp {
+    if (!com.suso.miiptv.data.Device.touch) return 40.dp
+    // Táctil: estrecho en el móvil y en la tablet en vertical; algo más en la tablet en horizontal.
+    val c = androidx.compose.ui.platform.LocalConfiguration.current
+    return if (c.screenWidthDp < 600 || c.screenHeightDp > c.screenWidthDp) 16.dp else 24.dp
+}
