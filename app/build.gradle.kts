@@ -107,6 +107,10 @@ dependencies {
     // Prueba automática de logos (se ejecuta en GitHub antes de publicar cada versión).
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.13")
+    // Capturas de pantalla de prueba (móvil, tablet y tele) para revisar el diseño sin el aparato.
+    testImplementation(composeBom)
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
 
 // Copia la carpeta «logos» del proyecto a assets/logos/ dentro del APK.

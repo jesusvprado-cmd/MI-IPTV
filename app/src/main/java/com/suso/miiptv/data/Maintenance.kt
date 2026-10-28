@@ -153,7 +153,7 @@ object Device {
     /** true en móviles y tablets (pantalla táctil y sin interfaz de tele). */
     @Volatile
     var touch = false
-        private set
+        internal set
 
     fun init(ctx: Context) {
         val pm = ctx.packageManager
