@@ -2,10 +2,7 @@ package com.suso.miiptv
 
 import android.graphics.Bitmap
 import androidx.activity.ComponentActivity
-import androidx.compose.ui.graphics.asAndroidBitmap
-import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onRoot
 import com.suso.miiptv.data.AccountInfo
 import com.suso.miiptv.data.Category
 import com.suso.miiptv.data.Config
@@ -70,10 +67,18 @@ class ScreensTest {
     }
 
     private fun save(name: String) {
-        val bmp = rule.onRoot().captureToImage().asAndroidBitmap()
+        // Se dibuja la ventana entera en un mapa de bits (la captura de Compose no funciona en Robolectric).
+        var bmp: Bitmap? = null
+        rule.runOnUiThread {
+            val v = rule.activity.window.decorView
+            val b = Bitmap.createBitmap(v.width.coerceAtLeast(1), v.height.coerceAtLeast(1), Bitmap.Config.ARGB_8888)
+            v.draw(android.graphics.Canvas(b))
+            bmp = b
+        }
+        val out = bmp!!
         val f = File("build/screens/$name.png")
         f.parentFile?.mkdirs()
-        f.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        f.outputStream().use { out.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
     @Test @RConfig(sdk = [34], application = android.app.Application::class, qualifiers = "w411dp-h860dp-port-xxhdpi")
