@@ -134,7 +134,10 @@ fun GuideScreen() {
     }
     val pv = Repo.prefs.version
     val touch = com.suso.miiptv.data.Device.touch
-    val compact = touch && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 600
+    // Móvil, o tablet en vertical: categorías como píldoras arriba y la parrilla a todo el ancho.
+    val gcfg = androidx.compose.ui.platform.LocalConfiguration.current
+    val phoneW = touch && gcfg.screenWidthDp < 600
+    val compact = touch && (gcfg.screenWidthDp < 600 || gcfg.screenHeightDp > gcfg.screenWidthDp)
 
     Row(Modifier.fillMaxSize()) {
         // Categorías (en el móvil, como píldoras arriba)
@@ -174,7 +177,7 @@ fun GuideScreen() {
                 }
             }
             BoxWithConstraints(Modifier.fillMaxSize()) {
-                val chW = if (compact) 116.dp else 200.dp
+                val chW = if (phoneW) 116.dp else if (compact) 170.dp else 200.dp
                 val areaW = maxWidth - chW
                 val perMin: Dp = areaW / WIN_MIN.toFloat()
                 val winEnd = winStart + WIN_MIN * 60_000L
