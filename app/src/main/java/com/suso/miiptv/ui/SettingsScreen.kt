@@ -402,9 +402,10 @@ fun SettingsScreen(onChangeList: () -> Unit) {
         return
     }
 
-    // Móvil en vertical: primero la lista de secciones a pantalla completa; al tocar una, sus opciones.
+    // Móvil, o tablet en vertical: primero la lista de secciones a pantalla completa; al tocar una, sus opciones.
+    val cfg = androidx.compose.ui.platform.LocalConfiguration.current
     val compact = com.suso.miiptv.data.Device.touch &&
-        androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 600
+        (cfg.screenWidthDp < 600 || cfg.screenHeightDp > cfg.screenWidthDp)
     var mobilePane by remember { mutableStateOf(false) }
 
     // Atrás desde las opciones vuelve primero al menú de secciones.

@@ -118,7 +118,15 @@ fun HeroCarousel(items: List<Item>) {
             return@LaunchedEffect
         }
         progress.snapTo(0f)
-        progress.animateTo(1f, tween(SLIDE_MS, easing = LinearEasing))
+        // Con un reloj propio (no una animación): si el aparato tiene las animaciones desactivadas
+        // (opciones de desarrollador), una animación dura 0 s y los destacados pasaban a toda velocidad.
+        val start = android.os.SystemClock.elapsedRealtime()
+        while (true) {
+            val f = (android.os.SystemClock.elapsedRealtime() - start).toFloat() / SLIDE_MS
+            progress.snapTo(f.coerceAtMost(1f))
+            if (f >= 1f) break
+            delay(50)
+        }
         HeroState.index = (index + 1) % n
     }
 
