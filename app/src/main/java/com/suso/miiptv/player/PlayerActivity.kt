@@ -32,7 +32,7 @@ class PlayerActivity : ComponentActivity() {
         c.onFinished = { finish() }
         // La frecuencia de la pantalla se ajusta (o se deja como estaba) según el ajuste, que también se cambia desde las opciones.
         // Solo en los canales SAT: en el resto el cambio de frecuencia solo provoca un corte de imagen al entrar.
-        c.onVideoFormat = { f -> if (Repo.prefs.afr && isSatChannel(c.current)) matchFrameRate(f.frameRate) else resetFrameRate() }
+        c.onVideoFormat = { f -> if (Repo.prefs.afr) matchFrameRate(f.frameRate) else resetFrameRate() }
         ctl = c
         c.start()
         setContent { AppTheme { PlayerScreen(c) { finish() } } }
@@ -98,43 +98,11 @@ class PlayerActivity : ComponentActivity() {
      * Por eso, al llegar a la frecuencia nueva se hace ese «rebote» solo (normal → la del vídeo) mientras la pantalla
      * aún está en negro por el primer cambio, y el vídeo no se vuelve a abrir hasta que todo ha terminado.
      */
+    /** Pide a la pantalla el modo [modeId] (0 = el normal del aparato), sin parar el vídeo ni nada más. */
     private fun applyMode(modeId: Int, why: String) {
         val lp = window.attributes
         if (lp.preferredDisplayModeId == modeId) return
-        val display = window.decorView.display
-        val before = display?.mode
-        if (modeId != 0 && before?.modeId == modeId) {
-            setPref(modeId)
-            return
-        }
-        val gen = ++switchGen
-        com.suso.miiptv.data.ErrorLog.add(
-            "Frecuencia ($why): pantalla en ${modeText(before)} · se pide " +
-                (if (modeId == 0) "la normal" else modeText(display?.supportedModes?.firstOrNull { it.modeId == modeId })),
-        )
-        ctl?.holdForDisplaySwitch()
-        val resume = {
-            later(gen, 1200) {
-                com.suso.miiptv.data.ErrorLog.add("Frecuencia: ya en ${modeText(window.decorView.display?.mode)}")
-                ctl?.resumeAfterDisplaySwitch()
-            }
-        }
         setPref(modeId)
-        waitForChange(gen, before?.modeId, if (modeId == 0) 2500 else 4000) {
-            if (modeId == 0) {
-                resume()
-                return@waitForChange
-            }
-            // Rebote: un momento en la frecuencia nueva, vuelta a la normal y otra vez a la nueva.
-            later(gen, 1500) {
-                setPref(0)
-                later(gen, 400) {
-                    setPref(modeId)
-                    // Se da tiempo a que la pantalla vuelva (o no llegue a salir) de la frecuencia nueva.
-                    later(gen, 2500) { resume() }
-                }
-            }
-        }
     }
 
     /** Vuelve a la frecuencia normal de la pantalla (canal que no es SAT, o ajuste desactivado). */
