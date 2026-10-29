@@ -83,6 +83,36 @@ class PlayerActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * Imagen en imagen (móvil y tablet): al salir con el botón de inicio mientras se ve algo, sigue en una ventanita.
+     */
+    private fun pipParams(): android.app.PictureInPictureParams? {
+        if (Build.VERSION.SDK_INT < 26) return null
+        val f = ctl?.player?.videoFormat
+        val r = if (f != null && f.width > 0 && f.height > 0) {
+            val w = f.width.toFloat() * f.pixelWidthHeightRatio
+            // Android solo admite proporciones entre 1:2,39 y 2,39:1.
+            android.util.Rational((w * 100).toInt(), f.height * 100).let { x ->
+                if (x.toFloat() > 2.39f) android.util.Rational(239, 100) else if (x.toFloat() < 0.42f) android.util.Rational(100, 239) else x
+            }
+        } else android.util.Rational(16, 9)
+        return android.app.PictureInPictureParams.Builder().setAspectRatio(r).build()
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        val c = ctl ?: return
+        if (!com.suso.miiptv.data.Device.touch || Build.VERSION.SDK_INT < 26) return
+        if (!packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE)) return
+        if (!c.player.isPlaying) return
+        runCatching { pipParams()?.let { enterPictureInPictureMode(it) } }
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: android.content.res.Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        ctl?.pip = isInPictureInPictureMode
+    }
+
     override fun finish() {
         super.finish()
         @Suppress("DEPRECATION")
@@ -95,8 +125,11 @@ class PlayerActivity : ComponentActivity() {
     }
 
     override fun onStop() {
-        ctl?.onStop(isFinishing)
+        // Se ha cerrado la ventanita de imagen en imagen: se sale del reproductor.
+        val closingPip = ctl?.pip == true
+        ctl?.onStop(isFinishing || closingPip)
         super.onStop()
+        if (closingPip && !isFinishing) finish()
     }
 
     override fun onDestroy() {

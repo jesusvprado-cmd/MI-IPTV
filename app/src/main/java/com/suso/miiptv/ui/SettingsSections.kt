@@ -455,7 +455,7 @@ internal fun ContentSection() {
 }
 
 @Composable
-internal fun AboutSection(onLog: () -> Unit, onBackup: () -> Unit, onRestore: () -> Unit) {
+internal fun AboutSection(onLog: () -> Unit, onBackup: () -> Unit, onRestore: () -> Unit, onShare: () -> Unit = {}) {
     val ctx = LocalContext.current
     val version = remember {
         try {
@@ -512,6 +512,13 @@ internal fun AboutSection(onLog: () -> Unit, onBackup: () -> Unit, onRestore: ()
         subtitle = "Lista, ajustes, perfiles, favoritos y vistos, cifrados con un PIN, en Download/${com.suso.miiptv.data.Backup.FILE_NAME}",
         chevron = false,
     ) { onBackup() }
+    // Pasar favoritos, perfiles y ajustes a otro aparato: la copia cifrada se envía por WhatsApp, Drive, correo,
+    // «Send Files to TV»… y en el otro aparato se restaura con el mismo PIN.
+    if (com.suso.miiptv.data.Device.touch) SettingRow(
+        "Enviar copia a otro aparato", "set_share",
+        subtitle = "La copia cifrada, para restaurarla en otro aparato con el mismo PIN",
+        chevron = false,
+    ) { onShare() }
     SettingRow(
         "Restaurar copia de seguridad", "set_restore",
         subtitle = last?.let { "Copia del " + java.text.SimpleDateFormat("d/M/yyyy HH:mm", java.util.Locale("es", "ES")).format(java.util.Date(it)) }

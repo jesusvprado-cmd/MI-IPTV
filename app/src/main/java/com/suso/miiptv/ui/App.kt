@@ -95,6 +95,7 @@ fun AppRoot(activity: Activity) {
                     }
                 }
             }
+            if (configured && !editing && !picking) ItemMenuHost()
             if (configured && !editing && !picking) UpdateDialog()
             ExitHint(exitHint)
             AppToastHost()

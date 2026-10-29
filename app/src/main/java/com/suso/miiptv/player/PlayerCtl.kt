@@ -139,6 +139,9 @@ class PlayerCtl(ctx: Context) {
         private set
     val current: PlayItem get() = items[index.coerceIn(0, items.lastIndex)]
 
+    /** Se está viendo en una ventanita (imagen en imagen, móvil y tablet). */
+    var pip by mutableStateOf(false)
+
     var isPlaying by mutableStateOf(false)
         private set
     var buffering by mutableStateOf(true)

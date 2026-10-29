@@ -265,6 +265,8 @@ fun ChannelCard(
     onFocus: ((Boolean) -> Unit)? = null,
     onLong: (() -> Unit)? = null,
     nameSize: androidx.compose.ui.unit.TextUnit = Sz.body,
+    /** Línea pequeña bajo el nombre (p. ej. el programa que se emite ahora). */
+    subtitle: String? = null,
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
@@ -319,6 +321,12 @@ fun ChannelCard(
             overflow = if (focused) TextOverflow.Clip else TextOverflow.Ellipsis,
             modifier = if (focused) Modifier.basicMarquee() else Modifier,
         )
+        if (subtitle != null) {
+            Text(
+                subtitle, color = if (focused) C.gold else C.text2, fontSize = Sz.small,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }
 

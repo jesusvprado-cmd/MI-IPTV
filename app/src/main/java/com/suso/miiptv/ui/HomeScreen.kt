@@ -87,7 +87,7 @@ fun HomeScreen() {
             val prog = Repo.prefs.progressList()
             if (prog.isNotEmpty()) add(HomeRow("home_cont", "Continuar viendo", null, emptyList(), prog))
             listOf(
-                Kind.LIVE to "Canales favoritos",
+                Kind.LIVE to "Canales favoritos · ahora en directo",
                 Kind.MOVIE to "Películas favoritas",
                 Kind.SERIES to "Series favoritas",
             ).forEach { (k, t) ->
@@ -181,14 +181,22 @@ fun HomeRowView(row: HomeRow) {
                         // Del mismo tamaño que en la sección TV (tele y móvil).
                         val tv = !com.suso.miiptv.data.Device.touch
                         val phone = isCompactPhone()
+                        // Favoritos: debajo del nombre, lo que se emite ahora.
+                        val nowTitle = if (row.key == "home_fav_LIVE") {
+                            androidx.compose.runtime.produceState<String?>(null, x.key, Repo.dataVersion) {
+                                val t = System.currentTimeMillis()
+                                value = runCatching { Repo.epg(x).firstOrNull { it.start <= t && it.end > t }?.title }.getOrNull()
+                            }.value
+                        } else null
                         ChannelCard(
-                            x.name, x.image, fk, Modifier.width(if (tv) 100.dp else if (phone) 112.dp else 130.dp), onLong = { Actions.toggleFav(ctx, x) },
+                            x.name, x.image, fk, Modifier.width(if (tv) 100.dp else if (phone) 112.dp else 130.dp), onLong = { ItemMenu.open(x) },
                             nameSize = if (tv) (Sz.body.value - 1.5f).sp else if (phone) Sz.small else Sz.body,
+                            subtitle = nowTitle,
                         ) {
                             Actions.playLive(ctx, row.items, i)
                         }
                     } else {
-                        PosterCard(x.name, x.image, fk, Modifier.width(130.dp), item = x, onLong = { Actions.toggleFav(ctx, x) }) {
+                        PosterCard(x.name, x.image, fk, Modifier.width(130.dp), item = x, onLong = { ItemMenu.open(x) }) {
                             Actions.open(x)
                         }
                     }

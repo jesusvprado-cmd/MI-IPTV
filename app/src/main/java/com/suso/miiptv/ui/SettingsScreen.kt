@@ -247,6 +247,8 @@ fun SettingsScreen(onChangeList: () -> Unit) {
     // ---- Copia de seguridad (cifrada con un PIN de 4 números) ----
     // backupPin: null = nada; "new" = elegir PIN; "confirm:1234" = repetirlo.
     var backupPin by remember { mutableStateOf<String?>(null) }
+    // Al terminar de guardar la copia, enviarla a otro aparato.
+    var shareAfter by remember { mutableStateOf(false) }
     // Copia leída que espera su PIN para restaurarse.
     var restoreText by remember { mutableStateOf<String?>(null) }
     var restoreBusy by remember { mutableStateOf(false) }
@@ -254,7 +256,21 @@ fun SettingsScreen(onChangeList: () -> Unit) {
         scope.launch {
             try {
                 val f = io { com.suso.miiptv.data.Backup.export(ctx, pin) }
-                Actions.toast(ctx, "Copia cifrada guardada en Download/${f.name}")
+                if (shareAfter) {
+                    shareAfter = false
+                    val out = io {
+                        val dir = java.io.File(ctx.cacheDir, "copia").apply { mkdirs() }
+                        java.io.File(dir, f.name).also { f.copyTo(it, overwrite = true) }
+                    }
+                    val uri = androidx.core.content.FileProvider.getUriForFile(ctx, ctx.packageName + ".updates", out)
+                    val send = android.content.Intent(android.content.Intent.ACTION_SEND)
+                        .setType("application/json")
+                        .putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                        .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    ctx.startActivity(android.content.Intent.createChooser(send, "Enviar copia de Pepino IPTV"))
+                } else {
+                    Actions.toast(ctx, "Copia cifrada guardada en Download/${f.name}")
+                }
             } catch (e: Exception) {
                 Actions.toast(ctx, "No se pudo guardar la copia: ${e.message ?: "error"}")
             }
@@ -332,7 +348,7 @@ fun SettingsScreen(onChangeList: () -> Unit) {
     val bp = backupPin
     if (bp != null) {
         if (bp == "new") {
-            PinEntry("Elige un PIN de 4 números para cifrar la copia", onCancel = { backupPin = null }) { p ->
+            PinEntry("Elige un PIN de 4 números para cifrar la copia", onCancel = { backupPin = null; shareAfter = false }) { p ->
                 if (p.length != 4) Actions.toast(ctx, "El PIN debe tener 4 números") else backupPin = "confirm:$p"
             }
         } else {
@@ -624,7 +640,7 @@ fun SettingsScreen(onChangeList: () -> Unit) {
                             EpgSection(ask = { t, o, sel, f -> ask(t, o, sel, f) }, onUrl = { epgUrlDialog = true })
                         }
                         Sec.ABOUT -> item(key = "about") {
-                            Column { AboutSection(onLog = { logOpen = true }, onBackup = { backup() }, onRestore = { restore() }) }
+                            Column { AboutSection(onLog = { logOpen = true }, onBackup = { backup() }, onRestore = { restore() }, onShare = { shareAfter = true; backup() }) }
                         }
                     }
                 }

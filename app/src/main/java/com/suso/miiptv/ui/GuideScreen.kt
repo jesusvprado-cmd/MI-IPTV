@@ -65,7 +65,7 @@ import java.util.Date
 import java.util.Locale
 
 /** Categoría abierta en la guía (se recuerda al volver). */
-private object GuideState {
+internal object GuideState {
     var sel: String? = null
 }
 

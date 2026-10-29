@@ -406,6 +406,8 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
                 modifier = if (ratio != null) Modifier.aspectRatio(ratio) else Modifier.fillMaxSize(),
             )
         }
+        // Imagen en imagen (ventanita): solo el vídeo, sin controles ni avisos.
+        if (ctl.pip) return@Box
 
         // Capa táctil (móvil y tablet): toque = mostrar/ocultar; doble toque a los lados = ±10 s;
         // arrastrar en horizontal = avanzar/retroceder (o cambiar de canal en directo);

@@ -244,7 +244,7 @@ fun BrowseScreen(kind: Kind) {
                                 ChannelCard(
                                     x.name, x.image, fk, m,
                                     onFocus = { f -> if (f) { st.focused = x; st.lastIdx = i } },
-                                    onLong = { Actions.toggleFav(ctx, x) },
+                                    onLong = { ItemMenu.open(x) },
                                     nameSize = if (tvGrid) (Sz.body.value - 1.5f).sp else if (phoneGrid) Sz.small else Sz.body,
                                 ) { Actions.playLive(ctx, its, i, fromPreview = !narrow) }
                             } else {
@@ -252,7 +252,7 @@ fun BrowseScreen(kind: Kind) {
                                     x.name, x.image, fk, m,
                                     item = x,
                                     onFocus = { f -> if (f) st.lastIdx = i },
-                                    onLong = { Actions.toggleFav(ctx, x) },
+                                    onLong = { ItemMenu.open(x) },
                                     favBadge = sel != FAV,
                                 ) { Actions.open(x) }
                             }
