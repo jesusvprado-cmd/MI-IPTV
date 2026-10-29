@@ -271,9 +271,8 @@ fun ChannelCard(
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
-    // Con el cursor, la tarjeta crece más, lleva un marco verde intenso y un halo verde alrededor (sobre el blanco
-    // de todas las tarjetas el marco fino se veía poco en la tele).
-    val scale by animateFloatAsState(if (focused) 1.13f else 1f, Motion.focusSpec(), label = "chan")
+    // Con el cursor, la tarjeta crece bastante, con un marco verde muy fino, un halo verde y el nombre en verde claro.
+    val scale by animateFloatAsState(if (focused) 1.2f else 1f, Motion.focusSpec(), label = "chan")
     val borderA by animateFloatAsState(if (focused) 1f else 0f, Motion.focusSpec(), label = "cb")
     val shape = RoundedCornerShape(8.dp)
     // Logo en alta calidad si se encuentra; el nombre de debajo se deja tal cual.
@@ -302,7 +301,7 @@ fun ChannelCard(
                 .clip(shape)
                 .background(cardBg)
                 .border(
-                    if (focused) 4.dp else 2.dp,
+                    if (focused) 1.5.dp else 2.dp,
                     if (logo != null && focused) androidx.compose.ui.graphics.SolidColor(C.greenIntense) else focusFrame(borderA),
                     shape,
                 ),
