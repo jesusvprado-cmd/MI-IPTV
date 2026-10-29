@@ -14,7 +14,7 @@ android {
     defaultConfig {
         applicationId = "com.suso.miiptv"
         minSdk = 21
-        targetSdk = 34
+        targetSdk = 35
         versionCode = buildNumber
         versionName = "1.$buildNumber"
 
@@ -80,22 +80,22 @@ android {
 }
 
 dependencies {
-    val composeBom = platform("androidx.compose:compose-bom:2024.09.03")
+    val composeBom = platform("androidx.compose:compose-bom:2025.05.00")
     implementation(composeBom)
-    implementation("androidx.core:core-ktx:1.13.1")
-    implementation("androidx.activity:activity-compose:1.9.2")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
+    implementation("androidx.core:core-ktx:1.16.0")
+    implementation("androidx.activity:activity-compose:1.10.1")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-core")
 
-    implementation("androidx.media3:media3-exoplayer:1.5.0")
-    implementation("androidx.media3:media3-exoplayer-hls:1.5.0")
-    implementation("androidx.media3:media3-ui:1.5.0")
-    implementation("androidx.media3:media3-datasource-okhttp:1.5.0")
+    implementation("androidx.media3:media3-exoplayer:1.8.0")
+    implementation("androidx.media3:media3-exoplayer-hls:1.8.0")
+    implementation("androidx.media3:media3-ui:1.8.0")
+    implementation("androidx.media3:media3-datasource-okhttp:1.8.0")
     // Decodificador de audio (AC3, E-AC3, DTS...) para los equipos que no lo traen.
-    implementation("org.jellyfin.media3:media3-ffmpeg-decoder:1.5.0+1")
+    implementation("org.jellyfin.media3:media3-ffmpeg-decoder:1.8.0+1")
     // VPN WireGuard (WARP y perfiles propios).
     implementation("com.wireguard.android:tunnel:1.0.20230706")
 
@@ -103,7 +103,7 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.7.0")
     // Fila «Continuar viendo» de la pantalla de inicio de Android TV.
     implementation("androidx.tvprovider:tvprovider:1.0.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
     // Prueba automática de logos (se ejecuta en GitHub antes de publicar cada versión).
     testImplementation("junit:junit:4.13.2")
