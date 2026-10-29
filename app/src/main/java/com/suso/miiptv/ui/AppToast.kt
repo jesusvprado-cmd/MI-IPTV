@@ -51,9 +51,11 @@ object AppToast {
 @Composable
 fun BoxScope.AppToastHost() {
     val s = AppToast.serial
+    // Un aviso que ya se mostró antes de abrir esta pantalla (p. ej. en Ajustes) no se vuelve a enseñar aquí.
+    val shownBefore = remember { AppToast.serial }
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(s) {
-        if (s == 0) return@LaunchedEffect
+        if (s == 0 || s == shownBefore) return@LaunchedEffect
         visible = true
         delay(if (AppToast.long) 3800 else 2400)
         visible = false
