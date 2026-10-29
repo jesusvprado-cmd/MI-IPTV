@@ -270,7 +270,8 @@ fun ChannelLogoImage(url: String, modifier: Modifier = Modifier, fallback: Strin
     Box(Modifier.weight(1f).fillMaxHeight()) {
         AsyncImage(
             model = remember(model) {
-                ImageRequest.Builder(ctx).data(model).allowHardware(false).apply {
+                // Tamaño máximo al cargar: algunos logos vienen enormes (miles de píxeles) y en la Mi Box no llegaban a verse.
+                ImageRequest.Builder(ctx).data(model).allowHardware(false).size(720, 480).apply {
                     // Retoque de color: el elegido para ese logo o, si no, el automático para verse bien sobre blanco.
                     val x = if (model == clean) params["x"] else null
                     transformations(LogoRecolor(x ?: "auto"))

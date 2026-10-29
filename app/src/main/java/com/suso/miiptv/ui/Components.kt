@@ -35,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -270,7 +271,9 @@ fun ChannelCard(
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(if (focused) 1.08f else 1f, Motion.focusSpec(), label = "chan")
+    // Con el cursor, la tarjeta crece más, lleva un marco verde intenso y un halo verde alrededor (sobre el blanco
+    // de todas las tarjetas el marco fino se veía poco en la tele).
+    val scale by animateFloatAsState(if (focused) 1.13f else 1f, Motion.focusSpec(), label = "chan")
     val borderA by animateFloatAsState(if (focused) 1f else 0f, Motion.focusSpec(), label = "cb")
     val shape = RoundedCornerShape(8.dp)
     // Logo en alta calidad si se encuentra; el nombre de debajo se deja tal cual.
@@ -292,9 +295,17 @@ fun ChannelCard(
                     onFocus?.invoke(it)
                 }
                 .tvClick(onLong, onClick)
+                .then(
+                    if (focused) Modifier.shadow(14.dp, shape, ambientColor = C.greenIntense, spotColor = C.greenIntense)
+                    else Modifier
+                )
                 .clip(shape)
                 .background(cardBg)
-                .border(2.dp, if (logo != null && focused) androidx.compose.ui.graphics.SolidColor(C.gold) else focusFrame(borderA), shape),
+                .border(
+                    if (focused) 4.dp else 2.dp,
+                    if (logo != null && focused) androidx.compose.ui.graphics.SolidColor(C.greenIntense) else focusFrame(borderA),
+                    shape,
+                ),
             contentAlignment = Alignment.Center,
         ) {
             if (logo != null) {
@@ -306,9 +317,9 @@ fun ChannelCard(
         Spacer(Modifier.height(7.dp))
         Text(
             title,
-            color = if (focused) Color.White else C.text3,
+            color = if (focused) C.gold else C.text3,
             fontSize = nameSize,
-            fontWeight = FontWeight.Medium,
+            fontWeight = if (focused) FontWeight.Bold else FontWeight.Medium,
             maxLines = 1,
             overflow = if (focused) TextOverflow.Clip else TextOverflow.Ellipsis,
             modifier = if (focused) Modifier.basicMarquee() else Modifier,
