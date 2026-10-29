@@ -108,10 +108,17 @@ object DiskCache {
             if (r != null && valid(r)) return r
             f.delete()
         }
-        // 2) Se descarga a un archivo temporal.
+        // 2) Se descarga a un archivo temporal. Si no se puede escribir en el aparato (Android ha vaciado la caché o
+        //    no queda espacio, como pasa en algunos Chromecast), se lee directamente del servidor sin guardar copia.
         val tmp = java.io.File(f.parentFile, f.name + "." + System.nanoTime() + ".tmp")
+        val out = try {
+            f.parentFile?.mkdirs()
+            tmp.outputStream()
+        } catch (e: Exception) {
+            null
+        } ?: return Http.open(url).use { r -> parse(r.body!!.byteStream().buffered(65536)) }
         try {
-            Http.open(url).use { r -> tmp.outputStream().use { out -> r.body!!.byteStream().copyTo(out, 65536) } }
+            out.use { o -> Http.open(url).use { r -> r.body!!.byteStream().copyTo(o, 65536) } }
         } catch (e: Exception) {
             tmp.delete()
             // Sin conexión o servidor caído: la copia vieja, si la hay.

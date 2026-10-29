@@ -90,10 +90,19 @@ class XmlTvGuide(private val label: String, private val cacheName: String, priva
     private fun download(url: String): File {
         val f = cacheFile()
         if (f != null && f.exists() && f.length() > 0 && System.currentTimeMillis() - f.lastModified() < maxAgeMs) return f
+        f?.parentFile?.mkdirs()
         val tmp = File((f ?: File.createTempFile("xmltv", null)).path + ".part")
+        // Se guarda comprimida (ocupa unas 10 veces menos: importante en aparatos con poco espacio, como el Chromecast).
         Http.open(url).use { r ->
             val body = r.body ?: throw java.io.IOException("Respuesta vacía")
-            tmp.outputStream().use { out -> body.byteStream().copyTo(out, 65536) }
+            val input = java.io.BufferedInputStream(body.byteStream(), 65536)
+            input.mark(4)
+            val gz = input.read() == 0x1f && input.read() == 0x8b
+            input.reset()
+            tmp.outputStream().use { raw ->
+                if (gz) input.copyTo(raw, 65536)
+                else java.util.zip.GZIPOutputStream(raw, 65536).use { out -> input.copyTo(out, 65536) }
+            }
         }
         if (tmp.length() < 100) {
             tmp.delete()
