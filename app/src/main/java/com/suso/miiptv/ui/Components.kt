@@ -271,7 +271,7 @@ fun ChannelCard(
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
-    // Con el cursor, la tarjeta crece bastante, con un marco verde muy fino, un halo verde y el nombre en verde claro.
+    // Con el cursor, la tarjeta crece bastante: con eso ya se ve qué canal está seleccionado.
     val scale by animateFloatAsState(if (focused) 1.2f else 1f, Motion.focusSpec(), label = "chan")
     val borderA by animateFloatAsState(if (focused) 1f else 0f, Motion.focusSpec(), label = "cb")
     val shape = RoundedCornerShape(8.dp)
@@ -294,17 +294,10 @@ fun ChannelCard(
                     onFocus?.invoke(it)
                 }
                 .tvClick(onLong, onClick)
-                .then(
-                    if (focused) Modifier.shadow(14.dp, shape, ambientColor = C.greenIntense, spotColor = C.greenIntense)
-                    else Modifier
-                )
                 .clip(shape)
                 .background(cardBg)
-                .border(
-                    if (focused) 1.5.dp else 2.dp,
-                    if (logo != null && focused) androidx.compose.ui.graphics.SolidColor(C.greenIntense) else focusFrame(borderA),
-                    shape,
-                ),
+                // Sin logo (fondo oscuro), un marco para ver la selección; con logo basta con que la tarjeta crezca.
+                .then(if (logo == null) Modifier.border(2.dp, focusFrame(borderA), shape) else Modifier),
             contentAlignment = Alignment.Center,
         ) {
             if (logo != null) {
@@ -316,9 +309,9 @@ fun ChannelCard(
         Spacer(Modifier.height(7.dp))
         Text(
             title,
-            color = if (focused) C.gold else C.text3,
+            color = if (focused) Color.White else C.text3,
             fontSize = nameSize,
-            fontWeight = if (focused) FontWeight.Bold else FontWeight.Medium,
+            fontWeight = FontWeight.Medium,
             maxLines = 1,
             overflow = if (focused) TextOverflow.Clip else TextOverflow.Ellipsis,
             modifier = if (focused) Modifier.basicMarquee() else Modifier,
