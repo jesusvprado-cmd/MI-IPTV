@@ -43,6 +43,9 @@ import kotlinx.coroutines.withContext
 fun MissingLogosScreen() {
     var rows by remember { mutableStateOf<List<Pair<String, String>>?>(null) }
     var total by remember { mutableStateOf(0) }
+    // Todos los canales (sin adultos ni Latinos) con su logo, para mandarlos a revisar.
+    var export by remember { mutableStateOf<String?>(null) }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     val lv = Logos.version
     val firstFr = remember { FocusRequester() }
     LaunchedEffect(lv) {
@@ -67,6 +70,12 @@ fun MissingLogosScreen() {
                 .distinct()
         }
         rows = res
+        export = withContext(Dispatchers.Default) {
+            all.filter { Repo.visible(it) }
+                .filter { ch -> val c = names[ch.categoryId] ?: ""; !Repo.isAdult(c) && !c.contains("latino", ignoreCase = true) }
+                .distinctBy { it.name }
+                .joinToString("\n") { ch -> listOf(ch.name, names[ch.categoryId] ?: "", ch.image ?: "", Logos.url(ch.name, ch.image) ?: "").joinToString("|") }
+        }
         delay(80)
         runCatching { firstFr.requestFocus() }
     }
@@ -82,6 +91,24 @@ fun MissingLogosScreen() {
             },
             color = C.text2, fontSize = Sz.body,
         )
+        Spacer(Modifier.height(10.dp))
+        val ex = export
+        if (ex != null) {
+            TvButton("Enviar lista de canales para revisar los logos", "ml_send", filled = true) {
+                try {
+                    val dir = java.io.File(ctx.cacheDir, "copia").apply { mkdirs() }
+                    val f = java.io.File(dir, "canales-logos.txt").apply { writeText(ex) }
+                    val uri = androidx.core.content.FileProvider.getUriForFile(ctx, ctx.packageName + ".updates", f)
+                    val send = android.content.Intent(android.content.Intent.ACTION_SEND)
+                        .setType("text/plain")
+                        .putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                        .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    ctx.startActivity(android.content.Intent.createChooser(send, "Enviar lista de canales"))
+                } catch (e: Exception) {
+                    Actions.toast(ctx, "No se pudo enviar: ${e.message ?: "error"}")
+                }
+            }
+        }
         Spacer(Modifier.height(14.dp))
         if (r == null) {
             Loading()

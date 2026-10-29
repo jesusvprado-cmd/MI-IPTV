@@ -279,16 +279,8 @@ fun ChannelCard(
     val logo = remember(title, image, sv, lv) { Logos.url(title, image) }
     // Los logos oscuros (Telecinco, La 1...) van sobre un fondo claro para que se vean bien.
     var shownLogo by remember(logo) { mutableStateOf(logo) }
-    val darkLogo = LogoTone.isDark(shownLogo)
-    val whiteLogo = LogoTone.wantsWhite(logo) && shownLogo?.substringBefore('#') == logo?.substringBefore('#')
-    val cardBg by animateColorAsState(
-        when {
-            whiteLogo -> Color.White
-            darkLogo -> LogoTone.light
-            else -> C.card
-        },
-        Motion.focusSpec(), label = "cbg",
-    )
+    // Todos los canales sobre blanco (el logo se retoca solo para verse bien sobre él).
+    val cardBg = if (logo != null) Color.White else C.card
     Column(modifier) {
         Box(
             Modifier
@@ -302,7 +294,7 @@ fun ChannelCard(
                 .tvClick(onLong, onClick)
                 .clip(shape)
                 .background(cardBg)
-                .border(2.dp, if ((darkLogo || whiteLogo) && focused) androidx.compose.ui.graphics.SolidColor(C.gold) else focusFrame(borderA), shape),
+                .border(2.dp, if (logo != null && focused) androidx.compose.ui.graphics.SolidColor(C.gold) else focusFrame(borderA), shape),
             contentAlignment = Alignment.Center,
         ) {
             if (logo != null) {

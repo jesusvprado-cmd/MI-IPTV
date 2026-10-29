@@ -146,11 +146,7 @@ internal fun LiveOverlay(ctl: PlayerCtl, item: PlayItem, fav: Boolean, onFav: ()
                 Modifier.width(120.dp).height(76.dp).clip(RoundedCornerShape(8.dp))
                     .background(
                         Logos.url(item.title, item.image).let { u ->
-                            when {
-                                LogoTone.wantsWhite(u) -> Color.White
-                                LogoTone.isDark(u) -> LogoTone.light
-                                else -> Color(0x33FFFFFF)
-                            }
+                            if (u != null) Color.White else Color(0x33FFFFFF)
                         }
                     ),
                 contentAlignment = Alignment.Center,

@@ -160,11 +160,7 @@ internal fun ChannelListPanel(ctl: PlayerCtl, onPick: (Int) -> Unit, onClose: ()
                     Box(
                         Modifier.width(44.dp).height(28.dp).clip(RoundedCornerShape(4.dp))
                             .background(
-                                when {
-                                    LogoTone.wantsWhite(logo) -> Color.White
-                                    LogoTone.isDark(logo) -> LogoTone.light
-                                    else -> Color.Transparent
-                                }
+                                if (logo != null) Color.White else Color.Transparent
                             ),
                         contentAlignment = Alignment.Center,
                     ) {

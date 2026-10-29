@@ -527,6 +527,9 @@ internal fun AboutSection(onLog: () -> Unit, onBackup: () -> Unit, onRestore: ()
     ) { onRestore() }
     GroupLabel("Problemas")
     SettingRow("Registro de errores", "set_log", subtitle = "Lo último que ha fallado, para poder enseñármelo") { onLog() }
+    SettingRow("Revisión de logos", "set_logos", subtitle = "Canales sin logo de calidad y lista para mandarme a revisar") {
+        UiState.push(Screen.MissingLogos)
+    }
 }
 
 /** Ajustes → Perfiles: usar, añadir, renombrar y borrar perfiles. */

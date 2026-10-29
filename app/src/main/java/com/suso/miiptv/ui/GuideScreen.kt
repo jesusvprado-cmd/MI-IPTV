@@ -364,11 +364,7 @@ private fun GuideRow(
             // y, si no, el de las tarjetas (antes era un gris translúcido para todos los demás).
             var shown by remember(logo) { mutableStateOf(logo) }
             val white = LogoTone.wantsWhite(logo) && shown?.substringBefore('#') == logo?.substringBefore('#')
-            val bg = when {
-                white -> Color.White
-                LogoTone.isDark(shown) -> LogoTone.light
-                else -> C.card
-            }
+            val bg = if (logo != null) Color.White else C.card
             Box(
                 Modifier.width(if (compact) 48.dp else 62.dp).fillMaxHeight().clip(RoundedCornerShape(6.dp))
                     .background(bg),
