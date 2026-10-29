@@ -16,11 +16,11 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -32,7 +32,7 @@ jobs:
           yes | "$SDKM" --licenses > /dev/null || true
           "$SDKM" "platforms;android-34" "build-tools;34.0.0" "platform-tools"
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v5
 
       - name: Datos de los logos (van dentro de la app)
         run: python3 .github/scripts/logo_data.py
@@ -41,7 +41,7 @@ jobs:
         run: |
           chmod +x gradlew
           set -o pipefail
-          if ! ./gradlew testDebugUnitTest --tests 'com.suso.miiptv.LogoGoldenTest' --tests 'com.suso.miiptv.SecureTest' --no-daemon -PbuildNumber=${{ github.run_number }} 2>&1 | tee test.log; then
+          if ! ./gradlew testDebugUnitTest --tests 'com.suso.miiptv.LogoGoldenTest' --tests 'com.suso.miiptv.SecureTest' --tests 'com.suso.miiptv.ParsingTest' --no-daemon -PbuildNumber=${{ github.run_number }} 2>&1 | tee test.log; then
             grep -E "Han cambiado|ahora:|antes:|error:|e: " test.log | head -40 | while IFS= read -r l; do echo "::error::$l"; done
             exit 1
           fi

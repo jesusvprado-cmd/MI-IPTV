@@ -30,8 +30,7 @@ class PlayerActivity : ComponentActivity() {
         PlayerHolder.fullscreen = true
         val c = PlayerCtl(this)
         c.onFinished = { finish() }
-        // La frecuencia de la pantalla se ajusta (o se deja como estaba) según el ajuste, que también se cambia desde las opciones.
-        // Solo en los canales SAT: en el resto el cambio de frecuencia solo provoca un corte de imagen al entrar.
+        // La frecuencia de la pantalla se ajusta solo con el ajuste activado (también desde las opciones del reproductor).
         c.onVideoFormat = { f -> if (Repo.prefs.afr) matchFrameRate(f.frameRate) else resetFrameRate() }
         ctl = c
         c.start()
@@ -40,77 +39,20 @@ class PlayerActivity : ComponentActivity() {
 
     private var afrApplied = -1f
 
-    /** Lee un archivo del sistema (en los aparatos Amlogic, /sys/class/display/mode dice la salida HDMI real). */
-    private fun sys(path: String): String = try {
-        java.io.File(path).readText().trim()
-    } catch (e: Exception) {
-        "?"
-    }
-
-    private fun modeText(m: android.view.Display.Mode?): String =
-        if (m == null) "?" else "modo ${m.modeId} (${"%.2f".format(m.refreshRate)} Hz)"
-
-    private var switchListener: android.hardware.display.DisplayManager.DisplayListener? = null
-    /** Cada cambio pedido lleva un número: si llega otro cambio a mitad, los pasos pendientes del anterior se ignoran. */
-    private var switchGen = 0
-
-    private fun setPref(modeId: Int) {
+    /** Pide a la pantalla el modo [modeId] (0 = el normal del aparato). */
+    private fun applyMode(modeId: Int) {
         val lp = window.attributes
+        if (lp.preferredDisplayModeId == modeId) return
         lp.preferredDisplayModeId = modeId
         window.attributes = lp
     }
 
-    private fun later(gen: Int, ms: Long, step: () -> Unit) {
-        window.decorView.postDelayed({ if (gen == switchGen && !isFinishing) step() }, ms)
-    }
-
-    /** Espera a que la pantalla deje el modo [fromId] (o [timeoutMs] como mucho) y sigue con [then]. */
-    private fun waitForChange(gen: Int, fromId: Int?, timeoutMs: Long, then: () -> Unit) {
-        val dm = getSystemService(android.hardware.display.DisplayManager::class.java)
-        switchListener?.let { runCatching { dm?.unregisterDisplayListener(it) } }
-        var done = false
-        val go = {
-            if (!done) {
-                done = true
-                switchListener?.let { runCatching { dm?.unregisterDisplayListener(it) } }
-                switchListener = null
-                if (gen == switchGen && !isFinishing) then()
-            }
-        }
-        val l = object : android.hardware.display.DisplayManager.DisplayListener {
-            override fun onDisplayChanged(displayId: Int) {
-                if (window.decorView.display?.mode?.modeId != fromId) go()
-            }
-
-            override fun onDisplayAdded(displayId: Int) {}
-            override fun onDisplayRemoved(displayId: Int) {}
-        }
-        switchListener = l
-        runCatching { dm?.registerDisplayListener(l, android.os.Handler(android.os.Looper.getMainLooper())) }
-        window.decorView.postDelayed({ go() }, timeoutMs)
-    }
-
-    /**
-     * Pide a la pantalla el modo [modeId] (0 = el normal del aparato) con el vídeo parado, y lo vuelve a abrir al acabar.
-     *
-     * En la Mi Box el primer paso a la frecuencia del vídeo deja la imagen a microsaltos, y se arregla al volver a
-     * pedirla una segunda vez (lo que pasaba al apagar y encender el ajuste a mano, comprobado en el registro).
-     * Por eso, al llegar a la frecuencia nueva se hace ese «rebote» solo (normal → la del vídeo) mientras la pantalla
-     * aún está en negro por el primer cambio, y el vídeo no se vuelve a abrir hasta que todo ha terminado.
-     */
-    /** Pide a la pantalla el modo [modeId] (0 = el normal del aparato), sin parar el vídeo ni nada más. */
-    private fun applyMode(modeId: Int, why: String) {
-        val lp = window.attributes
-        if (lp.preferredDisplayModeId == modeId) return
-        setPref(modeId)
-    }
-
-    /** Vuelve a la frecuencia normal de la pantalla (canal que no es SAT, o ajuste desactivado). */
+    /** Vuelve a la frecuencia normal de la pantalla (al desactivar el ajuste). */
     private fun resetFrameRate() {
         if (afrApplied <= 0f) return
         afrApplied = -1f
         try {
-            applyMode(0, "normal")
+            applyMode(0)
         } catch (e: Exception) {
             // Sin importancia.
         }
@@ -135,7 +77,7 @@ class PlayerActivity : ComponentActivity() {
             val b = same.filter { fits(it) }.minByOrNull { it.refreshRate }
                 ?: return
             afrApplied = fps
-            applyMode(b.modeId, "vídeo a $fps fps")
+            applyMode(b.modeId)
         } catch (e: Exception) {
             // Este dispositivo no permite cambiar la frecuencia.
         }
@@ -158,7 +100,6 @@ class PlayerActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        switchListener?.let { l -> runCatching { getSystemService(android.hardware.display.DisplayManager::class.java)?.unregisterDisplayListener(l) } }
         ctl?.release()
         ctl = null
         PlayerHolder.fullscreen = false

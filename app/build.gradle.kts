@@ -111,6 +111,8 @@ dependencies {
     // Capturas de pantalla de prueba (móvil, tablet y tele) para revisar el diseño sin el aparato.
     testImplementation(composeBom)
     testImplementation("androidx.compose.ui:ui-test-junit4")
+    // Servidor de prueba para las pruebas de lectura de listas (M3U y Xtream).
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
 

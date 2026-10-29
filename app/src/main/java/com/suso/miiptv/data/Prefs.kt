@@ -272,19 +272,6 @@ class Prefs(ctx: Context) {
         sp.edit().putString("serverHistory", l.joinToString("\n")).apply()
     }
 
-    /** Frecuencia de la pantalla elegida a mano para vídeos con estos fps (0 = automática). */
-    fun afrHz(fps: Float): Float = sp.getFloat("afrhz_" + Math.round(fps * 100), 0f)
-
-    fun setAfrHz(fps: Float, hz: Float) {
-        sp.edit().putFloat("afrhz_" + Math.round(fps * 100), hz).apply()
-        version++
-    }
-
-    /** Reproducción «en túnel»: el vídeo y el sonido se sincronizan en el propio chip (quita microsaltos en algunos aparatos). */
-    var tunnel: Boolean
-        get() = sp.getBoolean("tunnel", false)
-        set(v) = putBool("tunnel", v)
-
     /** Al terminar un episodio, empieza solo el siguiente (también el primero de la temporada siguiente). */
     var autoNext: Boolean
         get() = sp.getBoolean("autoNext", true)
