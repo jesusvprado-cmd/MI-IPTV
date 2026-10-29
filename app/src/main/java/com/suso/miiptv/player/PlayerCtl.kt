@@ -582,7 +582,9 @@ class PlayerCtl(ctx: Context) {
     }
 
     /** Al salir de la pantalla completa a la lista de canales, la emisión sigue en la previsualización. */
-    private fun keepForPreview(finishing: Boolean): Boolean = finishing && PlayQueue.handoff && current.live
+    // Solo en la tele: en móvil y tablet no hay previsualización en la lista, así que al salir se corta (si no, seguía sonando).
+    private fun keepForPreview(finishing: Boolean): Boolean =
+        finishing && PlayQueue.handoff && current.live && !com.suso.miiptv.data.Device.touch
 
     /** Canal que se estaba viendo antes del actual (para «canal anterior»). */
     private var prevIndex = -1

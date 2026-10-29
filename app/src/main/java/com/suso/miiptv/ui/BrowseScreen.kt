@@ -246,7 +246,7 @@ fun BrowseScreen(kind: Kind) {
                                     onFocus = { f -> if (f) { st.focused = x; st.lastIdx = i } },
                                     onLong = { ItemMenu.open(x) },
                                     nameSize = if (tvGrid) (Sz.body.value - 1.5f).sp else if (phoneGrid) Sz.small else Sz.body,
-                                ) { Actions.playLive(ctx, its, i, fromPreview = !narrow) }
+                                ) { Actions.playLive(ctx, its, i, fromPreview = !narrow && !com.suso.miiptv.data.Device.touch) }
                             } else {
                                 PosterCard(
                                     x.name, x.image, fk, m,
