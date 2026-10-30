@@ -7,6 +7,7 @@ import com.suso.miiptv.data.Repo
 import com.suso.miiptv.data.XtreamSource
 import com.suso.miiptv.data.normalizeServer
 import com.suso.miiptv.player.maskUrl
+import com.suso.miiptv.ui.catLabel
 import com.suso.miiptv.player.swapLiveFormat
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.Dispatcher
@@ -128,5 +129,14 @@ class ParsingTest {
             #EXTINF:-1 group-title="Series",The Americans S01 E02
             http://s/series/u/p/5.mkv
         """.trimIndent()
+    }
+
+    @Test fun prefijosDeCategoria() {
+        assertEquals("Top", catLabel("SERIES TOP", Kind.SERIES))
+        assertEquals("Netflix", catLabel("Series Netflix", Kind.SERIES))
+        assertEquals("Series", catLabel("SERIES", Kind.SERIES))
+        assertEquals("Harry Potter", catLabel("Saga Harry Potter", Kind.MOVIE))
+        assertEquals("Estrenos", catLabel("Cine Estrenos", Kind.MOVIE))
+        assertEquals("Cine Estrenos", catLabel("Cine Estrenos", Kind.LIVE))
     }
 }

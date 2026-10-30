@@ -146,7 +146,7 @@ fun HiddenCatsScreen() {
                 LazyColumn(contentPadding = PaddingValues(bottom = 30.dp)) {
                     itemsIndexed(l, key = { i, c -> "$i:${c.id}:$hv" }) { _, c ->
                         val hidden = prefs.isHidden(kind, c.id)
-                        CatToggleRow(catLabel(c.name), hidden, "hcr_${kind.name}_${c.id}") {
+                        CatToggleRow(catLabel(c.name, kind), hidden, "hcr_${kind.name}_${c.id}") {
                             prefs.setHidden(listOf(prefs.catKey(kind, c.id)), !hidden)
                         }
                     }

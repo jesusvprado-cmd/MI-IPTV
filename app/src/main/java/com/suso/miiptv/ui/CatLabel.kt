@@ -6,7 +6,24 @@ package com.suso.miiptv.ui
  * Las siglas y marcas (4K, HD, DAZN, F1, TV, LaLiga...) se respetan. Si el nombre ya viene en minúsculas
  * y mayúsculas, se deja tal cual.
  */
-fun catLabel(name: String): String {
+fun catLabel(name: String, kind: com.suso.miiptv.data.Kind? = null): String {
+    val label = caseLabel(name)
+    // Dentro de Series sobra «Series» delante, y dentro de Películas «Cine» y «Saga» («Series Top» → «Top»).
+    val drop = when (kind) {
+        com.suso.miiptv.data.Kind.SERIES -> setOf("series", "serie")
+        com.suso.miiptv.data.Kind.MOVIE -> setOf("cine", "saga", "sagas")
+        else -> emptySet()
+    }
+    if (drop.isEmpty()) return label
+    val words = label.split(' ')
+    val firstWord = words.first().trim { !it.isLetterOrDigit() }.lowercase()
+    if (firstWord !in drop || words.size < 2) return label
+    val rest = words.drop(1).joinToString(" ").trimStart(' ', '-', '·', ':', '|')
+    if (rest.isBlank()) return label
+    return rest.replaceFirstChar { it.uppercase() }
+}
+
+private fun caseLabel(name: String): String {
     val letters = name.filter { it.isLetter() }
     if (letters.isEmpty()) return name
     val upper = letters.count { it.isUpperCase() }

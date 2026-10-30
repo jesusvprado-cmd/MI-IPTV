@@ -160,7 +160,7 @@ fun BrowseScreen(kind: Kind) {
                     }
                     Box(Modifier.focusRequester(cfr).focusProperties { right = gridTarget() }) {
                     CategoryRow(
-                        name = catLabel(c.name),
+                        name = catLabel(c.name, kind),
                         selected = c.id == sel,
                         focusKey = "cat_${kind.name}_${c.id}",
                         onFocused = { pending = c.id },
@@ -173,7 +173,7 @@ fun BrowseScreen(kind: Kind) {
                 }
             }
             Column(Modifier.weight(1f).fillMaxHeight()) {
-                if (chips) CategoryChips(allCats, sel) { id -> st.selected = id }
+                if (chips) CategoryChips(allCats, sel, kind) { id -> st.selected = id }
                 if (kind == Kind.LIVE && !narrow && !com.suso.miiptv.data.Device.touch) LiveHeader(st.focused) // en táctil, sin previsualización: más sitio para los canales
                 val its = content
                 val ie = contentErr
@@ -269,7 +269,7 @@ fun BrowseScreen(kind: Kind) {
 
 /** Categorías como fila de «píldoras» deslizable (móvil). */
 @Composable
-fun CategoryChips(cats: List<Category>, selected: String?, onPick: (String) -> Unit) {
+fun CategoryChips(cats: List<Category>, selected: String?, kind: com.suso.miiptv.data.Kind? = null, onPick: (String) -> Unit) {
     val state = androidx.compose.foundation.lazy.rememberLazyListState()
     androidx.compose.foundation.lazy.LazyRow(
         state = state,
@@ -280,7 +280,7 @@ fun CategoryChips(cats: List<Category>, selected: String?, onPick: (String) -> U
             val c = cats[i]
             val sel = c.id == selected
             Text(
-                catLabel(c.name), maxLines = 1, fontSize = Sz.small,
+                catLabel(c.name, kind), maxLines = 1, fontSize = Sz.small,
                 color = if (sel) Color.Black else Color(0xFFDDDDDD),
                 fontWeight = if (sel) FontWeight.Bold else FontWeight.Medium,
                 modifier = Modifier
