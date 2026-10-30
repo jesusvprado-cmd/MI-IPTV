@@ -172,6 +172,7 @@ fun HomeRowView(row: HomeRow) {
                         progress = if (p.dur > 0) p.pos.toFloat() / p.dur else null,
                         // Episodio siguiente a uno terminado (aún sin empezar).
                         subtitle = if (p.pos == 0L && p.play.key.startsWith("EP|")) "Siguiente · " + (p.play.subtitle ?: "") else p.play.subtitle,
+                        onLong = { ItemMenu.open(p) },
                     ) { Actions.resume(ctx, p) }
                 }
             } else {

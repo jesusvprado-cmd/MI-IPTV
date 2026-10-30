@@ -533,6 +533,9 @@ class Prefs(ctx: Context) {
 
     fun clearProgress() = storeProgress(mutableListOf())
 
+    /** Quita una película o episodio de «Continuar viendo». */
+    fun removeProgress(key: String) = storeProgress(progressList().filterNot { it.play.key == key }.toMutableList())
+
     private fun storeProgress(l: MutableList<Progress>) {
         prog = l
         val a = JSONArray()

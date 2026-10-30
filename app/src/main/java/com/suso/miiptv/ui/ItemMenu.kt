@@ -30,6 +30,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -46,28 +51,45 @@ object ItemMenu {
     var item by mutableStateOf<Item?>(null)
         private set
 
+    /** Película o episodio de «Continuar viendo». */
+    var progress by mutableStateOf<com.suso.miiptv.data.Prefs.Progress?>(null)
+        private set
+
     fun open(x: Item) {
+        progress = null
         item = x
+    }
+
+    fun open(p: com.suso.miiptv.data.Prefs.Progress) {
+        item = null
+        progress = p
     }
 
     fun close() {
         item = null
+        progress = null
     }
 }
 
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun ItemMenuHost() {
-    val x = ItemMenu.item ?: return
+    val x = ItemMenu.item
+    val p = ItemMenu.progress
+    if (x == null && p == null) return
+    val key = x?.key ?: p!!.play.key
+    val title = x?.name ?: p!!.play.title
     val ctx = LocalContext.current
-    val fr = remember(x.key) { FocusRequester() }
+    val fr = remember(key) { FocusRequester() }
+    // Con el mando, el menú se abre manteniendo OK: al soltarlo, ese OK no debe pulsar la primera opción.
+    var armed by remember(key) { mutableStateOf(false) }
     BackHandler { ItemMenu.close() }
-    LaunchedEffect(x.key) {
+    LaunchedEffect(key) {
         delay(80)
         runCatching { fr.requestFocus() }
     }
     val pv = Repo.prefs.version
-    val fav = remember(pv, x.key) { Repo.prefs.isFavorite(x.key) }
+    val fav = remember(pv, key) { x != null && Repo.prefs.isFavorite(key) }
     Box(
         Modifier
             .fillMaxSize()
@@ -87,10 +109,40 @@ fun ItemMenuHost() {
                 .padding(horizontal = 22.dp, vertical = 20.dp)
                 // El cursor no se escapa a la pantalla de detrás mientras está abierto.
                 .focusProperties { exit = { FocusRequester.Cancel } }
+                .onPreviewKeyEvent { e ->
+                    val ok = e.key == Key.DirectionCenter || e.key == Key.Enter || e.key == Key.NumPadEnter
+                    if (!armed && ok) {
+                        if (e.type == KeyEventType.KeyUp) armed = true
+                        true
+                    } else false
+                }
                 .focusGroup(),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Text(x.name, color = Color.White, fontSize = Sz.sub, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(title, color = Color.White, fontSize = Sz.sub, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (p != null) {
+                p.play.subtitle?.let { Text(it, color = C.text2, fontSize = Sz.small, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                TvButton(if (p.pos > 0) "Continuar" else "Ver", "im_resume", icon = Icons.Filled.PlayArrow, vertical = true, focusRequester = fr) {
+                    ItemMenu.close()
+                    Actions.resume(ctx, p)
+                }
+                TvButton("Marcar como visto", "im_seen", vertical = true) {
+                    Repo.prefs.setWatched(p.play.key, true)
+                    Repo.prefs.removeProgress(p.play.key)
+                    ItemMenu.close()
+                }
+                TvButton("Quitar de «Continuar viendo»", "im_remove", vertical = true) {
+                    Repo.prefs.removeProgress(p.play.key)
+                    ItemMenu.close()
+                }
+                TvButton("Ver con otro reproductor", "im_ext", vertical = true) {
+                    ItemMenu.close()
+                    PlayQueue.openExternal(ctx, p.play, p.pos)
+                }
+                TvButton("Cancelar", "im_cancel", vertical = true) { ItemMenu.close() }
+                return@Column
+            }
+            x!!
             TvButton(
                 if (fav) "Quitar de favoritos" else "Añadir a favoritos", "im_fav",
                 icon = if (fav) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
@@ -112,7 +164,7 @@ fun ItemMenuHost() {
                 }
             }
             if (x.kind != Kind.SERIES) {
-                TvButton("Abrir con otro reproductor", "im_ext", icon = Icons.Filled.PlayArrow, vertical = true) {
+                TvButton("Ver con otro reproductor", "im_ext", vertical = true) {
                     ItemMenu.close()
                     PlayQueue.openExternal(ctx, Repo.playItem(x))
                 }
