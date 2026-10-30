@@ -42,6 +42,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.focus.focusRequester
 import com.suso.miiptv.data.Item
 import com.suso.miiptv.data.Kind
 import com.suso.miiptv.data.Repo
@@ -119,82 +122,120 @@ fun ItemMenuHost() {
                     } else false
                 }
                 .focusGroup(),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            Text(title, color = Color.White, fontSize = Sz.sub, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            val touch = com.suso.miiptv.data.Device.touch
+            androidx.compose.foundation.layout.Row(verticalAlignment = Alignment.CenterVertically) {
+                // Móvil: flecha de atrás junto al título para cerrar.
+                if (touch) {
+                    androidx.compose.material3.Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Cerrar", tint = Color.White,
+                        modifier = Modifier
+                            .clip(androidx.compose.foundation.shape.CircleShape)
+                            .clickable { ItemMenu.close() }
+                            .padding(6.dp)
+                            .size(22.dp),
+                    )
+                    androidx.compose.foundation.layout.Spacer(Modifier.padding(start = 6.dp))
+                }
+                Text(title, color = Color.White, fontSize = Sz.emph, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
             if (p != null) {
-                p.play.subtitle?.let { Text(it, color = C.text2, fontSize = Sz.small, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                TvButton(if (p.pos > 0) "Continuar" else "Ver", "im_resume", icon = Icons.Filled.PlayArrow, vertical = true, focusRequester = fr) {
+                p.play.subtitle?.let { Text(it, color = C.text2, fontSize = Sz.label, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                MenuOption(if (p.pos > 0) "Continuar" else "Ver", "im_resume", icon = Icons.Filled.PlayArrow, focusRequester = fr) {
                     ItemMenu.close()
                     Actions.resume(ctx, p)
                 }
-                TvButton("Marcar como visto", "im_seen", vertical = true) {
+                MenuOption("Marcar como visto", "im_seen") {
                     Repo.prefs.setWatched(p.play.key, true)
                     Repo.prefs.removeProgress(p.play.key)
                     ItemMenu.close()
                 }
-                TvButton("Quitar de «Continuar viendo»", "im_remove", vertical = true) {
+                MenuOption("Quitar de «Continuar viendo»", "im_remove") {
                     Repo.prefs.removeProgress(p.play.key)
                     ItemMenu.close()
                 }
-                TvButton("Ver con otro reproductor", "im_ext", vertical = true) {
+                MenuOption("Ver con otro reproductor", "im_ext") {
                     ItemMenu.close()
                     PlayQueue.openExternal(ctx, p.play, p.pos)
                 }
-                CloseX()
+                MenuFooter()
                 return@Column
             }
             x!!
-            TvButton(
+            MenuOption(
                 if (fav) "Quitar de favoritos" else "Añadir a favoritos", "im_fav",
                 icon = if (fav) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                iconTint = if (fav) C.fav else null, vertical = true, focusRequester = fr,
+                iconTint = if (fav) C.fav else null, focusRequester = fr,
             ) {
                 Actions.toggleFav(ctx, x)
                 ItemMenu.close()
             }
             if (x.kind == Kind.LIVE) {
-                TvButton("Ver su programación en la guía", "im_guide", vertical = true) {
+                MenuOption("Ver su programación en la guía", "im_guide") {
                     ItemMenu.close()
                     GuideState.sel = x.categoryId.ifEmpty { null } ?: GuideState.sel
                     UiState.tab = Tab.GUIDE
                 }
             } else {
-                TvButton("Ver la ficha", "im_open", vertical = true) {
+                MenuOption("Ver la ficha", "im_open") {
                     ItemMenu.close()
                     Actions.open(x)
                 }
             }
             if (x.kind != Kind.SERIES) {
-                TvButton("Ver con otro reproductor", "im_ext", vertical = true) {
+                MenuOption("Ver con otro reproductor", "im_ext") {
                     ItemMenu.close()
                     PlayQueue.openExternal(ctx, Repo.playItem(x))
                 }
             }
-            CloseX()
+            MenuFooter()
         }
     }
 }
 
 
-/** Botón de cerrar: una X blanca abajo en el centro que se pone verde al ponerse encima. */
+/** Opción del menú: letra fina; con el cursor, en verde con la línea verde a la izquierda (como en Ajustes). */
 @Composable
-private fun androidx.compose.foundation.layout.ColumnScope.CloseX() {
+private fun MenuOption(
+    text: String,
+    focusKey: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    iconTint: Color? = null,
+    focusRequester: FocusRequester? = null,
+    onClick: () -> Unit,
+) {
     var focused by remember { mutableStateOf(false) }
-    androidx.compose.foundation.layout.Spacer(Modifier.padding(top = 6.dp))
-    Box(
+    androidx.compose.foundation.layout.Row(
         Modifier
-            .align(Alignment.CenterHorizontally)
-            .size(46.dp)
-            .clip(androidx.compose.foundation.shape.CircleShape)
-            .memFocus("im_close") { focused = it }
-            .tvClick { ItemMenu.close() },
-        contentAlignment = Alignment.Center,
+            .fillMaxWidth()
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+            .memFocus(focusKey) { focused = it }
+            .tvClick { onClick() }
+            .padding(vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        androidx.compose.material3.Icon(
-            Icons.Filled.Close, contentDescription = "Cerrar",
-            tint = if (focused) C.greenIntense else Color.White,
-            modifier = Modifier.size(if (focused) 34.dp else 30.dp),
+        FocusBar(focused, height = 20.dp)
+        if (icon != null) {
+            androidx.compose.material3.Icon(
+                icon, contentDescription = null, tint = iconTint ?: if (focused) C.gold else Color.White,
+                modifier = Modifier.size(18.dp),
+            )
+            androidx.compose.foundation.layout.Spacer(Modifier.padding(start = 8.dp))
+        }
+        Text(
+            text, color = if (focused) C.gold else Color(0xFFE6E6E6), fontSize = 14.sp,
+            fontWeight = if (focused) FontWeight.Medium else FontWeight.Normal,
         )
     }
+}
+
+/** En la tele, abajo: cómo cerrar el menú (con el botón Atrás del mando). En el móvil, la flecha de arriba. */
+@Composable
+private fun androidx.compose.foundation.layout.ColumnScope.MenuFooter() {
+    if (com.suso.miiptv.data.Device.touch) return
+    Text(
+        "↩ Atrás para cerrar", color = C.text2, fontSize = Sz.label,
+        modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp),
+    )
 }
