@@ -12,9 +12,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.PlayArrow
@@ -139,7 +141,7 @@ fun ItemMenuHost() {
                     ItemMenu.close()
                     PlayQueue.openExternal(ctx, p.play, p.pos)
                 }
-                TvButton("Cancelar", "im_cancel", vertical = true) { ItemMenu.close() }
+                CloseX()
                 return@Column
             }
             x!!
@@ -169,7 +171,30 @@ fun ItemMenuHost() {
                     PlayQueue.openExternal(ctx, Repo.playItem(x))
                 }
             }
-            TvButton("Cancelar", "im_cancel", vertical = true) { ItemMenu.close() }
+            CloseX()
         }
+    }
+}
+
+
+/** Botón de cerrar: una X blanca abajo en el centro que se pone verde al ponerse encima. */
+@Composable
+private fun androidx.compose.foundation.layout.ColumnScope.CloseX() {
+    var focused by remember { mutableStateOf(false) }
+    androidx.compose.foundation.layout.Spacer(Modifier.padding(top = 6.dp))
+    Box(
+        Modifier
+            .align(Alignment.CenterHorizontally)
+            .size(46.dp)
+            .clip(androidx.compose.foundation.shape.CircleShape)
+            .memFocus("im_close") { focused = it }
+            .tvClick { ItemMenu.close() },
+        contentAlignment = Alignment.Center,
+    ) {
+        androidx.compose.material3.Icon(
+            Icons.Filled.Close, contentDescription = "Cerrar",
+            tint = if (focused) C.greenIntense else Color.White,
+            modifier = Modifier.size(if (focused) 34.dp else 30.dp),
+        )
     }
 }
