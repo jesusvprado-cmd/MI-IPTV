@@ -160,7 +160,7 @@ fun BrowseScreen(kind: Kind) {
                     }
                     Box(Modifier.focusRequester(cfr).focusProperties { right = gridTarget() }) {
                     CategoryRow(
-                        name = c.name,
+                        name = catLabel(c.name),
                         selected = c.id == sel,
                         focusKey = "cat_${kind.name}_${c.id}",
                         onFocused = { pending = c.id },
@@ -280,7 +280,7 @@ fun CategoryChips(cats: List<Category>, selected: String?, onPick: (String) -> U
             val c = cats[i]
             val sel = c.id == selected
             Text(
-                c.name, maxLines = 1, fontSize = Sz.small,
+                catLabel(c.name), maxLines = 1, fontSize = Sz.small,
                 color = if (sel) Color.Black else Color(0xFFDDDDDD),
                 fontWeight = if (sel) FontWeight.Bold else FontWeight.Medium,
                 modifier = Modifier

@@ -71,7 +71,7 @@ fun HomeScreen() {
                     if (e is kotlinx.coroutines.CancellationException) throw e
                     emptyList()
                 }
-                if (list.isNotEmpty()) rows.add(HomeRow("home_${kind.name}", "$label · ${first.name}", kind, list.take(40)))
+                if (list.isNotEmpty()) rows.add(HomeRow("home_${kind.name}", "$label · ${catLabel(first.name)}", kind, list.take(40)))
             }
             UiState.homeCache = rows
             UiState.homeVer = ver

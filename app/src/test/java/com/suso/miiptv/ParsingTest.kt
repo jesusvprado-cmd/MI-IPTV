@@ -100,6 +100,20 @@ class ParsingTest {
         assertFalse(maskUrl("http://s.tv/player_api.php?username=yo&password=clave").contains("clave"))
     }
 
+    @Test
+    fun nombresDeCategorias() {
+        assertEquals("Estrenos 2026", com.suso.miiptv.ui.catLabel("ESTRENOS 2026"))
+        assertEquals("Cine Mundo 4K", com.suso.miiptv.ui.catLabel("CINE MUNDO 4K"))
+        assertEquals("Movistar España", com.suso.miiptv.ui.catLabel("MOVISTAR ESPAÑA"))
+        assertEquals("M. LaLiga", com.suso.miiptv.ui.catLabel("M. LALIGA"))
+        assertEquals("Cine Aventura y Fantastico", com.suso.miiptv.ui.catLabel("CINE AVENTURA Y FANTASTICO"))
+        assertEquals("DAZN", com.suso.miiptv.ui.catLabel("DAZN"))
+        assertEquals("Bar TV", com.suso.miiptv.ui.catLabel("BAR TV"))
+        assertEquals("NBA & NFL", com.suso.miiptv.ui.catLabel("NBA & NFL"))
+        assertEquals("Latinos", com.suso.miiptv.ui.catLabel("Latinos"))
+        assertEquals("Liga RFEF", com.suso.miiptv.ui.catLabel("LIGA RFEF"))
+    }
+
     companion object {
         private val M3U = """
             #EXTM3U

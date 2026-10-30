@@ -155,7 +155,7 @@ fun GuideScreen() {
         ) {
             itemsIndexed(cats, key = { i, c -> "$i:${c.id}" }) { _, c ->
                 CategoryRow(
-                    name = c.name,
+                    name = catLabel(c.name),
                     selected = c.id == sel,
                     focusKey = "guide_cat_${c.id}",
                     onFocused = { pending = c.id },
