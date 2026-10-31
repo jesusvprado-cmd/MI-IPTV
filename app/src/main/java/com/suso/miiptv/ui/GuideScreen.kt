@@ -1,5 +1,6 @@
 package com.suso.miiptv.ui
 
+import androidx.compose.animation.core.animateDecay
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.draw.clipToBounds
