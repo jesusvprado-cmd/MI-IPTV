@@ -378,6 +378,8 @@ private fun GuideRow(
         // Programas
         Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(6.dp)).onFocusChanged { rowFocused = it.hasFocus }) {
             val l = epg
+            // En la franja de ahora, ◀ en la primera casilla va al menú de grupos; para ver lo ya emitido, mantener ◀.
+            val atNow = winStart <= floorHalfHour(now)
             val visible = l?.filter { it.end > winStart && it.start < winEnd }.orEmpty()
             // Casilla a la que va el cursor al subir o bajar: lo que se emite ahora o, si no está en la franja, la primera.
             val target = visible.firstOrNull { it.start <= now && it.end > now } ?: visible.firstOrNull()
@@ -394,6 +396,7 @@ private fun GuideRow(
                     onFocus = { onFocus(null, l == null) },
                     onLeft = { onShift(-60 * 60_000L) },
                     onRight = { onShift(60 * 60_000L) },
+                    leftToMenu = atNow,
                     onClick = { onPick(null) },
                     liveFr = liveFr,
                     onVertical = onVertical,
@@ -417,6 +420,7 @@ private fun GuideRow(
                         onFocus = { onFocus(e, false) },
                         // En el primero/último visible, ◀ ▶ mueven la franja horaria en lugar de salir de la fila.
                         onLeft = { if (idx == 0) onShift(-60 * 60_000L) else false },
+                        leftToMenu = idx == 0 && atNow,
                         onRight = { if (idx == visible.lastIndex) onShift(60 * 60_000L) || true else false },
                         onClick = { onPick(e) },
                         liveFr = if (e === target) liveFr else null,
@@ -447,10 +451,13 @@ private fun ProgramCell(
     onRight: () -> Boolean,
     onClick: () -> Unit,
     liveFr: androidx.compose.ui.focus.FocusRequester? = null,
+    leftToMenu: Boolean = false,
     onVertical: (Int, Boolean) -> Boolean = { _, _ -> false },
 ) {
     var focused by remember { mutableStateOf(false) }
     var pressed by remember { mutableStateOf(false) }
+    var leftArmed by remember { mutableStateOf(false) }
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     val fr = remember { androidx.compose.ui.focus.FocusRequester() }
     val click by androidx.compose.runtime.rememberUpdatedState(onClick)
     val bg = when {
@@ -470,6 +477,17 @@ private fun ProgramCell(
             }
             .onPreviewKeyEvent { e ->
                 when {
+                    // ◀ suelto: al menú de grupos. ◀ mantenido: hacia atrás en el tiempo (lo ya emitido).
+                    leftToMenu && e.key == Key.DirectionLeft -> {
+                        if (e.type == KeyEventType.KeyDown) {
+                            if (e.nativeKeyEvent.repeatCount == 0) leftArmed = true
+                            else { leftArmed = false; onLeft() }
+                        } else if (e.type == KeyEventType.KeyUp && leftArmed) {
+                            leftArmed = false
+                            focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Left)
+                        }
+                        true
+                    }
                     e.type == KeyEventType.KeyDown && e.key == Key.DirectionLeft -> onLeft()
                     e.type == KeyEventType.KeyDown && e.key == Key.DirectionRight -> onRight()
                     e.type == KeyEventType.KeyDown && e.key == Key.DirectionDown -> onVertical(1, e.nativeKeyEvent.repeatCount > 0)
