@@ -581,12 +581,12 @@ fun SettingsScreen(onChangeList: () -> Unit) {
                     }
                     // ◀ desde las opciones vuelve a la sección en la que estabas, no a la que quede a la misma altura.
                     .focusProperties {
-                        exit = { d -> if (d == FocusDirection.Left) sideFrs.getValue(sec) else FocusRequester.Default }
+                        exit = { d -> if (d == FocusDirection.Left) sideFrs.getValue(sec).orDefault() else FocusRequester.Default }
                         // ▶ desde el menú lateral entra siempre por la primera opción de arriba.
                         enter = { d ->
                             if (d == FocusDirection.Right) {
                                 enteringRight = true
-                                paneFr
+                                paneFr.orDefault()
                             } else {
                                 FocusRequester.Default
                             }

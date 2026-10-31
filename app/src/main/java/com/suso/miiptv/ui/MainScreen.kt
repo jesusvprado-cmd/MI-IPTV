@@ -122,7 +122,7 @@ private fun TopBar(restoring: Boolean, compact: Boolean = false) {
                 Row(
                     Modifier
                         // Al subir al menú desde el contenido, el foco entra por la sección actual.
-                        .focusProperties { enter = { UiState.tabRequester(UiState.tab) } }
+                        .focusProperties { enter = { UiState.tabRequester(UiState.tab).orDefault() } }
                         .focusGroup()
                         .horizontalScroll(rememberScrollState()),
                     verticalAlignment = Alignment.CenterVertically,

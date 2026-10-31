@@ -140,7 +140,7 @@ fun BrowseScreen(kind: Kind) {
         if (!ready) return FocusRequester.Cancel
         val visible = st.grid.layoutInfo.visibleItemsInfo.map { it.index }
         val i = if (st.lastIdx in visible) st.lastIdx else visible.firstOrNull()
-        return i?.let { st.reqs[it] } ?: FocusRequester.Default
+        return i?.let { st.reqs[it] }.orDefault()
     }
 
     // ¿Está el cursor en la lista de categorías? (para marcar solo una categoría a la vez)
@@ -260,10 +260,10 @@ fun BrowseScreen(kind: Kind) {
                             .fillMaxSize()
                             // ◀ desde la cuadrícula vuelve a la categoría elegida, no a la que quede a la misma altura.
                             .focusProperties {
-                                exit = { d -> if (d == FocusDirection.Left) (st.catReqs[sel] ?: FocusRequester.Default) else FocusRequester.Default }
+                                exit = { d -> if (d == FocusDirection.Left) st.catReqs[sel].orDefault() else FocusRequester.Default }
                                 // ▼ desde el menú de arriba: a la primera carátula visible (arriba a la izquierda), no a la más cercana.
                                 enter = { d ->
-                                    if (d == FocusDirection.Down) st.grid.layoutInfo.visibleItemsInfo.minOfOrNull { it.index }?.let { st.reqs[it] } ?: FocusRequester.Default
+                                    if (d == FocusDirection.Down) st.grid.layoutInfo.visibleItemsInfo.minOfOrNull { it.index }?.let { st.reqs[it] }.orDefault()
                                     else FocusRequester.Default
                                 }
                             }

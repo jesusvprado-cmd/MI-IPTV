@@ -238,7 +238,7 @@ fun HeroCarousel(items: List<Item>) {
             Row(
                 // Al bajar desde el menú (o subir desde las filas) el cursor entra siempre por «Reproducir».
                 Modifier
-                    .focusProperties { enter = { playFr } }
+                    .focusProperties { enter = { playFr.orDefault() } }
                     .focusGroup(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,

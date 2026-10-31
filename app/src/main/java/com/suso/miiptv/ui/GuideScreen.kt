@@ -182,7 +182,7 @@ fun GuideScreen() {
                     onDispose { if (catReqs[c.id] === cfr) catReqs.remove(c.id) }
                 }
                 Box(Modifier.focusRequester(cfr).focusProperties {
-                    right = gridEntry[0]?.invoke() ?: androidx.compose.ui.focus.FocusRequester.Default
+                    right = gridEntry[0]?.invoke().orDefault()
                 }) {
                 CategoryRow(
                     name = catLabel(c.name),
@@ -244,7 +244,7 @@ fun GuideScreen() {
                                 state = state,
                                 modifier = Modifier.fillMaxSize().focusProperties {
                                     exit = { d ->
-                                        if (d == androidx.compose.ui.focus.FocusDirection.Left) catReqs[sel] ?: androidx.compose.ui.focus.FocusRequester.Default
+                                        if (d == androidx.compose.ui.focus.FocusDirection.Left) catReqs[sel].orDefault()
                                         else androidx.compose.ui.focus.FocusRequester.Default
                                     }
                                 },

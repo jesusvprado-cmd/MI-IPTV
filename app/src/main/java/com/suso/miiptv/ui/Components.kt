@@ -430,3 +430,15 @@ fun safeMarquee(on: Boolean): Modifier {
     }
     return Modifier.clipToBounds().horizontalScroll(s, enabled = false)
 }
+
+
+/**
+ * Destino de foco seguro para focusProperties: si la tarjeta o fila ya no está en pantalla, su FocusRequester
+ * no está enganchado y Compose cerraría la app («FocusRequester is not initialized»); entonces se usa el normal.
+ */
+fun androidx.compose.ui.focus.FocusRequester?.orDefault(): androidx.compose.ui.focus.FocusRequester {
+    val fr = this ?: return androidx.compose.ui.focus.FocusRequester.Default
+    if (fr === androidx.compose.ui.focus.FocusRequester.Default || fr === androidx.compose.ui.focus.FocusRequester.Cancel) return fr
+    // freeFocus() no mueve nada (no usamos captureFocus) y lanza error si el requester no está enganchado.
+    return if (runCatching { fr.freeFocus() }.isSuccess) fr else androidx.compose.ui.focus.FocusRequester.Default
+}
