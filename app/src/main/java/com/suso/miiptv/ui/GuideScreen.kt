@@ -1,5 +1,7 @@
 package com.suso.miiptv.ui
 
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.ui.focus.focusProperties
@@ -136,9 +138,8 @@ fun GuideScreen() {
         }
     }
     var winStart by remember { mutableLongStateOf(floorHalfHour(System.currentTimeMillis())) }
-    // Táctil: franja propia de cada canal al deslizarlo con el dedo (se borra al cambiar de grupo o pulsar «Ahora»).
-    val rowStarts = remember(sel) { androidx.compose.runtime.mutableStateMapOf<String, Long>() }
-    var headerKey by remember(sel) { mutableStateOf<String?>(null) }
+    // Táctil: canal cuya programación del día se muestra en lista (al tocar su logo o nombre).
+    var dayCh by remember { mutableStateOf<Pair<List<Item>, Int>?>(null) }
     var focused by remember { mutableStateOf<Focused?>(null) }
     var catsFocused by remember { mutableStateOf(false) }
     // Como en TV en directo: la categoría se abre al ponerse encima (con una pausa corta para poder pasar de largo).
@@ -168,6 +169,9 @@ fun GuideScreen() {
             kotlinx.coroutines.delay(30)
             catReqs[sel]?.let { runCatching { it.requestFocus() } }
         }
+    }
+    dayCh?.let { (l, i) ->
+        ChannelDaySheet(l[i], now, pv, onPick = { e -> pick(ctx, l, i, l[i], e, now); if (e == null || (e.start <= now && e.end > now)) dayCh = null }) { dayCh = null }
     }
     Row(Modifier.fillMaxSize()) {
         // Categorías (en el móvil, como píldoras arriba)
@@ -203,27 +207,63 @@ fun GuideScreen() {
         Column(Modifier.weight(1f).fillMaxHeight().padding(end = if (compact) 6.dp else 24.dp)) {
             if (compact) CategoryChips(cats, sel) { id -> sel = id }
             InfoPanel(focused, now, touch)
-            if (touch) {
-                // Táctil: la programación se mueve deslizando el dedo; «Ahora» vuelve a la hora actual.
-                Row(Modifier.padding(start = 12.dp, bottom = 6.dp)) {
-                    GuidePill("Ahora") { winStart = floorHalfHour(now); rowStarts.clear(); headerKey = null }
-                }
-            }
             BoxWithConstraints(Modifier.fillMaxSize()) {
+                // Táctil: «Ahora» flotante, solo cuando te has alejado de la hora actual.
+                if (touch) androidx.compose.animation.AnimatedVisibility(
+                    visible = winStart != floorHalfHour(now),
+                    enter = androidx.compose.animation.fadeIn(),
+                    exit = androidx.compose.animation.fadeOut(),
+                    modifier = Modifier.align(Alignment.BottomEnd).zIndex(2f).padding(end = 14.dp, bottom = 18.dp),
+                ) {
+                    Text(
+                        "Ahora", color = Color.Black, fontSize = Sz.small, fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(C.gold)
+                            .clickable { winStart = floorHalfHour(now) }
+                            .padding(horizontal = 18.dp, vertical = 9.dp),
+                    )
+                }
                 val chW = if (phoneW) 116.dp else if (compact) 170.dp else 200.dp
                 val areaW = maxWidth - chW
                 val perMin: Dp = areaW / WIN_MIN.toFloat()
                 val perMinPx = with(androidx.compose.ui.platform.LocalDensity.current) { perMin.toPx() }
-                // Táctil: cada canal se desliza por separado; la cabecera de horas sigue al último que has movido.
-                fun dragRow(ch: Item, amount: Float) {
+                // Táctil: toda la parrilla se desliza con el dedo, con inercia al soltar.
+                val flingScope = rememberCoroutineScope()
+                val flingJob = remember { arrayOfNulls<kotlinx.coroutines.Job>(1) }
+                fun moveBy(px: Float): Boolean {
+                    val arch = channels.orEmpty().maxOfOrNull { it.archive } ?: 0
                     val base = floorHalfHour(System.currentTimeMillis())
-                    val cur = rowStarts[ch.key] ?: winStart
-                    rowStarts[ch.key] = (cur - (amount / perMinPx * 60_000f).toLong()).coerceIn(minWindow(ch, System.currentTimeMillis()), base + 24 * 3600_000L)
-                    headerKey = ch.key
+                    val min = if (arch > 0) base - minOf(arch, 1) * 24 * 3600_000L else base
+                    val n = (winStart - (px / perMinPx * 60_000f).toLong()).coerceIn(min, base + 24 * 3600_000L)
+                    val moved = n != winStart
+                    winStart = n
+                    return moved
+                }
+                val dragMod = if (!touch) Modifier else Modifier.pointerInput(perMinPx, channels) {
+                    val tracker = androidx.compose.ui.input.pointer.util.VelocityTracker()
+                    detectHorizontalDragGestures(
+                        onDragStart = { flingJob[0]?.cancel(); tracker.resetTracking() },
+                        onDragEnd = {
+                            val v = tracker.calculateVelocity().x
+                            flingJob[0] = flingScope.launch {
+                                var last = 0f
+                                androidx.compose.animation.core.AnimationState(0f, v).animateDecay(androidx.compose.animation.core.exponentialDecay(frictionMultiplier = 1.5f)) {
+                                    val d = value - last
+                                    last = value
+                                    if (!moveBy(d)) cancelAnimation()
+                                }
+                            }
+                        },
+                    ) { change, amount ->
+                        change.consume()
+                        tracker.addPosition(change.uptimeMillis, change.position)
+                        moveBy(amount)
+                    }
                 }
                 val winEnd = winStart + WIN_MIN * 60_000L
-                Column(Modifier.fillMaxSize()) {
-                    TimeHeader(headerKey?.let { rowStarts[it] } ?: winStart, chW, perMin, now)
+                Column(Modifier.fillMaxSize().then(dragMod)) {
+                    TimeHeader(winStart, chW, perMin, now)
                     val list = channels
                     when {
                         list == null -> SkeletonGrid(Kind.LIVE)
@@ -257,9 +297,9 @@ fun GuideScreen() {
                                         chW = chW,
                                         compact = compact,
                                         perMin = perMin,
-                                        winStart = rowStarts[ch.key] ?: winStart,
-                                        winEnd = (rowStarts[ch.key] ?: winStart) + WIN_MIN * 60_000L,
-                                        onDrag = if (touch) ({ a -> dragRow(ch, a) }) else null,
+                                        winStart = winStart,
+                                        winEnd = winEnd,
+                                        onChannelTap = if (touch) ({ dayCh = list to i }) else null,
                                         now = now,
                                         pv = pv,
                                         onFocus = { e, loading -> focused = Focused(ch, e, loading); lastRow[0] = i },
@@ -360,7 +400,7 @@ private fun InfoPanel(f: Focused?, now: Long, touch: Boolean = false) {
 private fun TimeHeader(winStart: Long, chW: Dp, perMin: Dp, now: Long) {
     Box(Modifier.fillMaxWidth().height(30.dp)) {
         Text(
-            DAY.format(Date(winStart)).replaceFirstChar { it.uppercase() }, color = C.text2, fontSize = Sz.small,
+            relDay(winStart + WIN_MIN * 30_000L), color = C.text2, fontSize = Sz.small,
             modifier = Modifier.padding(start = 14.dp, top = 6.dp),
         )
         // Marcas cada media hora (en táctil la franja puede empezar a cualquier minuto al deslizarla).
@@ -368,8 +408,11 @@ private fun TimeHeader(winStart: Long, chW: Dp, perMin: Dp, now: Long) {
             var t = floorHalfHour(winStart)
             while (t < winStart + WIN_MIN * 60_000L) {
                 val m = (t - winStart) / 60_000f
+                // A medianoche, el nombre del día en verde para que se note el cambio.
+                val midnight = HM.format(Date(t)) == "00:00"
                 if (m > -20f) Text(
-                    HM.format(Date(t)), color = Color.White, fontSize = Sz.small, fontWeight = FontWeight.SemiBold,
+                    if (midnight) "${relDay(t)} 00:00" else HM.format(Date(t)),
+                    color = if (midnight) C.gold else Color.White, fontSize = Sz.small, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.offset(x = perMin * m + 6.dp, y = 6.dp),
                 )
                 t += HALF_HOUR
@@ -397,7 +440,7 @@ private fun GuideRow(
     onPick: (EpgEntry?) -> Unit,
     liveFr: androidx.compose.ui.focus.FocusRequester,
     onVertical: (Int, Boolean) -> Boolean,
-    onDrag: ((Float) -> Unit)? = null,
+    onChannelTap: (() -> Unit)? = null,
     toMenu: () -> Unit,
 ) {
     var epg by remember(ch.key) { mutableStateOf<List<EpgEntry>?>(null) }
@@ -415,7 +458,12 @@ private fun GuideRow(
     val logo = remember(ch.key, Logos.version) { Logos.url(ch.name, ch.image) }
     Row(Modifier.fillMaxWidth().height(58.dp).padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
         // Canal: logo y nombre
-        Row(Modifier.width(chW).fillMaxHeight().padding(start = if (compact) 8.dp else 14.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.width(chW).fillMaxHeight()
+                .then(if (onChannelTap != null) Modifier.clip(RoundedCornerShape(6.dp)).clickable { onChannelTap() } else Modifier)
+                .padding(start = if (compact) 8.dp else 14.dp, end = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             // Mismo fondo que en la lista de canales: blanco para los marcados, claro para los logos oscuros
             // y, si no, el de las tarjetas (antes era un gris translúcido para todos los demás).
             var shown by remember(logo) { mutableStateOf(logo) }
@@ -432,16 +480,7 @@ private fun GuideRow(
             Text(ch.name, color = Color(0xFFCFCFCF), fontSize = if (compact) Sz.label else Sz.small, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 14.sp)
         }
         // Programas
-        val drag by androidx.compose.runtime.rememberUpdatedState(onDrag)
-        Box(
-            Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(6.dp)).onFocusChanged { rowFocused = it.hasFocus }
-                .then(
-                    if (onDrag == null) Modifier
-                    else Modifier.pointerInput(Unit) {
-                        detectHorizontalDragGestures { change, amount -> change.consume(); drag?.invoke(amount) }
-                    },
-                ),
-        ) {
+        Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(6.dp)).onFocusChanged { rowFocused = it.hasFocus }) {
             val l = epg
             val visible = l?.filter { it.end > winStart && it.start < winEnd }.orEmpty()
             // Casilla a la que va el cursor al subir o bajar: lo que se emite ahora o, si no está en la franja, la primera.
@@ -667,4 +706,117 @@ private fun GuidePill(text: String, onClick: () -> Unit) {
             .tvClick(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 7.dp),
     )
+}
+
+
+/** «Hoy», «Mañana», «Ayer» o el día de la semana con el número. */
+private fun relDay(t: Long): String {
+    fun dayNum(x: Long): Long {
+        val c = java.util.Calendar.getInstance().apply { timeInMillis = x }
+        return c.get(java.util.Calendar.YEAR) * 1000L + c.get(java.util.Calendar.DAY_OF_YEAR)
+    }
+    val today = System.currentTimeMillis()
+    return when (t) {
+        in 0..Long.MAX_VALUE -> when {
+            dayNum(t) == dayNum(today) -> "Hoy"
+            dayNum(t) == dayNum(today + 24 * 3600_000L) -> "Mañana"
+            dayNum(t) == dayNum(today - 24 * 3600_000L) -> "Ayer"
+            else -> DAY.format(Date(t)).replaceFirstChar { it.uppercase() }
+        }
+        else -> ""
+    }
+}
+
+/** Táctil: programación del día de un canal en lista vertical (se abre tocando su logo o nombre en la guía). */
+@Composable
+private fun ChannelDaySheet(ch: Item, now: Long, pv: Int, onPick: (EpgEntry?) -> Unit, onClose: () -> Unit) {
+    var epg by remember(ch.key) { mutableStateOf<List<EpgEntry>?>(null) }
+    LaunchedEffect(ch.key) { epg = runCatching { Repo.guideEpg(ch) }.getOrDefault(emptyList()) }
+    val logo = remember(ch.key, Logos.version) { Logos.url(ch.name, ch.image) }
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onClose,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Column(
+            Modifier.fillMaxWidth(0.94f).fillMaxHeight(0.88f).clip(RoundedCornerShape(16.dp)).background(Color(0xFF0C140E)),
+        ) {
+            Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 6.dp, top = 12.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier.width(54.dp).height(38.dp).clip(RoundedCornerShape(6.dp)).background(if (logo != null) Color.White else C.card),
+                    contentAlignment = Alignment.Center,
+                ) { if (logo != null) ChannelLogoImage(logo, Modifier.fillMaxSize().padding(4.dp), fallback = ch.image) }
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(ch.name, color = Color.White, fontSize = Sz.body, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("Programación", color = C.text2, fontSize = Sz.small)
+                }
+                Text(
+                    "✕", color = C.text3, fontSize = 20.sp,
+                    modifier = Modifier.clip(RoundedCornerShape(20.dp)).clickable { onClose() }.padding(horizontal = 14.dp, vertical = 6.dp),
+                )
+            }
+            Box(Modifier.fillMaxWidth().height(1.dp).background(C.divider))
+            val l = epg
+            val base = floorHalfHour(now)
+            val items = l?.filter { it.end > minWindow(ch, now) && it.start < base + 24 * 3600_000L }.orEmpty()
+            when {
+                l == null -> EmptyText("Cargando la guía…")
+                items.isEmpty() -> EmptyText("Este canal no tiene guía")
+                else -> {
+                    val liveIdx = items.indexOfFirst { it.start <= now && it.end > now }.coerceAtLeast(0)
+                    val st = rememberLazyListState(initialFirstVisibleItemIndex = maxOf(0, liveIdx - 1))
+                    LazyColumn(state = st, contentPadding = PaddingValues(vertical = 8.dp)) {
+                        itemsIndexed(items, key = { _, e -> e.start }) { k, e ->
+                            val prevDay = if (k == 0) null else relDay(items[k - 1].start)
+                            val day = relDay(e.start)
+                            if (day != prevDay) Text(
+                                day, color = C.gold, fontSize = Sz.small, fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(start = 16.dp, top = if (k == 0) 4.dp else 14.dp, bottom = 4.dp),
+                            )
+                            DayRow(ch, e, now, pv) { onPick(e) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DayRow(ch: Item, e: EpgEntry, now: Long, pv: Int, onClick: () -> Unit) {
+    val live = e.start <= now && e.end > now
+    val past = e.end <= now
+    val archived = past && ch.archive > 0 && e.archived != false
+    val reminder = remember(pv, e.start) { Repo.prefs.hasReminder("${ch.key}@${e.start}") }
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp).clip(RoundedCornerShape(10.dp))
+            .background(if (live) Color(0xFF1E3A22) else Color.Transparent)
+            .clickable(enabled = live || archived || !past) { onClick() }
+            .padding(horizontal = 8.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Text(
+            HM.format(Date(e.start)), color = if (past && !archived) C.text2.copy(alpha = 0.6f) else if (live) C.gold else C.text3,
+            fontSize = Sz.small, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(52.dp),
+        )
+        Column(Modifier.weight(1f)) {
+            Text(
+                e.title, color = if (past && !archived) C.text2.copy(alpha = 0.7f) else Color.White,
+                fontSize = Sz.small, fontWeight = if (live) FontWeight.Bold else FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            )
+            if (live) {
+                val p = ((now - e.start).toFloat() / (e.end - e.start).coerceAtLeast(1)).coerceIn(0f, 1f)
+                Box(Modifier.padding(top = 6.dp).fillMaxWidth().height(3.dp).clip(RoundedCornerShape(2.dp)).background(Color(0x33FFFFFF))) {
+                    Box(Modifier.fillMaxWidth(p).fillMaxHeight().background(C.gold))
+                }
+            }
+        }
+        val tag = when {
+            live -> "▶ Ver"
+            archived -> "↺ Ver"
+            reminder -> "🔔"
+            else -> null
+        }
+        if (tag != null) Text(tag, color = C.gold, fontSize = Sz.small, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 8.dp))
+    }
 }
