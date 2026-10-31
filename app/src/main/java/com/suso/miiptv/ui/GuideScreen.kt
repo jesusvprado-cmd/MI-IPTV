@@ -89,6 +89,7 @@ private const val PREFETCH_MAX = 150
  * Guía en parrilla: canales en filas y programas a lo largo del tiempo.
  * OK sobre lo que se emite ahora = ver el canal; sobre algo futuro = recordatorio; sobre algo pasado = verlo (si el canal lo guarda).
  */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun GuideScreen() {
     val ctx = LocalContext.current
