@@ -261,6 +261,11 @@ fun BrowseScreen(kind: Kind) {
                             // ◀ desde la cuadrícula vuelve a la categoría elegida, no a la que quede a la misma altura.
                             .focusProperties {
                                 exit = { d -> if (d == FocusDirection.Left) (st.catReqs[sel] ?: FocusRequester.Default) else FocusRequester.Default }
+                                // ▼ desde el menú de arriba: a la primera carátula visible (arriba a la izquierda), no a la más cercana.
+                                enter = { d ->
+                                    if (d == FocusDirection.Down) st.grid.layoutInfo.visibleItemsInfo.minOfOrNull { it.index }?.let { st.reqs[it] } ?: FocusRequester.Default
+                                    else FocusRequester.Default
+                                }
                             }
                             .focusGroup()
                             .fadeInOnChange(its),
