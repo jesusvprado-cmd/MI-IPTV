@@ -1,5 +1,10 @@
 package com.suso.miiptv.ui
 
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.background
@@ -177,6 +182,39 @@ fun BrowseScreen(kind: Kind) {
                 if (kind == Kind.LIVE && !narrow && !com.suso.miiptv.data.Device.touch) LiveHeader(st.focused) // en táctil, sin previsualización: más sitio para los canales
                 val its = content
                 val ie = contentErr
+                // Táctil: deslizar el dedo a izquierda/derecha sobre las carátulas pasa a la categoría siguiente/anterior.
+                val swipeX = remember { androidx.compose.animation.core.Animatable(0f) }
+                val swipeScope = rememberCoroutineScope()
+                val density = androidx.compose.ui.platform.LocalDensity.current
+                val swipeMod = if (!com.suso.miiptv.data.Device.touch || allCats.size < 2) Modifier else Modifier
+                    .pointerInput(allCats, sel) {
+                        val limit = with(density) { 70.dp.toPx() }
+                        detectHorizontalDragGestures(
+                            onDragEnd = {
+                                val dx = swipeX.value
+                                val i = allCats.indexOfFirst { it.id == sel }
+                                val next = when {
+                                    dx < -limit -> i + 1
+                                    dx > limit -> i - 1
+                                    else -> i
+                                }
+                                if (next != i && next in allCats.indices) {
+                                    pending = null
+                                    st.selected = allCats[next].id
+                                }
+                                swipeScope.launch { swipeX.animateTo(0f) }
+                            },
+                            onDragCancel = { swipeScope.launch { swipeX.animateTo(0f) } },
+                        ) { change, amount ->
+                            change.consume()
+                            swipeScope.launch { swipeX.snapTo(swipeX.value + amount) }
+                        }
+                    }
+                    .graphicsLayer {
+                        translationX = swipeX.value * 0.35f
+                        alpha = 1f - (kotlin.math.abs(swipeX.value) / (size.width.coerceAtLeast(1f))).coerceIn(0f, 0.5f)
+                    }
+                Box(Modifier.fillMaxSize().then(swipeMod)) {
                 when {
                     its == null -> SkeletonGrid(kind)
                     ie != null && its.isEmpty() -> ErrorBox(ie) { Repo.reload() }
@@ -261,6 +299,7 @@ fun BrowseScreen(kind: Kind) {
                     }
                     }
                 }
+                }
             }
         }
     }
@@ -271,6 +310,14 @@ fun BrowseScreen(kind: Kind) {
 @Composable
 fun CategoryChips(cats: List<Category>, selected: String?, kind: com.suso.miiptv.data.Kind? = null, onPick: (String) -> Unit) {
     val state = androidx.compose.foundation.lazy.rememberLazyListState()
+    // Al cambiar de categoría (también deslizando las carátulas) la píldora elegida se queda a la vista.
+    LaunchedEffect(selected) {
+        val i = cats.indexOfFirst { it.id == selected }
+        if (i < 0) return@LaunchedEffect
+        val vis = state.layoutInfo.visibleItemsInfo
+        val fully = vis.any { it.index == i && it.offset >= 0 && it.offset + it.size <= state.layoutInfo.viewportEndOffset }
+        if (!fully) state.animateScrollToItem((i - 1).coerceAtLeast(0))
+    }
     androidx.compose.foundation.lazy.LazyRow(
         state = state,
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
