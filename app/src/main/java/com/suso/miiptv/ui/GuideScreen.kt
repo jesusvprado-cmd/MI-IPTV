@@ -1,5 +1,7 @@
 package com.suso.miiptv.ui
 
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.runtime.rememberCoroutineScope
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -147,13 +149,40 @@ fun GuideScreen() {
     val phoneW = touch && gcfg.screenWidthDp < 600
     val compact = touch && (gcfg.screenWidthDp < 600 || gcfg.screenHeightDp > gcfg.screenWidthDp)
 
+    // Volver al menú de grupos: siempre al grupo abierto, no al que quede a la altura del cursor.
+    val catsState = rememberLazyListState()
+    val catReqs = remember { HashMap<String, androidx.compose.ui.focus.FocusRequester>() }
+    val menuScope = rememberCoroutineScope()
+    // Tras saltar al menú manteniendo ◀, se ignoran las repeticiones de ◀ hasta soltar el botón.
+    var swallowLeft by remember { mutableStateOf(false) }
+    fun toMenu() {
+        val i = cats.indexOfFirst { it.id == sel }
+        menuScope.launch {
+            if (i >= 0 && catsState.layoutInfo.visibleItemsInfo.none { it.index == i }) catsState.scrollToItem(maxOf(0, i - 3))
+            kotlinx.coroutines.delay(30)
+            catReqs[sel]?.let { runCatching { it.requestFocus() } }
+        }
+    }
     Row(Modifier.fillMaxSize()) {
         // Categorías (en el móvil, como píldoras arriba)
         if (!compact) LazyColumn(
-            modifier = Modifier.width(250.dp).fillMaxHeight().onFocusChanged { catsFocused = it.hasFocus },
+            state = catsState,
+            modifier = Modifier.width(250.dp).fillMaxHeight().onFocusChanged { catsFocused = it.hasFocus }
+                .onPreviewKeyEvent { e ->
+                    if (swallowLeft && e.key == Key.DirectionLeft) {
+                        if (e.type == KeyEventType.KeyUp) swallowLeft = false
+                        true
+                    } else false
+                },
             contentPadding = PaddingValues(start = 22.dp, end = 6.dp, top = 14.dp, bottom = 24.dp),
         ) {
             itemsIndexed(cats, key = { i, c -> "$i:${c.id}" }) { _, c ->
+                val cfr = remember { androidx.compose.ui.focus.FocusRequester() }
+                androidx.compose.runtime.DisposableEffect(c.id, cfr) {
+                    catReqs[c.id] = cfr
+                    onDispose { if (catReqs[c.id] === cfr) catReqs.remove(c.id) }
+                }
+                Box(Modifier.focusRequester(cfr)) {
                 CategoryRow(
                     name = catLabel(c.name),
                     selected = c.id == sel,
@@ -161,6 +190,7 @@ fun GuideScreen() {
                     onFocused = { pending = c.id },
                     cursorInMenu = catsFocused,
                 ) { sel = c.id }
+                }
             }
         }
 
@@ -203,7 +233,15 @@ fun GuideScreen() {
                                 val fr = liveFrs[to] ?: return false
                                 return runCatching { fr.requestFocus() }.isSuccess
                             }
-                            LazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
+                            LazyColumn(
+                                state = state,
+                                modifier = Modifier.fillMaxSize().focusProperties {
+                                    exit = { d ->
+                                        if (d == androidx.compose.ui.focus.FocusDirection.Left) catReqs[sel] ?: androidx.compose.ui.focus.FocusRequester.Default
+                                        else androidx.compose.ui.focus.FocusRequester.Default
+                                    }
+                                },
+                            ) {
                                 itemsIndexed(list, key = { _, ch -> ch.key }) { i, ch ->
                                     GuideRow(
                                         ch = ch,
@@ -227,6 +265,7 @@ fun GuideScreen() {
                                             }
                                         },
                                         onPick = { e -> pick(ctx, list, i, ch, e, now) },
+                                        toMenu = { long -> if (!compact) { if (long) swallowLeft = true; toMenu() } },
                                         liveFr = remember(ch.key) { androidx.compose.ui.focus.FocusRequester() }.also { liveFrs[i] = it },
                                         // Mantener ▲ en la primera fila no se sale al menú de arriba (una pulsación suelta, sí).
                                         onVertical = { d, repeat -> jump(i + d) || (repeat && i + d < 0) },
@@ -343,6 +382,7 @@ private fun GuideRow(
     onPick: (EpgEntry?) -> Unit,
     liveFr: androidx.compose.ui.focus.FocusRequester,
     onVertical: (Int, Boolean) -> Boolean,
+    toMenu: (Boolean) -> Unit,
 ) {
     var epg by remember(ch.key) { mutableStateOf<List<EpgEntry>?>(null) }
     // ¿Está el cursor en esta fila? Si estaba en la casilla «Cargando…» cuando llega la guía, pasa a lo que se emite ahora.
@@ -378,8 +418,6 @@ private fun GuideRow(
         // Programas
         Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(6.dp)).onFocusChanged { rowFocused = it.hasFocus }) {
             val l = epg
-            // En la franja de ahora, ◀ en la primera casilla va al menú de grupos; para ver lo ya emitido, mantener ◀.
-            val atNow = winStart <= floorHalfHour(now)
             val visible = l?.filter { it.end > winStart && it.start < winEnd }.orEmpty()
             // Casilla a la que va el cursor al subir o bajar: lo que se emite ahora o, si no está en la franja, la primera.
             val target = visible.firstOrNull { it.start <= now && it.end > now } ?: visible.firstOrNull()
@@ -396,7 +434,8 @@ private fun GuideRow(
                     onFocus = { onFocus(null, l == null) },
                     onLeft = { onShift(-60 * 60_000L) },
                     onRight = { onShift(60 * 60_000L) },
-                    leftToMenu = atNow,
+                    leftToMenu = true,
+                    toMenu = toMenu,
                     onClick = { onPick(null) },
                     liveFr = liveFr,
                     onVertical = onVertical,
@@ -420,7 +459,8 @@ private fun GuideRow(
                         onFocus = { onFocus(e, false) },
                         // En el primero/último visible, ◀ ▶ mueven la franja horaria en lugar de salir de la fila.
                         onLeft = { if (idx == 0) onShift(-60 * 60_000L) else false },
-                        leftToMenu = idx == 0 && atNow,
+                        leftToMenu = idx == 0,
+                        toMenu = toMenu,
                         onRight = { if (idx == visible.lastIndex) onShift(60 * 60_000L) || true else false },
                         onClick = { onPick(e) },
                         liveFr = if (e === target) liveFr else null,
@@ -452,12 +492,12 @@ private fun ProgramCell(
     onClick: () -> Unit,
     liveFr: androidx.compose.ui.focus.FocusRequester? = null,
     leftToMenu: Boolean = false,
+    toMenu: (Boolean) -> Unit = {},
     onVertical: (Int, Boolean) -> Boolean = { _, _ -> false },
 ) {
     var focused by remember { mutableStateOf(false) }
     var pressed by remember { mutableStateOf(false) }
     var leftArmed by remember { mutableStateOf(false) }
-    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     val fr = remember { androidx.compose.ui.focus.FocusRequester() }
     val click by androidx.compose.runtime.rememberUpdatedState(onClick)
     val bg = when {
@@ -477,14 +517,15 @@ private fun ProgramCell(
             }
             .onPreviewKeyEvent { e ->
                 when {
-                    // ◀ suelto: al menú de grupos. ◀ mantenido: hacia atrás en el tiempo (lo ya emitido).
+                    // Primera casilla: ◀ corto retrocede una hora (o, si no hay más atrás, va al menú de grupos);
+                    // ◀ mantenido va directo al menú de grupos.
                     leftToMenu && e.key == Key.DirectionLeft -> {
                         if (e.type == KeyEventType.KeyDown) {
                             if (e.nativeKeyEvent.repeatCount == 0) leftArmed = true
-                            else { leftArmed = false; onLeft() }
+                            else if (leftArmed) { leftArmed = false; toMenu(true) }
                         } else if (e.type == KeyEventType.KeyUp && leftArmed) {
                             leftArmed = false
-                            focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Left)
+                            if (!onLeft()) toMenu(false)
                         }
                         true
                     }
