@@ -5,6 +5,8 @@ on:
     inputs:
       ref: { description: "commit", required: true }
       number: { description: "número de versión", required: true }
+permissions:
+  contents: write
 jobs:
   mapa:
     runs-on: ubuntu-24.04
@@ -16,5 +18,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v5
       - run: python3 .github/scripts/logo_data.py
       - run: chmod +x gradlew && ./gradlew minifyReleaseWithR8 --no-daemon -PbuildNumber=${{ inputs.number }}
-      - uses: actions/upload-artifact@v4
-        with: { name: mapping, path: app/build/outputs/mapping/release/mapping.txt }
+      - env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          cp app/build/outputs/mapping/release/mapping.txt mapping-${{ inputs.number }}.txt
+          gh release view mapas >/dev/null 2>&1 || gh release create mapas --prerelease --title "Mapas de errores" --notes "mapping.txt de versiones antiguas"
+          gh release upload mapas mapping-${{ inputs.number }}.txt --clobber
