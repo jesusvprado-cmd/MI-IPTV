@@ -1,5 +1,6 @@
 package com.suso.miiptv.ui
 
+import androidx.compose.ui.layout.onSizeChanged
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.graphics.graphicsLayer
@@ -184,9 +185,13 @@ fun BrowseScreen(kind: Kind) {
                 val ie = contentErr
                 // Táctil: deslizar el dedo a izquierda/derecha sobre las carátulas pasa a la categoría siguiente/anterior.
                 val swipeX = remember { androidx.compose.animation.core.Animatable(0f) }
+                // Transición al cambiar de categoría deslizando: la actual se desvanece hacia un lado y la nueva aparece desde el otro.
+                val fade = remember { androidx.compose.animation.core.Animatable(1f) }
                 val swipeScope = rememberCoroutineScope()
                 val density = androidx.compose.ui.platform.LocalDensity.current
+                var swipeW by remember { mutableStateOf(1f) }
                 val swipeMod = if (!com.suso.miiptv.data.Device.touch || allCats.size < 2) Modifier else Modifier
+                    .onSizeChanged { swipeW = it.width.toFloat().coerceAtLeast(1f) }
                     .pointerInput(allCats, sel) {
                         val limit = with(density) { 70.dp.toPx() }
                         detectHorizontalDragGestures(
@@ -199,10 +204,24 @@ fun BrowseScreen(kind: Kind) {
                                     else -> i
                                 }
                                 if (next != i && next in allCats.indices) {
-                                    pending = null
-                                    st.selected = allCats[next].id
-                                }
-                                swipeScope.launch { swipeX.animateTo(0f) }
+                                    val dir = if (next > i) -1f else 1f
+                                    val target = allCats[next].id
+                                    swipeScope.launch {
+                                        // Sale: se desliza un poco más hacia el lado del dedo mientras se desvanece.
+                                        launch { swipeX.animateTo(dir * swipeW * 0.5f, androidx.compose.animation.core.tween(170)) }
+                                        fade.animateTo(0f, androidx.compose.animation.core.tween(170))
+                                        pending = null
+                                        st.selected = target
+                                        swipeX.snapTo(-dir * swipeW * 0.35f)
+                                        // Espera a que esté el contenido nuevo (casi siempre al momento) y entra desde el otro lado.
+                                        kotlinx.coroutines.withTimeoutOrNull(1500) {
+                                            while (st.loadedSel != target) kotlinx.coroutines.delay(16)
+                                        }
+                                        kotlinx.coroutines.delay(30)
+                                        launch { swipeX.animateTo(0f, androidx.compose.animation.core.tween(260, easing = androidx.compose.animation.core.FastOutSlowInEasing)) }
+                                        fade.animateTo(1f, androidx.compose.animation.core.tween(260))
+                                    }
+                                } else swipeScope.launch { swipeX.animateTo(0f) }
                             },
                             onDragCancel = { swipeScope.launch { swipeX.animateTo(0f) } },
                         ) { change, amount ->
@@ -212,7 +231,7 @@ fun BrowseScreen(kind: Kind) {
                     }
                     .graphicsLayer {
                         translationX = swipeX.value * 0.35f
-                        alpha = 1f - (kotlin.math.abs(swipeX.value) / (size.width.coerceAtLeast(1f))).coerceIn(0f, 0.5f)
+                        alpha = fade.value * (1f - (kotlin.math.abs(swipeX.value) / (size.width.coerceAtLeast(1f))).coerceIn(0f, 0.5f))
                     }
                 Box(Modifier.fillMaxSize().then(swipeMod)) {
                 when {
