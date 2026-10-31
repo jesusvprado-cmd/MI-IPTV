@@ -154,8 +154,8 @@ fun GuideScreen() {
     val catsState = rememberLazyListState()
     val catReqs = remember { HashMap<String, androidx.compose.ui.focus.FocusRequester>() }
     val menuScope = rememberCoroutineScope()
-    // Tras saltar al menú manteniendo ◀, se ignoran las repeticiones de ◀ hasta soltar el botón.
-    var swallowLeft by remember { mutableStateOf(false) }
+    // ▶ desde el menú: a la fila del último canal usado si se ve, si no a la primera visible (no a la que quede a la misma altura).
+    val gridEntry = remember { arrayOfNulls<() -> androidx.compose.ui.focus.FocusRequester>(1) }
     fun toMenu() {
         val i = cats.indexOfFirst { it.id == sel }
         menuScope.launch {
@@ -169,11 +169,9 @@ fun GuideScreen() {
         if (!compact) LazyColumn(
             state = catsState,
             modifier = Modifier.width(250.dp).fillMaxHeight().onFocusChanged { catsFocused = it.hasFocus }
+                // Tras saltar al menú manteniendo ◀, las repeticiones de ◀ no hacen nada.
                 .onPreviewKeyEvent { e ->
-                    if (swallowLeft && e.key == Key.DirectionLeft) {
-                        if (e.type == KeyEventType.KeyUp) swallowLeft = false
-                        true
-                    } else false
+                    e.key == Key.DirectionLeft && e.type == KeyEventType.KeyDown && e.nativeKeyEvent.repeatCount > 0
                 },
             contentPadding = PaddingValues(start = 22.dp, end = 6.dp, top = 14.dp, bottom = 24.dp),
         ) {
@@ -183,7 +181,9 @@ fun GuideScreen() {
                     catReqs[c.id] = cfr
                     onDispose { if (catReqs[c.id] === cfr) catReqs.remove(c.id) }
                 }
-                Box(Modifier.focusRequester(cfr)) {
+                Box(Modifier.focusRequester(cfr).focusProperties {
+                    right = gridEntry[0]?.invoke() ?: androidx.compose.ui.focus.FocusRequester.Default
+                }) {
                 CategoryRow(
                     name = catLabel(c.name),
                     selected = c.id == sel,
@@ -230,6 +230,12 @@ fun GuideScreen() {
                             val state = rememberLazyListState()
                             // Casilla «en emisión» de cada fila: al subir o bajar, el cursor va siempre a lo que se emite ahora.
                             val liveFrs = remember(list) { HashMap<Int, androidx.compose.ui.focus.FocusRequester>() }
+                            val lastRow = remember(list) { intArrayOf(-1) }
+                            gridEntry[0] = {
+                                val vis = state.layoutInfo.visibleItemsInfo.map { it.index }
+                                val i = if (lastRow[0] in vis) lastRow[0] else vis.firstOrNull()
+                                i?.let { liveFrs[it] } ?: androidx.compose.ui.focus.FocusRequester.Default
+                            }
                             fun jump(to: Int): Boolean {
                                 val fr = liveFrs[to] ?: return false
                                 return runCatching { fr.requestFocus() }.isSuccess
@@ -253,7 +259,7 @@ fun GuideScreen() {
                                         winEnd = winEnd,
                                         now = now,
                                         pv = pv,
-                                        onFocus = { e, loading -> focused = Focused(ch, e, loading) },
+                                        onFocus = { e, loading -> focused = Focused(ch, e, loading); lastRow[0] = i },
                                         onShift = { delta ->
                                             val min = minWindow(ch, now)
                                             val max = floorHalfHour(now) + 24 * 3600_000L
@@ -266,7 +272,7 @@ fun GuideScreen() {
                                             }
                                         },
                                         onPick = { e -> pick(ctx, list, i, ch, e, now) },
-                                        toMenu = { long -> if (!compact) { if (long) swallowLeft = true; toMenu() } },
+                                        toMenu = { if (!compact) toMenu() },
                                         liveFr = remember(ch.key) { androidx.compose.ui.focus.FocusRequester() }.also { liveFrs[i] = it },
                                         // Mantener ▲ en la primera fila no se sale al menú de arriba (una pulsación suelta, sí).
                                         onVertical = { d, repeat -> jump(i + d) || (repeat && i + d < 0) },
@@ -383,7 +389,7 @@ private fun GuideRow(
     onPick: (EpgEntry?) -> Unit,
     liveFr: androidx.compose.ui.focus.FocusRequester,
     onVertical: (Int, Boolean) -> Boolean,
-    toMenu: (Boolean) -> Unit,
+    toMenu: () -> Unit,
 ) {
     var epg by remember(ch.key) { mutableStateOf<List<EpgEntry>?>(null) }
     // ¿Está el cursor en esta fila? Si estaba en la casilla «Cargando…» cuando llega la guía, pasa a lo que se emite ahora.
@@ -493,7 +499,7 @@ private fun ProgramCell(
     onClick: () -> Unit,
     liveFr: androidx.compose.ui.focus.FocusRequester? = null,
     leftToMenu: Boolean = false,
-    toMenu: (Boolean) -> Unit = {},
+    toMenu: () -> Unit = {},
     onVertical: (Int, Boolean) -> Boolean = { _, _ -> false },
 ) {
     var focused by remember { mutableStateOf(false) }
@@ -520,13 +526,17 @@ private fun ProgramCell(
                 when {
                     // Primera casilla: ◀ corto retrocede una hora (o, si no hay más atrás, va al menú de grupos);
                     // ◀ mantenido va directo al menú de grupos.
+                    // ◀ mantenido, en cualquier casilla: al menú de grupos (una sola vez; el resto de repeticiones no hacen nada).
+                    e.key == Key.DirectionLeft && e.type == KeyEventType.KeyDown && e.nativeKeyEvent.repeatCount > 0 -> {
+                        leftArmed = false
+                        if (e.nativeKeyEvent.repeatCount == 1) toMenu()
+                        true
+                    }
                     leftToMenu && e.key == Key.DirectionLeft -> {
-                        if (e.type == KeyEventType.KeyDown) {
-                            if (e.nativeKeyEvent.repeatCount == 0) leftArmed = true
-                            else if (leftArmed) { leftArmed = false; toMenu(true) }
-                        } else if (e.type == KeyEventType.KeyUp && leftArmed) {
+                        if (e.type == KeyEventType.KeyDown) leftArmed = true
+                        else if (e.type == KeyEventType.KeyUp && leftArmed) {
                             leftArmed = false
-                            if (!onLeft()) toMenu(false)
+                            if (!onLeft()) toMenu()
                         }
                         true
                     }
