@@ -1,11 +1,12 @@
 package com.suso.miiptv.ui
 
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -247,7 +248,7 @@ fun PosterCard(
             fontWeight = FontWeight.Medium,
             maxLines = 1,
             overflow = if (focused) TextOverflow.Clip else TextOverflow.Ellipsis,
-            modifier = if (focused) Modifier.basicMarquee() else Modifier,
+            modifier = safeMarquee(focused),
         )
         if (subtitle != null) {
             Text(subtitle, color = C.text2, fontSize = Sz.small, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -314,7 +315,7 @@ fun ChannelCard(
             fontWeight = FontWeight.Medium,
             maxLines = 1,
             overflow = if (focused) TextOverflow.Clip else TextOverflow.Ellipsis,
-            modifier = if (focused) Modifier.basicMarquee() else Modifier,
+            modifier = safeMarquee(focused),
         )
         if (subtitle != null) {
             Text(
@@ -407,3 +408,25 @@ fun focusFrame(alpha: Float): androidx.compose.ui.graphics.Brush =
     androidx.compose.ui.graphics.Brush.linearGradient(
         listOf(C.gold.copy(alpha = alpha), Color.White.copy(alpha = alpha)),
     )
+
+
+/**
+ * Título que se desplaza cuando no cabe (sustituye a basicMarquee, que en listas largas a veces cerraba la app
+ * con «LayoutNode should be attached to an owner» al dibujar una tarjeta que ya se había retirado).
+ */
+@Composable
+fun safeMarquee(on: Boolean): Modifier {
+    if (!on) return Modifier
+    val s = androidx.compose.foundation.rememberScrollState()
+    androidx.compose.runtime.LaunchedEffect(s.maxValue) {
+        val max = s.maxValue
+        if (max <= 0) return@LaunchedEffect
+        while (true) {
+            kotlinx.coroutines.delay(1200)
+            s.animateScrollTo(max, androidx.compose.animation.core.tween(max * 16, easing = androidx.compose.animation.core.LinearEasing))
+            kotlinx.coroutines.delay(1500)
+            s.scrollTo(0)
+        }
+    }
+    return Modifier.clipToBounds().horizontalScroll(s, enabled = false)
+}
