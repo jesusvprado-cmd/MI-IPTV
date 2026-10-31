@@ -136,6 +136,9 @@ fun GuideScreen() {
         }
     }
     var winStart by remember { mutableLongStateOf(floorHalfHour(System.currentTimeMillis())) }
+    // Táctil: franja propia de cada canal al deslizarlo con el dedo (se borra al cambiar de grupo o pulsar «Ahora»).
+    val rowStarts = remember(sel) { androidx.compose.runtime.mutableStateMapOf<String, Long>() }
+    var headerKey by remember(sel) { mutableStateOf<String?>(null) }
     var focused by remember { mutableStateOf<Focused?>(null) }
     var catsFocused by remember { mutableStateOf(false) }
     // Como en TV en directo: la categoría se abre al ponerse encima (con una pausa corta para poder pasar de largo).
@@ -203,7 +206,7 @@ fun GuideScreen() {
             if (touch) {
                 // Táctil: la programación se mueve deslizando el dedo; «Ahora» vuelve a la hora actual.
                 Row(Modifier.padding(start = 12.dp, bottom = 6.dp)) {
-                    GuidePill("Ahora") { winStart = floorHalfHour(now) }
+                    GuidePill("Ahora") { winStart = floorHalfHour(now); rowStarts.clear(); headerKey = null }
                 }
             }
             BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -211,18 +214,16 @@ fun GuideScreen() {
                 val areaW = maxWidth - chW
                 val perMin: Dp = areaW / WIN_MIN.toFloat()
                 val perMinPx = with(androidx.compose.ui.platform.LocalDensity.current) { perMin.toPx() }
-                val dragMod = if (!touch) Modifier else Modifier.pointerInput(perMinPx, channels) {
-                    detectHorizontalDragGestures { change, amount ->
-                        change.consume()
-                        val arch = channels.orEmpty().maxOfOrNull { it.archive } ?: 0
-                        val base = floorHalfHour(System.currentTimeMillis())
-                        val min = if (arch > 0) base - minOf(arch, 1) * 24 * 3600_000L else base
-                        winStart = (winStart - (amount / perMinPx * 60_000f).toLong()).coerceIn(min, base + 24 * 3600_000L)
-                    }
+                // Táctil: cada canal se desliza por separado; la cabecera de horas sigue al último que has movido.
+                fun dragRow(ch: Item, amount: Float) {
+                    val base = floorHalfHour(System.currentTimeMillis())
+                    val cur = rowStarts[ch.key] ?: winStart
+                    rowStarts[ch.key] = (cur - (amount / perMinPx * 60_000f).toLong()).coerceIn(minWindow(ch, System.currentTimeMillis()), base + 24 * 3600_000L)
+                    headerKey = ch.key
                 }
                 val winEnd = winStart + WIN_MIN * 60_000L
-                Column(Modifier.fillMaxSize().then(dragMod)) {
-                    TimeHeader(winStart, chW, perMin, now)
+                Column(Modifier.fillMaxSize()) {
+                    TimeHeader(headerKey?.let { rowStarts[it] } ?: winStart, chW, perMin, now)
                     val list = channels
                     when {
                         list == null -> SkeletonGrid(Kind.LIVE)
@@ -256,8 +257,9 @@ fun GuideScreen() {
                                         chW = chW,
                                         compact = compact,
                                         perMin = perMin,
-                                        winStart = winStart,
-                                        winEnd = winEnd,
+                                        winStart = rowStarts[ch.key] ?: winStart,
+                                        winEnd = (rowStarts[ch.key] ?: winStart) + WIN_MIN * 60_000L,
+                                        onDrag = if (touch) ({ a -> dragRow(ch, a) }) else null,
                                         now = now,
                                         pv = pv,
                                         onFocus = { e, loading -> focused = Focused(ch, e, loading); lastRow[0] = i },
@@ -395,6 +397,7 @@ private fun GuideRow(
     onPick: (EpgEntry?) -> Unit,
     liveFr: androidx.compose.ui.focus.FocusRequester,
     onVertical: (Int, Boolean) -> Boolean,
+    onDrag: ((Float) -> Unit)? = null,
     toMenu: () -> Unit,
 ) {
     var epg by remember(ch.key) { mutableStateOf<List<EpgEntry>?>(null) }
@@ -429,7 +432,16 @@ private fun GuideRow(
             Text(ch.name, color = Color(0xFFCFCFCF), fontSize = if (compact) Sz.label else Sz.small, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 14.sp)
         }
         // Programas
-        Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(6.dp)).onFocusChanged { rowFocused = it.hasFocus }) {
+        val drag by androidx.compose.runtime.rememberUpdatedState(onDrag)
+        Box(
+            Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(6.dp)).onFocusChanged { rowFocused = it.hasFocus }
+                .then(
+                    if (onDrag == null) Modifier
+                    else Modifier.pointerInput(Unit) {
+                        detectHorizontalDragGestures { change, amount -> change.consume(); drag?.invoke(amount) }
+                    },
+                ),
+        ) {
             val l = epg
             val visible = l?.filter { it.end > winStart && it.start < winEnd }.orEmpty()
             // Casilla a la que va el cursor al subir o bajar: lo que se emite ahora o, si no está en la franja, la primera.
