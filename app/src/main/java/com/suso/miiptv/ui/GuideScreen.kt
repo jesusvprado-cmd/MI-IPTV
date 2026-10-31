@@ -1,5 +1,7 @@
 package com.suso.miiptv.ui
 
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.runtime.rememberCoroutineScope
 import android.content.Context
@@ -199,28 +201,27 @@ fun GuideScreen() {
             if (compact) CategoryChips(cats, sel) { id -> sel = id }
             InfoPanel(focused, now, touch)
             if (touch) {
-                // Sin mando: botones para mover la franja horaria.
-                fun shift(d: Long) {
-                    val arch = channels.orEmpty().maxOfOrNull { it.archive } ?: 0
-                    val base = floorHalfHour(now)
-                    val min = if (arch > 0) base - minOf(arch, 1) * 24 * 3600_000L else base
-                    winStart = (winStart + d).coerceIn(min, base + 24 * 3600_000L)
-                }
-                Row(
-                    Modifier.padding(start = 12.dp, bottom = 6.dp),
-                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
-                ) {
-                    GuidePill("◀  1 h") { shift(-60 * 60_000L) }
+                // Táctil: la programación se mueve deslizando el dedo; «Ahora» vuelve a la hora actual.
+                Row(Modifier.padding(start = 12.dp, bottom = 6.dp)) {
                     GuidePill("Ahora") { winStart = floorHalfHour(now) }
-                    GuidePill("1 h  ▶") { shift(60 * 60_000L) }
                 }
             }
             BoxWithConstraints(Modifier.fillMaxSize()) {
                 val chW = if (phoneW) 116.dp else if (compact) 170.dp else 200.dp
                 val areaW = maxWidth - chW
                 val perMin: Dp = areaW / WIN_MIN.toFloat()
+                val perMinPx = with(androidx.compose.ui.platform.LocalDensity.current) { perMin.toPx() }
+                val dragMod = if (!touch) Modifier else Modifier.pointerInput(perMinPx, channels) {
+                    detectHorizontalDragGestures { change, amount ->
+                        change.consume()
+                        val arch = channels.orEmpty().maxOfOrNull { it.archive } ?: 0
+                        val base = floorHalfHour(System.currentTimeMillis())
+                        val min = if (arch > 0) base - minOf(arch, 1) * 24 * 3600_000L else base
+                        winStart = (winStart - (amount / perMinPx * 60_000f).toLong()).coerceIn(min, base + 24 * 3600_000L)
+                    }
+                }
                 val winEnd = winStart + WIN_MIN * 60_000L
-                Column(Modifier.fillMaxSize()) {
+                Column(Modifier.fillMaxSize().then(dragMod)) {
                     TimeHeader(winStart, chW, perMin, now)
                     val list = channels
                     when {
@@ -360,12 +361,17 @@ private fun TimeHeader(winStart: Long, chW: Dp, perMin: Dp, now: Long) {
             DAY.format(Date(winStart)).replaceFirstChar { it.uppercase() }, color = C.text2, fontSize = Sz.small,
             modifier = Modifier.padding(start = 14.dp, top = 6.dp),
         )
-        for (k in 0 until (WIN_MIN / 30).toInt()) {
-            val t = winStart + k * HALF_HOUR
-            Text(
-                HM.format(Date(t)), color = Color.White, fontSize = Sz.small, fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.offset(x = chW + perMin * (k * 30f) + 6.dp, y = 6.dp),
-            )
+        // Marcas cada media hora (en táctil la franja puede empezar a cualquier minuto al deslizarla).
+        Box(Modifier.padding(start = chW).fillMaxWidth().height(30.dp).clipToBounds()) {
+            var t = floorHalfHour(winStart)
+            while (t < winStart + WIN_MIN * 60_000L) {
+                val m = (t - winStart) / 60_000f
+                if (m > -20f) Text(
+                    HM.format(Date(t)), color = Color.White, fontSize = Sz.small, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.offset(x = perMin * m + 6.dp, y = 6.dp),
+                )
+                t += HALF_HOUR
+            }
         }
         val nx = (now - winStart) / 60_000f
         if (nx in 0f..WIN_MIN.toFloat()) {
