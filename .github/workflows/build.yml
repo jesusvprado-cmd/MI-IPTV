@@ -87,3 +87,4 @@ jobs:
           files: |
             MiIPTV.apk
             app/build/logo-report.tsv
+            app/build/outputs/mapping/release/mapping.txt

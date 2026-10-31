@@ -1,0 +1,20 @@
+name: Mapa de errores
+# Recompila una versión antigua solo para sacar su mapping.txt (traducir los registros de cierres).
+on:
+  workflow_dispatch:
+    inputs:
+      ref: { description: "commit", required: true }
+      number: { description: "número de versión", required: true }
+jobs:
+  mapa:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with: { ref: "${{ inputs.ref }}" }
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: '17' }
+      - uses: gradle/actions/setup-gradle@v5
+      - run: python3 .github/scripts/logo_data.py
+      - run: chmod +x gradlew && ./gradlew minifyReleaseWithR8 --no-daemon -PbuildNumber=${{ inputs.number }}
+      - uses: actions/upload-artifact@v4
+        with: { name: mapping, path: app/build/outputs/mapping/release/mapping.txt }

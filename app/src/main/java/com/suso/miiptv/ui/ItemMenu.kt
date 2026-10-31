@@ -60,9 +60,10 @@ object ItemMenu {
     var progress by mutableStateOf<com.suso.miiptv.data.Prefs.Progress?>(null)
         private set
 
+    /** Mantener pulsada una carátula o un canal solo lo añade a favoritos o lo quita (sin menú). */
     fun open(x: Item) {
-        progress = null
-        item = x
+        val added = Repo.prefs.toggleFavorite(x)
+        AppToast.show(if (added) "«${x.name}» añadido a favoritos" else "«${x.name}» quitado de favoritos")
     }
 
     fun open(p: com.suso.miiptv.data.Prefs.Progress) {
