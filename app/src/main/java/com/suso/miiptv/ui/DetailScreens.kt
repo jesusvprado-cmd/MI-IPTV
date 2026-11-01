@@ -756,7 +756,7 @@ private fun EpisodeRow(ep: Episode, progress: Prefs.Progress?, focusKey: String,
         Text("${ep.number}", color = C.gold, fontSize = Sz.body, fontWeight = FontWeight.Bold, modifier = Modifier.width(38.dp))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(ep.title, color = when { focused -> C.gold; watched -> C.text2; else -> Color.White }, fontSize = Sz.body, fontWeight = if (focused) FontWeight.Bold else FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                Text(sentenceLabel(ep.title), color = when { focused -> C.gold; watched -> C.text2; else -> Color.White }, fontSize = Sz.body, fontWeight = if (focused) FontWeight.Bold else FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                 if (watched) Text("  ✓ visto", color = C.gold, fontSize = Sz.small, fontWeight = FontWeight.SemiBold)
             }
             if (progress != null && progress.dur > 0) {

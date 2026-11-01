@@ -39,7 +39,7 @@ object Actions {
             com.suso.miiptv.data.PlayItem(
                 key = "EP|$seriesId|${ep.id}",
                 title = m.title,
-                subtitle = "S${ep.season}E${ep.number} - ${ep.title}",
+                subtitle = "S${ep.season}E${ep.number} - ${sentenceLabel(ep.title)}",
                 image = m.poster ?: fallbackImage,
                 url = ep.url,
                 live = false,

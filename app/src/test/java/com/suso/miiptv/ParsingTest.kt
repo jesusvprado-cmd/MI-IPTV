@@ -8,6 +8,7 @@ import com.suso.miiptv.data.XtreamSource
 import com.suso.miiptv.data.normalizeServer
 import com.suso.miiptv.player.maskUrl
 import com.suso.miiptv.ui.catLabel
+import com.suso.miiptv.ui.sentenceLabel
 import com.suso.miiptv.player.swapLiveFormat
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.Dispatcher
@@ -138,5 +139,12 @@ class ParsingTest {
         assertEquals("Harry Potter", catLabel("Saga Harry Potter", Kind.MOVIE))
         assertEquals("Estrenos", catLabel("Cine Estrenos", Kind.MOVIE))
         assertEquals("Cine Estrenos", catLabel("Cine Estrenos", Kind.LIVE))
+    }
+
+    @Test fun titulosDeEpisodio() {
+        assertEquals("El regreso del rey", sentenceLabel("EL REGRESO DEL REY"))
+        assertEquals("S01E01 - Piloto de HBO", sentenceLabel("S01E01 - PILOTO DE HBO"))
+        assertEquals("Capítulo 3", sentenceLabel("CAPÍTULO 3"))
+        assertEquals("Ya Bien Escrito", sentenceLabel("Ya Bien Escrito"))
     }
 }

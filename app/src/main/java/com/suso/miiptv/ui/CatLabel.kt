@@ -23,6 +23,37 @@ fun catLabel(name: String, kind: com.suso.miiptv.data.Kind? = null): String {
     return rest.replaceFirstChar { it.uppercase() }
 }
 
+/**
+ * Título de episodio: si viene en mayúsculas («EL REGRESO DEL REY»), solo la primera letra en mayúscula
+ * («El regreso del rey»), también tras un guion o dos puntos («S01E01 - Piloto»). Siglas y códigos se respetan.
+ */
+fun sentenceLabel(name: String): String {
+    val letters = name.filter { it.isLetter() }
+    if (letters.isEmpty()) return name
+    if (letters.count { it.isUpperCase() } < letters.length * 0.7) return name
+    var capNext = true
+    return name.split(' ').joinToString(" ") { w ->
+        val start = w.indexOfFirst { it.isLetterOrDigit() }
+        if (start < 0) {
+            if (w.any { it == '-' || it == ':' || it == '|' || it == '.' }) capNext = true
+            return@joinToString w
+        }
+        val end = w.indexOfLast { it.isLetterOrDigit() }
+        val core = w.substring(start, end + 1)
+        val up = core.uppercase()
+        val out = when {
+            SPECIAL.containsKey(up) -> SPECIAL.getValue(up)
+            up in ACRONYMS -> up
+            core.any { it.isDigit() } -> up
+            capNext -> core.lowercase().replaceFirstChar { it.uppercase() }
+            else -> core.lowercase()
+        }
+        val post = w.substring(end + 1)
+        capNext = post.any { it == ':' || it == '.' || it == '-' || it == '|' }
+        w.substring(0, start) + out + post
+    }
+}
+
 private fun caseLabel(name: String): String {
     val letters = name.filter { it.isLetter() }
     if (letters.isEmpty()) return name
