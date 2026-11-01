@@ -1,5 +1,6 @@
 package com.suso.miiptv.ui
 
+import androidx.compose.foundation.layout.size
 import androidx.compose.animation.core.animateDecay
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.zIndex
@@ -627,7 +628,10 @@ private fun ProgramCell(
         contentAlignment = Alignment.CenterStart,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            if (reminder) Text("⏰ ", fontSize = Sz.small, color = if (focused) Color.Black else C.gold)
+            if (reminder) {
+                MiniClock(if (focused) Color.Black else C.gold, 13.dp)
+                Spacer(Modifier.width(6.dp))
+            }
             if (archived) Text("↺ ", fontSize = Sz.small, fontWeight = FontWeight.Bold, color = if (focused) Color.Black else C.gold)
             Text(
                 title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = Sz.small,
@@ -673,7 +677,11 @@ fun ReminderPopup(onVisible: (Boolean) -> Unit = {}, onWatch: (Prefs.Reminder) -
             Modifier.width(420.dp).clip(RoundedCornerShape(16.dp)).background(Color(0xF20B140D))
                 .border(1.dp, C.gold.copy(alpha = 0.5f), RoundedCornerShape(16.dp)).padding(20.dp),
         ) {
-            Text("⏰  Empieza ahora", color = C.gold, fontSize = Sz.body, fontWeight = FontWeight.Bold)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                MiniClock(C.gold, 16.dp)
+                Spacer(Modifier.width(8.dp))
+                Text("Empieza ahora", color = C.gold, fontSize = Sz.body, fontWeight = FontWeight.Bold)
+            }
             Spacer(Modifier.height(4.dp))
             Text(r.title, color = Color.White, fontSize = Sz.sub, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(r.channel.name, color = C.text2, fontSize = Sz.body)
@@ -815,9 +823,25 @@ private fun DayRow(ch: Item, e: EpgEntry, now: Long, pv: Int, onClick: () -> Uni
         val tag = when {
             live -> "▶ Ver"
             archived -> "↺ Ver"
-            reminder -> "🔔"
             else -> null
         }
+        if (reminder && tag == null) Box(Modifier.padding(start = 8.dp, top = 2.dp)) { MiniClock(C.gold, 14.dp) }
         if (tag != null) Text(tag, color = C.gold, fontSize = Sz.small, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 8.dp))
+    }
+}
+
+
+/** Reloj minimalista (círculo fino y dos agujas) para los programas con aviso. */
+@Composable
+private fun MiniClock(color: Color, size: Dp) {
+    androidx.compose.foundation.Canvas(Modifier.size(size)) {
+        val stroke = this.size.minDimension * 0.11f
+        val r = this.size.minDimension / 2f - stroke / 2f
+        val c = center
+        drawCircle(color, radius = r, center = c, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
+        val cap = androidx.compose.ui.graphics.StrokeCap.Round
+        // Agujas a las 10 y 10 (minutero arriba, horario hacia la derecha).
+        drawLine(color, c, androidx.compose.ui.geometry.Offset(c.x, c.y - r * 0.62f), stroke, cap)
+        drawLine(color, c, androidx.compose.ui.geometry.Offset(c.x + r * 0.45f, c.y), stroke, cap)
     }
 }
