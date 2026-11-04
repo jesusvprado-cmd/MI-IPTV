@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.media.audiofx.LoudnessEnhancer
 import android.net.Uri
-import android.widget.Toast
 import android.os.Handler
 import android.os.Looper
 import androidx.annotation.OptIn
@@ -25,13 +24,8 @@ import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.HttpDataSource
-import androidx.media3.datasource.okhttp.OkHttpDataSource
-import androidx.media3.exoplayer.DefaultLoadControl
-import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.suso.miiptv.data.EpgEntry
-import com.suso.miiptv.data.Http
 import com.suso.miiptv.data.PlayItem
 import com.suso.miiptv.data.Repo
 import kotlinx.coroutines.MainScope
@@ -754,15 +748,14 @@ class PlayerCtl(ctx: Context) {
 
     private fun load(rawUrl: String, pos: Long, forceHls: Boolean) {
         val url = if (altLiveFormat && current.live) swapLiveFormat(rawUrl) else rawUrl
-        val b = MediaItem.Builder().setUri(url)
-        if (forceHls || url.contains(".m3u8", ignoreCase = true)) b.setMimeType(MimeTypes.APPLICATION_M3U8)
+        val item = PlayerHolder.mediaItem(url, forceHls)
         buffering = true
         firstFrame = false
         noFrameTicks = 0
         videoProblem = null
         measuredFps = 0f
         frameCount = 0
-        player.setMediaItem(b.build(), pos)
+        player.setMediaItem(item, pos)
         player.prepare()
         player.play()
     }
@@ -1057,7 +1050,6 @@ class PlayerCtl(ctx: Context) {
         private set
     private val commitScrubRunnable = Runnable { commitScrub() }
 
-    /** Avance: se mueve la marca y se ve el minuto; el salto se hace al parar o con OK. */
     /** Salta directamente (sin la barra de avance), p. ej. para saltar la intro. */
     fun skipBy(ms: Long) {
         val d = player.duration
@@ -1098,14 +1090,6 @@ class PlayerCtl(ctx: Context) {
         handler.removeCallbacks(commitScrubRunnable)
         scrubPos = null
         return true
-    }
-
-    fun seekBy(ms: Long) {
-        if (current.live) return
-        val d = player.duration
-        val target = (player.currentPosition + ms).coerceAtLeast(0).let { if (d > 0) it.coerceAtMost(d - 1000) else it }
-        player.seekTo(target)
-        position = target
     }
 
     /** Arrastrando la barra (móvil): se mueve la marca y se ve el minuto; se salta al soltar. */

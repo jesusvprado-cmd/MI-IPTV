@@ -9,7 +9,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Arrangement
@@ -53,7 +52,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -285,36 +283,6 @@ private fun PlotAndCredits(h: HeaderInfo, maxPlotLines: Int, modifier: Modifier,
                 Spacer(Modifier.height(6.dp))
                 credits.forEach { Text(it, style = creditStyle, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             }
-        }
-    }
-}
-
-/** Sinopsis que ocupa el hueco disponible y se recorta con «…» si no cabe. */
-@Composable
-private fun FittingPlot(text: String, modifier: Modifier, maxLinesCap: Int, onOverflow: (Boolean) -> Unit) {
-    BoxWithConstraints(modifier) {
-        val style = androidx.compose.material3.LocalTextStyle.current.merge(
-            androidx.compose.ui.text.TextStyle(color = C.textBody, fontSize = Sz.body, lineHeight = 21.sp)
-        )
-        // Se mide de verdad cuánto ocupa una línea y dos líneas con esta letra, y solo se muestran las que caben enteras.
-        val measurer = androidx.compose.ui.text.rememberTextMeasurer()
-        val h1 = remember(style) { measurer.measure("Ág", style, maxLines = 1).size.height }
-        val h2 = remember(style) { measurer.measure("Ág\nÁg", style, maxLines = 2).size.height }
-        val per = (h2 - h1).coerceAtLeast(1)
-        val maxH = constraints.maxHeight
-        val lines = when {
-            !constraints.hasBoundedHeight -> maxLinesCap
-            maxH < h1 -> 0
-            else -> (1 + (maxH - h1) / per).coerceIn(1, maxLinesCap)
-        }
-        // Si no cabe ni una línea entera, mejor no mostrarla que verla cortada (queda «Leer más»).
-        if (lines == 0) {
-            LaunchedEffect(text) { onOverflow(true) }
-        } else {
-            Text(
-                text, style = style, maxLines = lines, overflow = TextOverflow.Ellipsis,
-                onTextLayout = { r -> onOverflow(r.hasVisualOverflow) },
-            )
         }
     }
 }

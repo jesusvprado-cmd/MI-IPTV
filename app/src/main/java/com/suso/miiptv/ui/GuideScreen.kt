@@ -769,19 +769,6 @@ fun ReminderPopup(onVisible: (Boolean) -> Unit = {}, onWatch: (Prefs.Reminder) -
 }
 
 
-@Composable
-private fun GuidePill(text: String, onClick: () -> Unit) {
-    Text(
-        text, color = C.text3, fontSize = Sz.small, fontWeight = FontWeight.SemiBold,
-        modifier = Modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xFF1F2A21))
-            .tvClick(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 7.dp),
-    )
-}
-
-
 /** «Hoy», «Mañana», «Ayer» o el día de la semana con el número. */
 private fun relDay(t: Long): String {
     fun dayNum(x: Long): Long {

@@ -53,7 +53,6 @@ object C {
     val greenPale = Color(0xFFB8EBAE)
     /** Verde de los iconos del menú de arriba (la lupa), un poco más vivo que [gold] para que se vea igual. */
     val greenIcon = Color(0xFF6FE07A)
-    val playBtn = Color(0xFFDDF3F2)
     val error = Color(0xFFFF6B6B)
 }
 

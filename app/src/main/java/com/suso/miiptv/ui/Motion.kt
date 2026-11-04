@@ -62,20 +62,6 @@ fun Modifier.fadeInOnChange(key: Any?): Modifier {
 }
 
 /**
- * Desplazamiento de Inicio: solo se mueve si la tarjeta con el foco no se ve entera,
- * y entonces la coloca a un 30 % del borde. Así los cambios de fila son suaves y no hay saltos innecesarios.
- */
-@OptIn(ExperimentalFoundationApi::class)
-val HomeBringIntoView = object : BringIntoViewSpec {
-    override val scrollAnimationSpec: AnimationSpec<Float> = TvBringIntoView.scrollAnimationSpec
-
-    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
-        if (offset >= 0f && offset + size <= containerSize) return 0f
-        return TvBringIntoView.calculateScrollDistance(offset, size, containerSize)
-    }
-}
-
-/**
  * Cuadrículas (Películas, Series, canales): mientras la tarjeta se ve entera no se mueve nada;
  * al llegar al borde se desplaza solo lo justo, con un margen, y con la curva suave.
  */

@@ -158,10 +158,18 @@ object PlayerHolder {
 
     fun currentUrl(): String? = player?.currentMediaItem?.localConfiguration?.uri?.toString()
 
-    fun load(exo: ExoPlayer, url: String, forceHls: Boolean) {
+    /**
+     * El vídeo que se le pasa al reproductor: si la dirección es HLS (o se fuerza, para servidores que lo dan
+     * sin decirlo en la dirección), se marca como tal. Lo usan la previsualización y la pantalla completa.
+     */
+    fun mediaItem(url: String, forceHls: Boolean): MediaItem {
         val b = MediaItem.Builder().setUri(url)
         if (forceHls || url.contains(".m3u8", ignoreCase = true)) b.setMimeType(MimeTypes.APPLICATION_M3U8)
-        exo.setMediaItem(b.build())
+        return b.build()
+    }
+
+    fun load(exo: ExoPlayer, url: String, forceHls: Boolean) {
+        exo.setMediaItem(mediaItem(url, forceHls))
         exo.prepare()
         exo.play()
     }
