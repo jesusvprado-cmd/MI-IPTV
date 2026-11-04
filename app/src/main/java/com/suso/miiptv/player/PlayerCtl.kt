@@ -316,10 +316,17 @@ class PlayerCtl(ctx: Context) {
                 onVideoFormat?.invoke(f)
             }
             streamBadges = badgesOf(video, audio)
-            // Película o episodio: se recupera el audio y los subtítulos que tenías puestos.
-            if (!current.live && restoredFor != current.key && tracks.groups.any { it.type == C.TRACK_TYPE_AUDIO }) {
-                restoredFor = current.key
-                restoreTracks()
+            // Película o episodio: se recupera el audio y los subtítulos que tenías puestos. Cada tipo cuando
+            // aparece: en algunos vídeos (HLS sobre todo) los subtítulos llegan después que el audio.
+            if (!current.live) {
+                if (restoredFor != current.key && tracks.groups.any { it.type == C.TRACK_TYPE_AUDIO }) {
+                    restoredFor = current.key
+                    restoreTracks(C.TRACK_TYPE_AUDIO)
+                }
+                if (restoredTextFor != current.key && tracks.groups.any { it.type == C.TRACK_TYPE_TEXT }) {
+                    restoredTextFor = current.key
+                    restoreTracks(C.TRACK_TYPE_TEXT)
+                }
             }
         }
 
@@ -458,6 +465,7 @@ class PlayerCtl(ctx: Context) {
     }
 
     private var restoredFor: String? = null
+    private var restoredTextFor: String? = null
 
     /** Identifica una pista para volver a encontrarla otro día: idioma|nombre|posición. */
     private fun trackId(type: Int, opt: TrackOption): String {
@@ -477,9 +485,14 @@ class PlayerCtl(ctx: Context) {
             ?: parts[2].toIntOrNull()?.let { opts.getOrNull(it) }
     }
 
-    private fun restoreTracks() {
+    private fun restoreTracks(type: Int) {
         val saved = Repo.prefs.trackChoice(current.key) ?: return
-        saved.optString("a").takeIf { it.isNotEmpty() }?.let { id -> findTrack(C.TRACK_TYPE_AUDIO, id)?.let { applyTrack(C.TRACK_TYPE_AUDIO, it) } }
+        if (type == C.TRACK_TYPE_AUDIO) {
+            saved.optString("a").takeIf { it.isNotEmpty() }?.let { id -> findTrack(C.TRACK_TYPE_AUDIO, id)?.let { applyTrack(C.TRACK_TYPE_AUDIO, it) } }
+            // «Subtítulos desactivados» no necesita que existan pistas de texto.
+            if (saved.optString("t") == "off") applyTrack(C.TRACK_TYPE_TEXT, null)
+            return
+        }
         when (val t = saved.optString("t")) {
             "" -> Unit
             "off" -> applyTrack(C.TRACK_TYPE_TEXT, null)
@@ -619,6 +632,7 @@ class PlayerCtl(ctx: Context) {
         saveProgress()
         scrubPos = null
         restoredFor = null
+        restoredTextFor = null
         handler.removeCallbacksAndMessages(null)
         index = i
         error = null
@@ -737,8 +751,11 @@ class PlayerCtl(ctx: Context) {
             load(it.url, if (it.live) 0 else position, true)
             return
         }
-        // Cortes de red: reintentamos solos unas cuantas veces.
-        if (code in 2000..2999 && code != PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS && retries < 3) {
+        // Cortes de red, y servidor saturado o caído un momento (HTTP 500, 502, 503 y 504, muy típicos en IPTV):
+        // reintentamos solos unas cuantas veces.
+        val httpStatus = (e.cause as? HttpDataSource.InvalidResponseCodeException)?.responseCode
+        val busyServer = code == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS && httpStatus in TRANSIENT_HTTP
+        if (code in 2000..2999 && (code != PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS || busyServer) && retries < 3) {
             retries++
             buffering = true
             val idx = index
@@ -1139,6 +1156,9 @@ internal fun codecName(mime: String?): String = when (mime) {
 }
 
 /** El otro formato de emisión de un canal: «.ts» ↔ «.m3u8» (si la dirección no acaba en ninguno, igual). */
+/** Respuestas del servidor que suelen ser pasajeras (saturado o reiniciándose): se reintenta. */
+private val TRANSIENT_HTTP = setOf(500, 502, 503, 504)
+
 /** Reconexiones automáticas seguidas de un directo antes de dejar de intentarlo. */
 private const val MAX_AUTO_RELOADS = 6
 

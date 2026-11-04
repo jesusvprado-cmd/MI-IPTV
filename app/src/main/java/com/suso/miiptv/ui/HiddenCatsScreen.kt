@@ -195,7 +195,7 @@ private fun CatToggleRow(name: String, hidden: Boolean, focusKey: String, onClic
 
 /** Pantalla para escribir un PIN numérico. */
 @Composable
-fun PinEntry(title: String, onCancel: () -> Unit, onDone: (String) -> Unit) {
+fun PinEntry(title: String, onCancel: () -> Unit, maxLen: Int = 8, onDone: (String) -> Unit) {
     var value by remember(title) { mutableStateOf("") }
     val fr = remember { FocusRequester() }
     LaunchedEffect(title) {
@@ -210,7 +210,7 @@ fun PinEntry(title: String, onCancel: () -> Unit, onDone: (String) -> Unit) {
             Text(title, color = Color.White, fontSize = Sz.sub, fontWeight = FontWeight.Bold)
             OutlinedTextField(
                 value = value,
-                onValueChange = { v -> value = v.filter { it.isDigit() }.take(8) },
+                onValueChange = { v -> value = v.filter { it.isDigit() }.take(maxLen) },
                 singleLine = true,
                 label = { Text("PIN") },
                 visualTransformation = PasswordVisualTransformation(),

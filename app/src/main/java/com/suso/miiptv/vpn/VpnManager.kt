@@ -17,6 +17,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
 import okhttp3.Request
 
@@ -50,6 +52,9 @@ object VpnManager {
     private var backend: GoBackend? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var job: Job? = null
+    /** Cuenta las conexiones pedidas (para no cerrar una nueva al limpiar una que llegó tarde). */
+    @Volatile private var connectGen = 0
+    private const val CONNECT_TIMEOUT_MS = 30_000L
 
     private val tunnel = object : Tunnel {
         override fun getName(): String = "miiptv"
@@ -104,7 +109,10 @@ object VpnManager {
                     throw IllegalStateException("Primero carga un archivo de configuración WireGuard (.conf).")
                 }
                 val pkg = app.packageName
-                withContext(Dispatchers.IO) {
+                val myGen = ++connectGen
+                // Se conecta aparte y se espera como mucho 30 s: en algunos aparatos Android no llega a levantar
+                // el túnel y antes la VPN se quedaba «Conectando…» para siempre.
+                val work = scope.async(Dispatchers.IO) {
                     val b = backend ?: GoBackend(app).also { backend = it }
                     fun up(confText: String) {
                         try {
@@ -127,6 +135,16 @@ object VpnManager {
                             up(withoutAppFilter(text))
                         }
                     }
+                }
+                val done = withTimeoutOrNull(CONNECT_TIMEOUT_MS) { work.await(); true }
+                if (done == null) {
+                    // Si al final conecta tarde, se vuelve a cerrar (ya se ha dado el error), salvo que entretanto
+                    // se haya pedido otra conexión.
+                    scope.launch(Dispatchers.IO) {
+                        runCatching { work.await() }
+                        if (myGen == connectGen) runCatching { backend?.setState(tunnel, Tunnel.State.DOWN, null) }
+                    }
+                    throw java.io.IOException("La VPN no ha llegado a conectar en 30 segundos. Prueba otra vez.")
                 }
                 state = State.ON
                 message = null

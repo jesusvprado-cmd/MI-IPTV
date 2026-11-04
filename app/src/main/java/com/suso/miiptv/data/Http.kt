@@ -23,6 +23,13 @@ object Http {
             .build()
     }
 
+    /**
+     * Para descargar catálogo, guías y logos: el mismo cliente, pero con un tiempo máximo total de 10 minutos
+     * (antes, una guía enorme que llegaba a gotas podía dejar la descarga colgada para siempre).
+     * El reproductor sigue con [client], sin límite total (un directo dura lo que haga falta).
+     */
+    private val dataClient: OkHttpClient by lazy { client.newBuilder().callTimeout(10, TimeUnit.MINUTES).build() }
+
     @Volatile
     private var busyUntil = 0L
 
@@ -42,11 +49,13 @@ object Http {
             throw IOException("La dirección no es válida")
         }
         val r = try {
-            client.newCall(req).execute()
+            dataClient.newCall(req).execute()
         } catch (e: java.net.UnknownHostException) {
             throw IOException("No se encuentra el servidor. Revisa la dirección y tu conexión.")
         } catch (e: java.net.SocketTimeoutException) {
             throw IOException("El servidor tarda demasiado en responder.")
+        } catch (e: java.io.InterruptedIOException) {
+            throw IOException("La descarga ha tardado demasiado y se ha cortado.")
         }
         if (!r.isSuccessful) {
             val c = r.code
@@ -66,6 +75,9 @@ object Http {
 
     fun text(url: String): String = open(url).use { it.body?.string() ?: "" }
 }
+
+/** La respuesta del servidor se cortó a medias: lleva lo que se pudo leer (no se guarda como copia buena). */
+class PartialRead(val partial: Any, cause: Throwable?) : IOException("La respuesta del servidor llegó cortada", cause)
 
 /**
  * Respuestas del servidor guardadas en el aparato (catálogo, lista M3U, guía de cada canal).
@@ -101,7 +113,7 @@ object DiskCache {
     }
 
     fun <T> read(url: String, maxAge: Long, valid: (T) -> Boolean, parse: (java.io.InputStream) -> T): T {
-        val f = fileFor(url) ?: return Http.open(url).use { r -> parse(r.body!!.byteStream()) }
+        val f = fileFor(url) ?: return partialOk { Http.open(url).use { r -> parse(r.body!!.byteStream()) } }
         // 1) Copia reciente: se usa tal cual.
         if (f.exists() && System.currentTimeMillis() - f.lastModified() < maxAge) {
             val r = runCatching { f.inputStream().buffered(65536).use(parse) }.getOrNull()
@@ -116,7 +128,7 @@ object DiskCache {
             tmp.outputStream()
         } catch (e: Exception) {
             null
-        } ?: return Http.open(url).use { r -> parse(r.body!!.byteStream().buffered(65536)) }
+        } ?: return partialOk { Http.open(url).use { r -> parse(r.body!!.byteStream().buffered(65536)) } }
         try {
             out.use { o -> Http.open(url).use { r -> r.body!!.byteStream().copyTo(o, 65536) } }
         } catch (e: Exception) {
@@ -154,8 +166,21 @@ object DiskCache {
                 ErrorLog.add("Respuesta del servidor no válida (${e.message}): se usa la copia guardada")
                 return it
             }
+            if (e is PartialRead) {
+                ErrorLog.add("Respuesta del servidor cortada y sin copia guardada: se muestra lo que llegó")
+                @Suppress("UNCHECKED_CAST")
+                return e.partial as T
+            }
             throw e
         }
+    }
+
+    /** Sin copia en el aparato: una respuesta cortada se enseña tal cual (mejor que nada). */
+    @Suppress("UNCHECKED_CAST")
+    private inline fun <T> partialOk(block: () -> T): T = try {
+        block()
+    } catch (e: PartialRead) {
+        e.partial as T
     }
 
     /** La copia guardada, aunque sea vieja, si se puede leer y vale; null si no. */

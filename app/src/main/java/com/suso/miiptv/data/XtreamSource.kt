@@ -24,10 +24,11 @@ class XtreamSource(private val cfg: Config) : Source {
 
     override fun xmltvUrl(): String = "$base/xmltv.php?username=$u&password=$p"
 
+    /** Respuesta JSON del servidor. Si viene rota o cortada se avisa (antes salía la ficha en blanco sin decir nada). */
     private fun json(url: String): JSONObject = try {
         JSONObject(Http.text(url))
     } catch (e: JSONException) {
-        JSONObject()
+        throw IOException("El servidor ha devuelto una respuesta incompleta. Prueba otra vez.")
     }
 
     override suspend fun check(): AccountInfo = io {
@@ -123,6 +124,8 @@ class XtreamSource(private val cfg: Config) : Source {
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 if (out.isEmpty()) throw IOException("El servidor devolvió una respuesta no válida.")
+                // Respuesta cortada a medias: no se guarda. Se usa la copia buena si la hay; si no, lo leído.
+                throw PartialRead(out, e)
             }
             out
         }
@@ -219,7 +222,12 @@ class XtreamSource(private val cfg: Config) : Source {
 
     override suspend fun epg(item: Item): List<EpgEntry> = io {
         if (item.kind != Kind.LIVE) return@io emptyList()
-        val o = json(api("get_short_epg", "&stream_id=${item.id}&limit=8"))
+        // La guía no es imprescindible: si la respuesta viene rota, simplemente no hay guía.
+        val o = try {
+            json(api("get_short_epg", "&stream_id=${item.id}&limit=8"))
+        } catch (e: IOException) {
+            return@io emptyList()
+        }
         val arr = o.optJSONArray("epg_listings") ?: return@io emptyList()
         val now = System.currentTimeMillis()
         val out = ArrayList<EpgEntry>()

@@ -437,6 +437,8 @@ fun MovieDetailScreen(item: Item) {
             Repo.movieDetail(item)
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
+            // Sin ficha se puede ver igual; se avisa de por qué falta la sinopsis.
+            Actions.toast(ctx, e.message ?: "No se pudo cargar la ficha")
             MovieDetail(item, item.name, null, null, null, null, item.image, null, null, null, null, null)
         }
     }

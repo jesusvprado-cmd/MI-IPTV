@@ -68,7 +68,7 @@ object ErrorLog {
 
 /**
  * Copia de seguridad de ajustes, lista, favoritos y perfiles en un archivo de la carpeta Download,
- * cifrada con un PIN de 4 números (sin él no se puede leer ni restaurar).
+ * cifrada con un PIN de 6 a 16 números (las copias antiguas, de 4; sin él no se puede leer ni restaurar).
  */
 object Backup {
     const val FILE_NAME = "pepino-iptv-copia.json"

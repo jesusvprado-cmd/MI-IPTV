@@ -244,7 +244,7 @@ fun SettingsScreen(onChangeList: () -> Unit) {
     }
     var logOpen by remember { mutableStateOf(false) }
 
-    // ---- Copia de seguridad (cifrada con un PIN de 4 números) ----
+    // ---- Copia de seguridad (cifrada con un PIN de 6 a 16 números) ----
     // backupPin: null = nada; "new" = elegir PIN; "confirm:1234" = repetirlo.
     var backupPin by remember { mutableStateOf<String?>(null) }
     // Al terminar de guardar la copia, enviarla a otro aparato.
@@ -348,12 +348,16 @@ fun SettingsScreen(onChangeList: () -> Unit) {
     val bp = backupPin
     if (bp != null) {
         if (bp == "new") {
-            PinEntry("Elige un PIN de 4 números para cifrar la copia", onCancel = { backupPin = null; shareAfter = false }) { p ->
-                if (p.length != 4) Actions.toast(ctx, "El PIN debe tener 4 números") else backupPin = "confirm:$p"
+            // Con 4 números había solo 10.000 posibles: quien tuviera el archivo podía probarlos todos.
+            PinEntry(
+                "Elige un PIN de 6 a 16 números para cifrar la copia (cuanto más largo, más seguro)",
+                onCancel = { backupPin = null; shareAfter = false }, maxLen = 16,
+            ) { p ->
+                if (p.length < 6) Actions.toast(ctx, "El PIN debe tener al menos 6 números") else backupPin = "confirm:$p"
             }
         } else {
             val first = bp.removePrefix("confirm:")
-            PinEntry("Repite el PIN (te lo pedirá al restaurar)", onCancel = { backupPin = null }) { p ->
+            PinEntry("Repite el PIN (te lo pedirá al restaurar)", onCancel = { backupPin = null }, maxLen = 16) { p ->
                 if (p == first) {
                     backupPin = null
                     doBackup(p)
@@ -370,6 +374,7 @@ fun SettingsScreen(onChangeList: () -> Unit) {
         PinEntry(
             if (restoreBusy) "Restaurando…" else "PIN de la copia de seguridad",
             onCancel = { restoreText = null },
+            maxLen = 16,
         ) { p -> if (!restoreBusy) applyRestore(rt, p) }
         return
     }
