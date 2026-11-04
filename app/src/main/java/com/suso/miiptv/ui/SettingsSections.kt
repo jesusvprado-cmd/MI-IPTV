@@ -277,6 +277,10 @@ internal fun VideoSection(ask: Ask) {
             "Reproducir el siguiente episodio", "set_autonext", p.autoNext,
             subtitle = "Al terminar un episodio empieza solo el siguiente, también el de la temporada siguiente",
         ) { p.autoNext = it }
+        ToggleRow(
+            "Salvapantallas en pausa", "set_saver", p.pauseSaver,
+            subtitle = "A los 3 minutos en pausa, pantalla negra con la hora y lo que estabas viendo (cuida las teles OLED)",
+        ) { p.pauseSaver = it }
         SettingRow("Salto al avanzar o retroceder", "set_seek", subtitle = "En películas y series", value = label(SEEK, p.seekStep)) {
             ask.of("Salto al avanzar o retroceder", SEEK, p.seekStep) { p.seekStep = it }
         }

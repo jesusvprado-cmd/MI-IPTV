@@ -11,6 +11,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -77,6 +83,18 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
     var typed by remember { mutableStateOf("") }
     var okLong by remember { mutableStateOf(false) }
     var reminderOpen by remember { mutableStateOf(false) }
+    // Salvapantallas: a los 3 minutos en pausa sin tocar nada. Cualquier botón (o un toque) lo quita.
+    var saver by remember { mutableStateOf(false) }
+    var lastInput by remember { mutableStateOf(System.currentTimeMillis()) }
+    var swallowUp by remember { mutableStateOf(false) }
+    LaunchedEffect(ctl.isPlaying, ctl.error, lastInput, Repo.prefs.pauseSaver) {
+        if (ctl.isPlaying || ctl.error != null || !Repo.prefs.pauseSaver) {
+            saver = false
+            return@LaunchedEffect
+        }
+        delay(SAVER_DELAY_MS)
+        if (!ctl.isPlaying && !ctl.buffering && ctl.error == null) saver = true
+    }
     var playersOpen by remember { mutableStateOf(false) }
     var aspect by remember { mutableStateOf(Repo.prefs.resizeMode) }
     // Permiso de Android para la VPN (solo la primera vez).
@@ -313,7 +331,24 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
         Modifier
             .fillMaxSize()
             .background(Color.Black)
-            .onPreviewKeyEvent(onKey)
+            .onPreviewKeyEvent { e ->
+                lastInput = System.currentTimeMillis()
+                when {
+                    // La pulsación que quita el salvapantallas no hace nada más.
+                    saver -> {
+                        if (e.type == KeyEventType.KeyDown) {
+                            saver = false
+                            swallowUp = true
+                        }
+                        true
+                    }
+                    swallowUp && e.type == KeyEventType.KeyUp -> {
+                        swallowUp = false
+                        true
+                    }
+                    else -> onKey(e)
+                }
+            }
             .focusRequester(rootFr)
             .focusable()
     ) {
@@ -552,7 +587,72 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
                 onFav = if (item.live && item.channel != null) ({ toggleFav() }) else null,
             ) { tracksOpen = false }
         }
+        androidx.compose.animation.AnimatedVisibility(
+            visible = saver,
+            enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(1200)),
+            exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(250)),
+        ) {
+            PauseSaver(item) {
+                saver = false
+                lastInput = System.currentTimeMillis()
+            }
+        }
         AppToastHost()
+    }
+}
+
+/** Minutos en pausa hasta que sale el salvapantallas. */
+private const val SAVER_DELAY_MS = 3 * 60_000L
+
+/**
+ * Salvapantallas en pausa: fondo negro con la hora, el día y lo que estabas viendo. Todo el bloque cambia de
+ * sitio despacio cada medio minuto para que no se quede marcado en las teles OLED.
+ */
+@Composable
+private fun PauseSaver(item: com.suso.miiptv.data.PlayItem, onDismiss: () -> Unit) {
+    androidx.compose.foundation.layout.BoxWithConstraints(
+        Modifier.fillMaxSize().background(Color.Black).pointerInput(Unit) { detectTapGestures { onDismiss() } },
+    ) {
+        val maxX = (maxWidth - 520.dp).coerceAtLeast(0.dp)
+        val maxY = (maxHeight - 300.dp).coerceAtLeast(0.dp)
+        var target by remember { mutableStateOf(androidx.compose.ui.unit.DpOffset(maxX / 2, maxY / 2)) }
+        LaunchedEffect(maxX, maxY) {
+            val rnd = java.util.Random()
+            while (true) {
+                delay(30_000)
+                target = androidx.compose.ui.unit.DpOffset(maxX * rnd.nextFloat(), maxY * rnd.nextFloat())
+            }
+        }
+        val x by androidx.compose.animation.core.animateDpAsState(target.x, androidx.compose.animation.core.tween(8_000), label = "saverX")
+        val y by androidx.compose.animation.core.animateDpAsState(target.y, androidx.compose.animation.core.tween(8_000), label = "saverY")
+        Row(
+            Modifier.offset(x, y).width(520.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (item.image != null) {
+                coil.compose.AsyncImage(
+                    model = item.image,
+                    contentDescription = null,
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                    alpha = 0.85f,
+                    modifier = Modifier.size(110.dp).clip(RoundedCornerShape(10.dp)),
+                )
+                Spacer(Modifier.width(22.dp))
+            }
+            Column {
+                com.suso.miiptv.ui.Clock(fontSize = 64, color = Color(0xFFE0E0E0))
+                Text(
+                    java.text.SimpleDateFormat("EEEE d 'de' MMMM", java.util.Locale("es", "ES")).format(java.util.Date())
+                        .replaceFirstChar { it.uppercase() },
+                    color = C.text2, fontSize = Sz.body,
+                )
+                Spacer(Modifier.height(14.dp))
+                Text(item.title, color = C.textInactive, fontSize = Sz.emph, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                item.subtitle?.let { Text(it, color = C.textFaint, fontSize = Sz.small, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                Spacer(Modifier.height(10.dp))
+                Text("En pausa · pulsa cualquier botón para seguir", color = C.textFaint, fontSize = Sz.small)
+            }
+        }
     }
 }
 

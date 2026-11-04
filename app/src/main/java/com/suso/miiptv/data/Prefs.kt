@@ -292,6 +292,11 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("autoNext", true)
         set(v) = putBool("autoNext", v)
 
+    /** Salvapantallas con la hora y lo que estabas viendo tras unos minutos en pausa. */
+    var pauseSaver: Boolean
+        get() = sp.getBoolean("pauseSaver", true)
+        set(v) = putBool("pauseSaver", v)
+
 
     // ---------- VPN ----------
 
