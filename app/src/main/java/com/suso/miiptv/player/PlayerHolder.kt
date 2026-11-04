@@ -127,12 +127,23 @@ object PlayerHolder {
         val prefs = Repo.prefs
         val tb = exo.trackSelectionParameters.buildUpon().clearOverrides()
         val al = prefs.audioLang ?: "es"
-        if (al != "orig") tb.setPreferredAudioLanguage(al) else tb.setPreferredAudioLanguage(null)
+        if (al != "orig") tb.setPreferredAudioLanguages(*audioPriority(al)) else tb.setPreferredAudioLanguage(null)
         val sub = prefs.subLang
         tb.setPreferredTextLanguage(if (!sub.isNullOrEmpty()) sub else null)
         tb.setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT, sub == "")
         val built = tb.build()
         if (built != exo.trackSelectionParameters) exo.trackSelectionParameters = built
+    }
+
+    /**
+     * Idiomas de audio por orden de preferencia: «es» prefiere el castellano de España (es-ES)
+     * antes que cualquier otro español (es-MX, es-419… son doblaje latino), y si no hay, cualquier
+     * español antes que el inglés.
+     */
+    private fun audioPriority(al: String): Array<String> = when {
+        al == "es" -> arrayOf("es-ES", "es")
+        al.startsWith("es-") -> arrayOf(al, "es")
+        else -> arrayOf(al)
     }
 
     fun currentUrl(): String? = player?.currentMediaItem?.localConfiguration?.uri?.toString()

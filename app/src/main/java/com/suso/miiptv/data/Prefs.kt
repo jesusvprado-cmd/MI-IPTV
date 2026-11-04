@@ -195,9 +195,10 @@ class Prefs(ctx: Context) {
         sp.edit().putStringSet("altfmt", HashSet(s)).apply()
     }
 
-    /** Idioma de audio preferido (código ISO, p. ej. "es"). "orig" = sin preferencia. null = español. */
+    /** Idioma de audio preferido (código ISO, p. ej. "es"). "orig" = sin preferencia. null = español.
+     *  "und" no es un idioma: si se coló alguna vez al elegir una pista sin idioma, se ignora. */
     var audioLang: String?
-        get() = sp.getString(pk("audioLang"), null)
+        get() = sp.getString(pk("audioLang"), null)?.takeIf { it.isNotBlank() && it != "und" }
         set(v) = putStr(pk("audioLang"), v)
 
     /** Idioma de subtítulos preferido. "" = desactivados, null = nunca elegido. */

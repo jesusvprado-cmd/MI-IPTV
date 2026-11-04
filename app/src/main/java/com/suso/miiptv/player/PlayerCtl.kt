@@ -507,13 +507,16 @@ class PlayerCtl(ctx: Context) {
             val g = groups[opt.groupIndex]
             b.setTrackTypeDisabled(type, false)
                 .setOverrideForType(TrackSelectionOverride(g.mediaTrackGroup, opt.trackIndex))
-            val lang = g.getTrackFormat(opt.trackIndex).language
+            val format = g.getTrackFormat(opt.trackIndex)
             if (type == C.TRACK_TYPE_AUDIO) {
-                if (lang != null) {
-                    Repo.prefs.audioLang = lang
-                    b.setPreferredAudioLanguage(lang)
-                }
+                // Antes, al elegir una pista a mano cambiaba también el idioma preferido de toda la app:
+                // si un día elegías el inglés, desde entonces todo lo demás salía en inglés. Ahora la
+                // elección queda solo para este vídeo (se guarda en selectTrack) y el resto sigue
+                // saliendo en el idioma de Ajustes. «und» (sin idioma) no cuenta como idioma.
+                val lang = format.language?.takeIf { it.isNotBlank() && it != "und" }
+                if (lang != null) b.setPreferredAudioLanguages(lang)
             } else {
+                val lang = format.language
                 Repo.prefs.subLang = lang ?: "und"
                 if (lang != null) b.setPreferredTextLanguage(lang)
             }
