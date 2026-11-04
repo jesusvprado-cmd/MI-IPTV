@@ -94,8 +94,9 @@ fun BrowseScreen(kind: Kind) {
         if (kind == Kind.LIVE) Loading() else BoxWithConstraints(Modifier.fillMaxSize()) {
             // Mientras cargan las categorías, el esqueleto ya deja su hueco a la columna de la izquierda.
             val chips = com.suso.miiptv.data.Device.touch && (maxWidth < 600.dp || maxHeight > maxWidth)
+            val narrowRail = maxWidth < 700.dp
             Row(Modifier.fillMaxSize()) {
-                if (!chips) Spacer(Modifier.width(railWidth(maxWidth < 700.dp)))
+                if (!chips) Spacer(Modifier.width(railWidth(narrowRail)))
                 Box(Modifier.weight(1f).fillMaxHeight()) { SkeletonGrid(kind) }
             }
         }
