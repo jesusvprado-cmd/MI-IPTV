@@ -471,7 +471,8 @@ class Prefs(ctx: Context) {
         prog?.let { return it }
         val l = mutableListOf<Progress>()
         runCatching {
-            val a = JSONArray(sp.getString(pk("prog"), "[]"))
+            // Va cifrado con la llave del aparato (lleva las direcciones, y en Xtream llevan usuario y contraseña).
+            val a = JSONArray(Secure.open(sp.getString(pk("prog"), null)) ?: "[]")
             for (i in 0 until a.length()) {
                 val o = a.optJSONObject(i) ?: continue
                 val p = o.optJSONObject("p") ?: continue
@@ -543,7 +544,7 @@ class Prefs(ctx: Context) {
         l.forEach {
             a.put(JSONObject().put("p", it.play.toJson()).put("pos", it.pos).put("dur", it.dur).put("ts", it.ts))
         }
-        sp.edit().putString(pk("prog"), a.toString()).apply()
+        sp.edit().putString(pk("prog"), Secure.seal(a.toString())).apply()
         bump()
     }
 }

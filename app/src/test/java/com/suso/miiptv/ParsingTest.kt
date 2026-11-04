@@ -97,6 +97,8 @@ class ParsingTest {
         assertEquals("https://s.tv", normalizeServer("https://s.tv/player_api.php?username=a&password=b"))
         assertEquals("http://s/live/u/p/1.m3u8", swapLiveFormat("http://s/live/u/p/1.ts"))
         assertEquals("http://s/live/u/p/1.ts", swapLiveFormat("http://s/live/u/p/1.m3u8"))
+        assertEquals("http://s/live/1.m3u8?token=x", swapLiveFormat("http://s/live/1.ts?token=x"))
+        assertEquals("http://s/live/1.ts?token=x", swapLiveFormat("http://s/live/1.m3u8?token=x"))
         val masked = maskUrl("http://s.tv/timeshift/usuario/clave/60/2026-01-01:10-00/1.ts")
         assertFalse(masked.contains("usuario") || masked.contains("clave") || masked.contains("s.tv"))
         assertFalse(maskUrl("http://s.tv/player_api.php?username=yo&password=clave").contains("clave"))

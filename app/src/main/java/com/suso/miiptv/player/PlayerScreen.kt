@@ -567,7 +567,11 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
                 ctl,
                 Modifier.align(Alignment.TopEnd),
                 aspect = aspect,
-                onAspect = { aspect = nextAspect(aspect) },
+                onAspect = {
+                    aspect = nextAspect(aspect)
+                    // Se recuerda, igual que si se cambia en Ajustes.
+                    Repo.prefs.resizeMode = aspect
+                },
                 onVpn = { toggleVpn() },
                 onStartOver = { ch, e ->
                     tracksOpen = false

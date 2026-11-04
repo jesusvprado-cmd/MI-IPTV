@@ -280,8 +280,9 @@ class M3uSource(private val cfg: Config) : Source {
                     }
                 } else if (ev == XmlPullParser.TEXT) {
                     when (field) {
-                        1 -> pTitle = xp.text
-                        2 -> pDesc = xp.text
+                        // El texto puede llegar en varios trozos (entidades, CDATA): se juntan.
+                        1 -> pTitle = (pTitle ?: "") + (xp.text ?: "")
+                        2 -> pDesc = (pDesc ?: "") + (xp.text ?: "")
                         3 -> {
                             val n = xp.text?.trim()?.lowercase()
                             val c = curChan

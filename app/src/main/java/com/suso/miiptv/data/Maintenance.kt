@@ -84,9 +84,12 @@ object Backup {
                 is Int -> JSONObject().put("t", "i").put("v", v)
                 is Long -> JSONObject().put("t", "l").put("v", v)
                 is Float -> JSONObject().put("t", "f").put("v", v.toDouble())
-                // La cuenta y el perfil WireGuard van cifrados con la llave de este aparato, que no sirve en otro:
-                // en la copia van en claro, pero dentro del cifrado con el PIN.
-                is String -> JSONObject().put("t", "s").put("v", if (k == "config" || k == "wgConf") Secure.open(v) ?: continue else v)
+                // La cuenta, el perfil WireGuard y «Continuar viendo» van cifrados con la llave de este aparato,
+                // que no sirve en otro: en la copia van en claro, pero dentro del cifrado con el PIN.
+                is String -> JSONObject().put("t", "s").put(
+                    "v",
+                    if (k == "config" || k == "wgConf" || k == "prog" || k.endsWith("_prog")) Secure.open(v) ?: continue else v,
+                )
                 is Set<*> -> JSONObject().put("t", "set").put("v", JSONArray(v.map { it.toString() }))
                 else -> continue
             }

@@ -186,8 +186,9 @@ class XmlTvGuide(private val label: String, private val cacheName: String, priva
                         "desc" -> if (pKeys != null && pDesc == null && pStart < descTo && pEnd > now - 3_600_000L) field = 2
                     }
                     XmlPullParser.TEXT -> when (field) {
-                        1 -> pTitle = xp.text
-                        2 -> pDesc = xp.text?.take(600)
+                        // El texto puede llegar en varios trozos (entidades, CDATA): se juntan.
+                        1 -> pTitle = (pTitle ?: "") + (xp.text ?: "")
+                        2 -> pDesc = ((pDesc ?: "") + (xp.text ?: "")).take(600)
                         3 -> {
                             val n = xp.text?.trim()
                             val c = curChan

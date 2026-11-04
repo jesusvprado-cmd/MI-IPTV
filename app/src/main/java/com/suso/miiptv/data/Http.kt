@@ -132,18 +132,35 @@ object DiskCache {
             throw e
         }
         // 3) Se lee lo descargado y, si vale, pasa a ser la copia guardada.
+        //    Si no vale (el servidor responde «bien» pero vacío, o con una página de error), se usa la copia
+        //    guardada en vez de enseñar el catálogo en blanco.
         try {
             val r = tmp.inputStream().buffered(65536).use(parse)
             if (valid(r)) {
                 f.delete()
                 if (!tmp.renameTo(f)) tmp.delete()
-            } else {
-                tmp.delete()
+                return r
+            }
+            tmp.delete()
+            oldCopy(f, valid, parse)?.let {
+                ErrorLog.add("El servidor ha respondido vacío: se usa la copia guardada")
+                return it
             }
             return r
         } catch (e: Exception) {
             tmp.delete()
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            oldCopy(f, valid, parse)?.let {
+                ErrorLog.add("Respuesta del servidor no válida (${e.message}): se usa la copia guardada")
+                return it
+            }
             throw e
         }
+    }
+
+    /** La copia guardada, aunque sea vieja, si se puede leer y vale; null si no. */
+    private fun <T> oldCopy(f: java.io.File, valid: (T) -> Boolean, parse: (java.io.InputStream) -> T): T? {
+        if (!f.exists()) return null
+        return runCatching { f.inputStream().buffered(65536).use(parse) }.getOrNull()?.takeIf(valid)
     }
 }

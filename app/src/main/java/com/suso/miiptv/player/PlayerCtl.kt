@@ -499,8 +499,9 @@ class PlayerCtl(ctx: Context) {
     private fun applyTrack(type: Int, opt: TrackOption?) {
         val b = player.trackSelectionParameters.buildUpon()
         if (opt == null) {
+            // Quitar los subtítulos vale solo para este vídeo (la elección se guarda en selectTrack);
+            // antes los quitaba también en todos los demás.
             b.setTrackTypeDisabled(type, true)
-            if (type == C.TRACK_TYPE_TEXT) Repo.prefs.subLang = ""
         } else {
             val groups = player.currentTracks.groups
             if (opt.groupIndex !in groups.indices) return
@@ -516,8 +517,8 @@ class PlayerCtl(ctx: Context) {
                 val lang = format.language?.takeIf { it.isNotBlank() && it != "und" }
                 if (lang != null) b.setPreferredAudioLanguages(lang)
             } else {
-                val lang = format.language
-                Repo.prefs.subLang = lang ?: "und"
+                // Igual que el audio: la elección es solo para este vídeo; el idioma de Ajustes no cambia.
+                val lang = format.language?.takeIf { it.isNotBlank() && it != "und" }
                 if (lang != null) b.setPreferredTextLanguage(lang)
             }
         }
@@ -1096,10 +1097,16 @@ internal fun codecName(mime: String?): String = when (mime) {
 }
 
 /** El otro formato de emisión de un canal: «.ts» ↔ «.m3u8» (si la dirección no acaba en ninguno, igual). */
-internal fun swapLiveFormat(url: String): String = when {
-    url.endsWith(".m3u8", true) -> url.dropLast(5) + ".ts"
-    url.endsWith(".ts", true) -> url.dropLast(3) + ".m3u8"
-    else -> url
+internal fun swapLiveFormat(url: String): String {
+    // La extensión va antes de «?» o «#» (direcciones con «?token=…»).
+    val cut = url.indexOfAny(charArrayOf('?', '#')).let { if (it < 0) url.length else it }
+    val path = url.substring(0, cut)
+    val rest = url.substring(cut)
+    return when {
+        path.endsWith(".m3u8", true) -> path.dropLast(5) + ".ts" + rest
+        path.endsWith(".ts", true) -> path.dropLast(3) + ".m3u8" + rest
+        else -> url
+    }
 }
 
 /**
