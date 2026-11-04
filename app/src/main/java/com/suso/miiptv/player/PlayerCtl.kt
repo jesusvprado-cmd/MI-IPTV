@@ -606,6 +606,9 @@ class PlayerCtl(ctx: Context) {
         if (i != index && items.getOrNull(index)?.live == true) prevIndex = index
         resetWatchdog()
         noImageReloads = 0
+        autoReloads = 0
+        goodSince = 0L
+        reloadPending = false
         triedSoftware = false
         PlayerHolder.softwareVideo = false
         autoSwitched = false
@@ -715,6 +718,8 @@ class PlayerCtl(ctx: Context) {
     fun retry() {
         val it = current
         error = null
+        autoReloads = 0
+        reloadPending = false
         load(it.url, if (it.live) 0 else position, triedHls)
     }
 
@@ -781,8 +786,8 @@ class PlayerCtl(ctx: Context) {
     private fun onEnded() {
         val it = current
         if (it.live) {
-            // Un directo que "termina" suele ser un corte: volvemos a conectar.
-            handler.postDelayed({ if (current.live) load(current.url, 0, triedHls) }, 1500)
+            // Un directo que "termina" suele ser un corte: volvemos a conectar (con un límite de intentos).
+            reconnectLive("emisión terminada", null)
             return
         }
         saveProgress()
@@ -848,6 +853,40 @@ class PlayerCtl(ctx: Context) {
     /** Reconexiones de este canal sin haber salido nunca ninguna imagen. */
     private var noImageReloads = 0
 
+    /** Reconexiones automáticas seguidas de este directo sin llegar a verse bien un rato. */
+    private var autoReloads = 0
+    /** Desde cuándo se ve bien el directo (0 = ahora no). */
+    private var goodSince = 0L
+    /** Hay una reconexión programada: el vigilante no programa otra. */
+    private var reloadPending = false
+
+    /**
+     * Reconecta un directo que se ha cortado o congelado, cada vez esperando algo más (1,5 s, 3, 6, 12 y 20 s).
+     * Tras [MAX_AUTO_RELOADS] intentos seguidos sin que el canal llegue a verse, se deja de insistir y se avisa:
+     * un canal caído ya no gasta conexión ni calienta el aparato sin fin.
+     */
+    private fun reconnectLive(why: String, msg: String?) {
+        if (reloadPending) return
+        autoReloads++
+        if (autoReloads > MAX_AUTO_RELOADS) {
+            com.suso.miiptv.data.ErrorLog.add("«${current.title}»: no responde tras $MAX_AUTO_RELOADS reconexiones ($why); se deja de intentar")
+            handler.removeCallbacksAndMessages(null)
+            player.stop()
+            buffering = false
+            notice = null
+            error = "Este canal no responde ahora mismo. Pulsa Reintentar o prueba más tarde."
+            return
+        }
+        val wait = (1500L shl (autoReloads - 1).coerceAtMost(4)).coerceAtMost(20_000L)
+        if (msg != null) notice = "$msg (intento $autoReloads de $MAX_AUTO_RELOADS)"
+        reloadPending = true
+        val idx = index
+        handler.postDelayed({
+            reloadPending = false
+            if (idx == index && current.live) load(current.url, 0, triedHls)
+        }, wait)
+    }
+
     private fun resetWatchdog() {
         lastPos = -1L
         stuckSince = 0L
@@ -865,8 +904,12 @@ class PlayerCtl(ctx: Context) {
         lastPos = pos
         if (advancing) {
             stuckSince = 0L
+            // Medio minuto viéndose bien: la cuenta de reconexiones vuelve a empezar.
+            if (goodSince == 0L) goodSince = now else if (now - goodSince > 30_000L) autoReloads = 0
             return
         }
+        goodSince = 0L
+        if (reloadPending) return
         if (stuckSince == 0L) {
             stuckSince = now
             return
@@ -897,8 +940,7 @@ class PlayerCtl(ctx: Context) {
         }
         // Tres cortes en dos minutos: plan B con la VPN (si está permitido).
         if (freezeCount >= 3 && tryVpnFallback()) return
-        notice = "Imagen congelada · reconectando el canal"
-        load(current.url, 0, triedHls)
+        reconnectLive("imagen congelada", "Imagen congelada · reconectando el canal")
     }
 
     /** Conecta la VPN sola para reintentar un canal que se corta. Devuelve false si no se puede. */
@@ -1097,6 +1139,9 @@ internal fun codecName(mime: String?): String = when (mime) {
 }
 
 /** El otro formato de emisión de un canal: «.ts» ↔ «.m3u8» (si la dirección no acaba en ninguno, igual). */
+/** Reconexiones automáticas seguidas de un directo antes de dejar de intentarlo. */
+private const val MAX_AUTO_RELOADS = 6
+
 internal fun swapLiveFormat(url: String): String {
     // La extensión va antes de «?» o «#» (direcciones con «?token=…»).
     val cut = url.indexOfAny(charArrayOf('?', '#')).let { if (it < 0) url.length else it }

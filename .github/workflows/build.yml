@@ -69,6 +69,22 @@ jobs:
             exit 1
           fi
 
+      # Si falla, el registro se guarda en la rama «registro» (para poder leerlo sin entrar en GitHub).
+      - name: Guardar registro si falla
+        if: failure()
+        run: |
+          mkdir -p /tmp/reg
+          cp build.log test.log /tmp/reg/ 2>/dev/null || true
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git checkout --orphan registro-tmp
+          git rm -rf --quiet . || true
+          git clean -fdxq
+          cp /tmp/reg/* . 2>/dev/null || echo "sin registro" > build.log
+          git add -A
+          git commit -m "Registro de la compilación ${{ github.run_number }}"
+          git push -f origin HEAD:registro
+
       - name: Renombrar APK
         run: cp app/build/outputs/apk/release/app-release.apk MiIPTV.apk
 

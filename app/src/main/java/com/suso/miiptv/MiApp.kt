@@ -22,6 +22,11 @@ class MiApp : Application(), ImageLoaderFactory {
         Logos.init(this)
     }
 
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        Repo.trimMemory(level)
+    }
+
     /** Carátulas y logos con caché en disco para que la Mi Box no los descargue cada vez. */
     override fun newImageLoader(): ImageLoader =
         ImageLoader.Builder(this)

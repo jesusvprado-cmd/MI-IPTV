@@ -30,7 +30,8 @@ object Repo {
 
     private val catCache = HashMap<Kind, List<Category>>()
     private val itemCache = HashMap<String, List<Item>>()
-    private val epgCache = HashMap<String, Pair<Long, List<EpgEntry>>>()
+    /** Guía de cada canal: como mucho la de los últimos 150 canales vistos (antes crecía sin límite). */
+    private val epgCache = lru<String, Pair<Long, List<EpgEntry>>>(150)
     private var searchIndex: List<Pair<String, Item>>? = null
     private val searchMutex = Mutex()
 
@@ -206,7 +207,7 @@ object Repo {
 
     fun streamUrl(item: Item): String = item.url ?: src().streamUrl(item)
 
-    private val guideCache = HashMap<String, Pair<Long, List<EpgEntry>>>()
+    private val guideCache = lru<String, Pair<Long, List<EpgEntry>>>(400)
 
     /** Programación para la guía en parrilla: la completa del proveedor (si la da) o, si no, la de siempre. */
     suspend fun guideEpg(item: Item): List<EpgEntry> {
@@ -287,6 +288,7 @@ object Repo {
             emptyList()
         }
         // Si el servidor rechaza una, el reproductor prueba la siguiente (ver [nextCatchup]).
+        if (catchupNext.size > 500) catchupNext.clear()
         for (i in 0 until all.size - 1) catchupNext[all[i]] = all[i + 1]
         return all.firstOrNull()
     }
@@ -305,8 +307,26 @@ object Repo {
         channel = if (item.kind == Kind.LIVE) item else null,
     )
 
+    private val ACCENTS = Regex("\\p{Mn}+")
+
     fun norm(s: String): String =
-        Normalizer.normalize(s.lowercase(), Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "")
+        Normalizer.normalize(s.lowercase(), Normalizer.Form.NFD).replace(ACCENTS, "")
+
+    /**
+     * Android pide memoria (la Mi Box va justa): se suelta lo que se puede volver a calcular —
+     * el índice de búsqueda, las guías y las listas por categoría (se sacan al momento del catálogo completo).
+     */
+    fun trimMemory(level: Int) {
+        if (!isReady()) return
+        if (level < android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) return
+        searchIndex = null
+        epgCache.clear()
+        synchronized(guideCache) { guideCache.clear() }
+        catchupNext.clear()
+        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_BACKGROUND) {
+            itemCache.keys.filter { !it.endsWith("|*") }.forEach { itemCache.remove(it) }
+        }
+    }
 
     suspend fun search(q: String): SearchResult {
         val idx = searchMutex.withLock {
@@ -336,4 +356,9 @@ object Repo {
             series = found.filter { it.kind == Kind.SERIES }.take(60),
         )
     }
+}
+
+/** Mapa que guarda como mucho [max] elementos: al pasar, se va el que hace más tiempo que no se usa. */
+private fun <K, V> lru(max: Int): LinkedHashMap<K, V> = object : LinkedHashMap<K, V>(64, 0.75f, true) {
+    override fun removeEldestEntry(eldest: MutableMap.MutableEntry<K, V>?): Boolean = size > max
 }

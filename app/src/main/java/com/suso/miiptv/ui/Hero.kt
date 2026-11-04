@@ -40,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.onFocusChanged
@@ -259,10 +260,12 @@ fun HeroCarousel(items: List<Item>) {
                 for (i in 0 until n) {
                     if (i == index) {
                         Box(Modifier.width(26.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color(0x44FFFFFF))) {
+                            // El avance se lee al dibujar (no al componer): la portada no se recompone 20 veces por segundo.
                             Box(
-                                Modifier.fillMaxHeight()
-                                    .fillMaxWidth(if (focused) 1f else progress.value.coerceIn(0.02f, 1f))
-                                    .background(C.gold)
+                                Modifier.fillMaxSize().drawBehind {
+                                    val f = if (focused) 1f else progress.value.coerceIn(0.02f, 1f)
+                                    drawRect(C.gold, size = androidx.compose.ui.geometry.Size(size.width * f, size.height))
+                                }
                             )
                         }
                     } else {
