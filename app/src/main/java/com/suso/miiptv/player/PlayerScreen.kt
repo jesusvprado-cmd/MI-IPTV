@@ -77,6 +77,15 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
     var typed by remember { mutableStateOf("") }
     var okLong by remember { mutableStateOf(false) }
     var reminderOpen by remember { mutableStateOf(false) }
+    // La pantalla se mantiene encendida solo mientras se ve (o carga) algo: en pausa, la tele puede poner
+    // su salvapantallas y apagarse cuando le toque, como con cualquier otra app.
+    val activity = LocalContext.current as? android.app.Activity
+    val awake = ctl.isPlaying || ctl.buffering
+    LaunchedEffect(awake) {
+        val w = activity?.window ?: return@LaunchedEffect
+        if (awake) w.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        else w.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    }
     var playersOpen by remember { mutableStateOf(false) }
     var aspect by remember { mutableStateOf(Repo.prefs.resizeMode) }
     // Permiso de Android para la VPN (solo la primera vez).
@@ -338,7 +347,6 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
                         setShutterBackgroundColor(android.graphics.Color.BLACK)
                         // Al cambiar de canal se queda la última imagen hasta que llega la nueva (sin pantallazo negro).
                         setKeepContentOnPlayerReset(true)
-                        keepScreenOn = true
                         styleSubtitles(subtitleView)
                         // Se escucha después que el propio PlayerView, así que nuestros subtítulos (abajo) son los que quedan.
                         val sv = subtitleView
