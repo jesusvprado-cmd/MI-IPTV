@@ -328,8 +328,13 @@ object Repo {
         }
     }
 
-    suspend fun search(q: String): SearchResult {
-        val idx = searchMutex.withLock {
+    /** Prepara el índice de búsqueda en segundo plano (al abrir Buscar, mientras escribes). */
+    suspend fun warmSearch() {
+        runCatching { searchIndex() }
+    }
+
+    private suspend fun searchIndex(): List<Pair<String, Item>> =
+        searchMutex.withLock {
             searchIndex ?: run {
                 val everything = ArrayList<Item>()
                 for (k in Kind.values()) {
@@ -346,7 +351,12 @@ object Repo {
                 built
             }
         }
+
+    suspend fun search(q: String): SearchResult {
         val nq = norm(q.trim())
+        // Sin texto no se busca (antes recorría y devolvía todo el catálogo).
+        if (nq.length < 2) return SearchResult(emptyList(), emptyList(), emptyList())
+        val idx = searchIndex()
         val found = withContext(Dispatchers.Default) {
             idx.filter { it.first.contains(nq) && visible(it.second) }.map { it.second }
         }

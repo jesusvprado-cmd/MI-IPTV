@@ -167,7 +167,8 @@ fun BrowseScreen(kind: Kind) {
                     .onFocusChanged { catsFocused = it.hasFocus },
                 contentPadding = PaddingValues(start = if (narrow) 6.dp else 22.dp, end = 6.dp, top = 14.dp, bottom = 24.dp),
             ) {
-                itemsIndexed(allCats, key = { i, c -> "$i:${c.id}" }) { _, c ->
+                val ck = uniqueKeys(allCats) { it.id }
+                itemsIndexed(allCats, key = { i, _ -> ck[i] }) { _, c ->
                     val cfr = remember { FocusRequester() }
                     DisposableEffect(c.id, cfr) {
                         st.catReqs[c.id] = cfr
@@ -278,7 +279,8 @@ fun BrowseScreen(kind: Kind) {
                         horizontalArrangement = spec.hArrangement,
                         verticalArrangement = Arrangement.spacedBy(spec.vGap),
                     ) {
-                        itemsIndexed(its, key = { i, x -> "$i:${x.key}" }) { i, x ->
+                        val gk = uniqueKeys(its) { it.key }
+                        itemsIndexed(its, key = { i, _ -> gk[i] }) { i, x ->
                             val fk = "g_${kind.name}_${sel}_${x.key}"
                             val fr = remember { FocusRequester() }
                             DisposableEffect(i, fr) {

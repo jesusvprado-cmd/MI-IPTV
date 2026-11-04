@@ -153,6 +153,22 @@ fun GuideScreen() {
     }
     val pv = Repo.prefs.version
     val touch = com.suso.miiptv.data.Device.touch
+    // Número de canal tecleado con el mando: al dejar de pulsar un momento, se salta a ese canal.
+    var typed by remember { mutableStateOf("") }
+    val jumpTo = remember { arrayOfNulls<(Int) -> Boolean>(1) }
+    val focusNow = remember { arrayOfNulls<() -> Unit>(1) }
+    LaunchedEffect(typed) {
+        if (typed.isEmpty()) return@LaunchedEffect
+        delay(1300)
+        val n = typed.toIntOrNull()
+        typed = ""
+        if (n != null && jumpTo[0]?.invoke(n) != true) Actions.toast(ctx, "El canal $n no está en esta categoría")
+    }
+    // Atrás con la parrilla movida a otra hora: primero vuelve a la hora actual (con otra pulsación, sale).
+    androidx.activity.compose.BackHandler(enabled = !touch && winStart != floorHalfHour(now)) {
+        winStart = floorHalfHour(now)
+        focusNow[0]?.invoke()
+    }
     // Móvil, o tablet en vertical: categorías como píldoras arriba y la parrilla a todo el ancho.
     val gcfg = androidx.compose.ui.platform.LocalConfiguration.current
     val phoneW = touch && gcfg.screenWidthDp < 600
@@ -175,7 +191,13 @@ fun GuideScreen() {
     dayCh?.let { (l, i) ->
         ChannelDaySheet(l[i], now, pv, onPick = { e -> pick(ctx, l, i, l[i], e, now); if (e == null || (e.start <= now && e.end > now)) dayCh = null }) { dayCh = null }
     }
-    Row(Modifier.fillMaxSize()) {
+    Row(
+        Modifier.fillMaxSize().onPreviewKeyEvent { e ->
+            val d = digitOf(e.nativeKeyEvent.keyCode) ?: return@onPreviewKeyEvent false
+            if (e.type == KeyEventType.KeyDown && e.nativeKeyEvent.repeatCount == 0) typed = (typed + d).takeLast(4)
+            true
+        },
+    ) {
         // Categorías (en el móvil, como píldoras arriba)
         if (!compact) LazyColumn(
             state = catsState,
@@ -186,7 +208,8 @@ fun GuideScreen() {
                 },
             contentPadding = PaddingValues(start = 22.dp, end = 6.dp, top = 14.dp, bottom = 24.dp),
         ) {
-            itemsIndexed(cats, key = { i, c -> "$i:${c.id}" }) { _, c ->
+            val ck = uniqueKeys(cats) { it.id }
+            itemsIndexed(cats, key = { i, _ -> ck[i] }) { _, c ->
                 val cfr = remember { androidx.compose.ui.focus.FocusRequester() }
                 androidx.compose.runtime.DisposableEffect(c.id, cfr) {
                     catReqs[c.id] = cfr
@@ -210,6 +233,27 @@ fun GuideScreen() {
             if (compact) CategoryChips(cats, sel) { id -> sel = id }
             InfoPanel(focused, now, touch)
             BoxWithConstraints(Modifier.fillMaxSize()) {
+                // Número de canal que se está tecleando.
+                if (typed.isNotEmpty()) Text(
+                    "Canal $typed", color = Color.White, fontSize = Sz.sub, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.TopEnd).zIndex(3f).padding(top = 8.dp, end = 14.dp)
+                        .clip(RoundedCornerShape(12.dp)).background(C.card).padding(horizontal = 18.dp, vertical = 10.dp),
+                )
+                // Con mando: aviso de que Atrás vuelve a la hora actual, solo cuando te has alejado de ella.
+                if (!touch) androidx.compose.animation.AnimatedVisibility(
+                    visible = winStart != floorHalfHour(now),
+                    enter = androidx.compose.animation.fadeIn(),
+                    exit = androidx.compose.animation.fadeOut(),
+                    modifier = Modifier.align(Alignment.BottomEnd).zIndex(2f).padding(end = 14.dp, bottom = 18.dp),
+                ) {
+                    Text(
+                        "Atrás: volver a ahora", color = Color.Black, fontSize = Sz.small, fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(C.gold)
+                            .padding(horizontal = 18.dp, vertical = 9.dp),
+                    )
+                }
                 // Táctil: «Ahora» flotante, solo cuando te has alejado de la hora actual.
                 if (touch) androidx.compose.animation.AnimatedVisibility(
                     visible = winStart != floorHalfHour(now),
@@ -283,6 +327,26 @@ fun GuideScreen() {
                             fun jump(to: Int): Boolean {
                                 val fr = liveFrs[to] ?: return false
                                 return runCatching { fr.requestFocus() }.isSuccess
+                            }
+                            // Salto por número de canal y vuelta a la hora actual (con el mando).
+                            jumpTo[0] = { n ->
+                                val i = list.indexOfFirst { it.num == n }
+                                if (i < 0) {
+                                    false
+                                } else {
+                                    menuScope.launch {
+                                        if (state.layoutInfo.visibleItemsInfo.none { it.index == i }) state.scrollToItem(maxOf(0, i - 2))
+                                        delay(80)
+                                        jump(i)
+                                    }
+                                    true
+                                }
+                            }
+                            focusNow[0] = {
+                                menuScope.launch {
+                                    delay(80)
+                                    runCatching { gridEntry[0]?.invoke()?.requestFocus() }
+                                }
                             }
                             LazyColumn(
                                 state = state,
@@ -844,4 +908,11 @@ private fun MiniClock(color: Color, size: Dp) {
         drawLine(color, c, androidx.compose.ui.geometry.Offset(c.x, c.y - r * 0.62f), stroke, cap)
         drawLine(color, c, androidx.compose.ui.geometry.Offset(c.x + r * 0.45f, c.y), stroke, cap)
     }
+}
+
+/** Número 0-9 de una tecla del mando o del teclado numérico; null si no es un número. */
+private fun digitOf(keyCode: Int): Int? = when (keyCode) {
+    in android.view.KeyEvent.KEYCODE_0..android.view.KeyEvent.KEYCODE_9 -> keyCode - android.view.KeyEvent.KEYCODE_0
+    in android.view.KeyEvent.KEYCODE_NUMPAD_0..android.view.KeyEvent.KEYCODE_NUMPAD_9 -> keyCode - android.view.KeyEvent.KEYCODE_NUMPAD_0
+    else -> null
 }

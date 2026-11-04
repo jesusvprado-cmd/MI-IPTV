@@ -43,16 +43,33 @@ import java.util.Locale
 object SleepTimer {
     var endAt by mutableLongStateOf(0L)
 
-    /** Minutos que quedan (0 si está desactivado). */
-    fun minutesLeft(): Int = if (endAt <= 0) 0 else (((endAt - System.currentTimeMillis()) + 59_999) / 60_000).toInt().coerceAtLeast(0)
+    /** Parar al terminar la película o el episodio que se está viendo (en vez de seguir con el siguiente). */
+    var atEnd by mutableStateOf(false)
 
-    /** Desactivado → 30 → 60 → 90 → 120 min → desactivado. */
-    fun cycle() {
+    /** Minutos que quedan (0 si está desactivado). */
+    fun minutesLeft(now: Long = System.currentTimeMillis()): Int =
+        if (endAt <= 0) 0 else (((endAt - now) + 59_999) / 60_000).toInt().coerceAtLeast(0)
+
+    /**
+     * Desactivado → 30 → 60 → 90 → 120 min → al terminar este vídeo (si no es un directo) → desactivado.
+     */
+    fun cycle(live: Boolean) {
+        if (atEnd) {
+            atEnd = false
+            endAt = 0L
+            return
+        }
         val steps = listOf(30, 60, 90, 120)
         val left = minutesLeft()
         val next = steps.firstOrNull { it > left + 1 }
-        endAt = if (endAt <= 0) System.currentTimeMillis() + 30 * 60_000L
-        else if (next == null) 0L else System.currentTimeMillis() + next * 60_000L
+        when {
+            endAt <= 0 -> endAt = System.currentTimeMillis() + 30 * 60_000L
+            next != null -> endAt = System.currentTimeMillis() + next * 60_000L
+            else -> {
+                endAt = 0L
+                atEnd = !live
+            }
+        }
     }
 }
 
@@ -580,13 +597,18 @@ class PlayerCtl(ctx: Context) {
         parts.add(label ?: lang ?: if (type == C.TRACK_TYPE_AUDIO) "Audio $n" else "Subtítulos $n")
         if (label != null && lang != null && !label.contains(lang, true)) parts.add(lang)
         if (type == C.TRACK_TYPE_AUDIO) {
-            when (f.channelCount) {
-                1 -> "Mono"
-                2 -> "Estéreo"
+            // Tipo de sonido y canales: «Español · AC3 5.1», «Inglés · AAC estéreo».
+            val codec = audioCodecName(f)
+            val ch = when (f.channelCount) {
+                1 -> "mono"
+                2 -> "estéreo"
                 6 -> "5.1"
                 8 -> "7.1"
                 else -> null
-            }?.let { parts.add(it) }
+            }
+            listOfNotNull(codec, ch).joinToString(" ").takeIf { it.isNotBlank() }?.let { parts.add(it) }
+            if ((f.roleFlags and C.ROLE_FLAG_DESCRIBES_VIDEO) != 0) parts.add("audiodescripción")
+            if ((f.roleFlags and C.ROLE_FLAG_COMMENTARY) != 0) parts.add("comentarios")
         }
         if (type == C.TRACK_TYPE_TEXT && (f.selectionFlags and C.SELECTION_FLAG_FORCED) != 0) parts.add("forzados")
         return parts.joinToString(" · ")
@@ -836,6 +858,13 @@ class PlayerCtl(ctx: Context) {
             return
         }
         saveProgress()
+        // Temporizador «al terminar este vídeo»: no se pasa al siguiente.
+        if (SleepTimer.atEnd) {
+            SleepTimer.atEnd = false
+            com.suso.miiptv.ui.AppToast.show("Temporizador: reproducción detenida", true)
+            onFinished?.invoke()
+            return
+        }
         if (index < items.lastIndex && Repo.prefs.autoNext) {
             val next = index + 1
             play(next, Repo.prefs.progress(items[next].key)?.pos ?: 0L)
@@ -1175,6 +1204,32 @@ private val SAT_NAME = Regex("\\bSAT\\b", RegexOption.IGNORE_CASE)
 
 
 /** Nombre del formato de vídeo para mostrarlo. */
+/** Nombre corto del tipo de sonido de una pista (null si no se sabe). */
+internal fun audioCodecName(f: Format): String? {
+    val m = f.sampleMimeType ?: return null
+    val c = f.codecs.orEmpty().lowercase()
+    return when (m) {
+        MimeTypes.AUDIO_AC3 -> "AC3"
+        MimeTypes.AUDIO_E_AC3 -> "E-AC3"
+        MimeTypes.AUDIO_E_AC3_JOC -> "Atmos"
+        MimeTypes.AUDIO_AC4 -> "AC4"
+        MimeTypes.AUDIO_TRUEHD -> "TrueHD"
+        MimeTypes.AUDIO_DTS -> "DTS"
+        MimeTypes.AUDIO_DTS_HD -> "DTS-HD"
+        MimeTypes.AUDIO_DTS_EXPRESS -> "DTS Express"
+        MimeTypes.AUDIO_AAC, MimeTypes.AUDIO_MPEG_L2, MimeTypes.AUDIO_MPEG, MimeTypes.AUDIO_OPUS, MimeTypes.AUDIO_FLAC,
+        MimeTypes.AUDIO_VORBIS -> when (m) {
+            MimeTypes.AUDIO_AAC -> if (c.contains("mp4a.40.5") || c.contains("mp4a.40.29")) "HE-AAC" else "AAC"
+            MimeTypes.AUDIO_MPEG_L2 -> "MP2"
+            MimeTypes.AUDIO_MPEG -> "MP3"
+            MimeTypes.AUDIO_OPUS -> "Opus"
+            MimeTypes.AUDIO_FLAC -> "FLAC"
+            else -> "Vorbis"
+        }
+        else -> m.substringAfter('/').substringAfter("x-").uppercase().takeIf { it.length <= 8 }
+    }
+}
+
 internal fun codecName(mime: String?): String = when (mime) {
     MimeTypes.VIDEO_MPEG2 -> "MPEG-2"
     MimeTypes.VIDEO_H264 -> "H.264"

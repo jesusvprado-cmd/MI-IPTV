@@ -297,11 +297,24 @@ internal fun OptionsPanel(
                 Repo.prefs.setWatched(wk, !seen)
             }
         }
-        val left = SleepTimer.minutesLeft()
+        // La cuenta atrás baja también con el panel abierto.
+        var clock by remember { mutableStateOf(System.currentTimeMillis()) }
+        LaunchedEffect(Unit) {
+            while (true) {
+                delay(15_000)
+                clock = System.currentTimeMillis()
+            }
+        }
+        val left = SleepTimer.minutesLeft(clock)
+        val endWord = if (ctl.current.key.startsWith("EP|")) "al terminar el episodio" else "al terminar la película"
         TrackRow(
-            "Temporizador de apagado: " + if (left > 0) "quedan $left min" else "desactivado",
+            "Temporizador de apagado: " + when {
+                SleepTimer.atEnd -> endWord
+                left > 0 -> "quedan $left min"
+                else -> "desactivado"
+            },
             false, requestFocus = false,
-        ) { SleepTimer.cycle() }
+        ) { SleepTimer.cycle(ctl.current.live) }
         // Canal que guarda lo emitido: empezar el programa actual desde el principio (p. ej. un partido ya empezado).
         val ch = ctl.current.channel
         val nowMs = System.currentTimeMillis()

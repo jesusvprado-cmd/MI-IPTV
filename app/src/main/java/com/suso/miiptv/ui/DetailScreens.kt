@@ -199,7 +199,8 @@ private fun RelatedRow(item: Item, onPreview: (Item) -> Unit) {
             contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            itemsIndexed(related, key = { i, x -> "$i:${x.key}" }) { _, x ->
+            val rk = uniqueKeys(related) { it.key }
+            itemsIndexed(related, key = { i, _ -> rk[i] }) { _, x ->
                 PosterCard(
                     x.name, x.image, "rel_${x.key}", Modifier.width(90.dp),
                     onFocus = { f -> if (f) onPreview(x) },
@@ -688,6 +689,17 @@ fun SeriesDetailScreen(item: Item) {
                             }
                         }
                         if (open == season) {
+                            // Toda la temporada vista (o no vista) de una vez.
+                            this.item(key = "sw$season") {
+                                val keys = eps.map { epKey(item.id, it) }
+                                val all = remember(pv, season) { keys.all { Repo.prefs.isWatched(it) } }
+                                Box(Modifier.animateItem().fillMaxWidth(detailFrac()).padding(start = detailStart(), end = 16.dp).then(clearPreview)) {
+                                    SeasonWatchedRow(season, all) {
+                                        keys.forEach { Repo.prefs.setWatched(it, !all) }
+                                        Actions.toast(ctx, if (all) "Temporada $season marcada como no vista" else "Temporada $season marcada como vista")
+                                    }
+                                }
+                            }
                             this.itemsIndexed(eps, key = { _, ep -> "e${ep.id}" }) { i, ep ->
                                 val p = Repo.prefs.progress(epKey(item.id, ep))
                                 Box(Modifier.animateItem().fillMaxWidth(detailFrac()).padding(start = detailStart(), end = 16.dp).then(clearPreview)) {
@@ -742,6 +754,29 @@ private fun SeasonRow(season: Int, count: Int, expanded: Boolean, onClick: () ->
             fontWeight = if (focused) FontWeight.ExtraBold else FontWeight.SemiBold, modifier = Modifier.weight(1f),
         )
         Text("$count episodios", color = C.text2, fontSize = Sz.small)
+    }
+}
+
+/** «Marcar la temporada como vista» (o quitar las marcas si ya está toda vista). */
+@Composable
+private fun SeasonWatchedRow(season: Int, allWatched: Boolean, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(start = 26.dp)
+            .memFocus("season_watched_$season") { focused = it }
+            .tvClick(onClick = onClick)
+            .padding(end = 12.dp, top = 7.dp, bottom = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        FocusBar(focused, height = 22.dp)
+        Text("✓", color = if (focused) C.gold else C.text2, fontSize = Sz.body, fontWeight = FontWeight.Bold, modifier = Modifier.width(38.dp))
+        Text(
+            if (allWatched) "Quitar las marcas de vista de la temporada" else "Marcar toda la temporada como vista",
+            color = if (focused) C.gold else C.text2, fontSize = Sz.body,
+            fontWeight = if (focused) FontWeight.Bold else FontWeight.Normal,
+        )
     }
 }
 

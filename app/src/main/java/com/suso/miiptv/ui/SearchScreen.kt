@@ -41,6 +41,8 @@ fun SearchScreen() {
     var res by remember { mutableStateOf<SearchResult?>(null) }
     var loading by remember { mutableStateOf(false) }
 
+    // Mientras escribes ya se va cargando el catálogo para buscar: la primera búsqueda no hace esperar tanto.
+    LaunchedEffect(dv) { Repo.warmSearch() }
     LaunchedEffect(q, dv) {
         UiState.searchQuery = q
         if (q.trim().length < 2) {

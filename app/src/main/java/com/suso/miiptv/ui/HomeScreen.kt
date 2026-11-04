@@ -163,7 +163,8 @@ fun HomeRowView(row: HomeRow) {
         ) {
             val prog = row.progress
             if (prog != null) {
-                itemsIndexed(prog, key = { i, p -> "$i:${p.play.key}" }) { _, p ->
+                val pk = uniqueKeys(prog) { it.play.key }
+                itemsIndexed(prog, key = { i, _ -> pk[i] }) { _, p ->
                     PosterCard(
                         title = p.play.title,
                         image = p.play.image,
@@ -176,7 +177,8 @@ fun HomeRowView(row: HomeRow) {
                     ) { Actions.resume(ctx, p) }
                 }
             } else {
-                itemsIndexed(row.items, key = { i, x -> "$i:${x.key}" }) { i, x ->
+                val rk = uniqueKeys(row.items) { it.key }
+                itemsIndexed(row.items, key = { i, _ -> rk[i] }) { i, x ->
                     val fk = "${row.key}:${x.key}"
                     if (x.kind == Kind.LIVE) {
                         // Del mismo tamaño que en la sección TV (tele y móvil).

@@ -444,3 +444,17 @@ fun androidx.compose.ui.focus.FocusRequester?.orDefault(): androidx.compose.ui.f
     // freeFocus() no mueve nada (no usamos captureFocus) y lanza error si el requester no está enganchado.
     return if (runCatching { fr.freeFocus() }.isSuccess) fr else androidx.compose.ui.focus.FocusRequester.Default
 }
+
+/**
+ * Claves para las listas: la de cada elemento y, si se repite, con «#2», «#3»… Antes llevaban la posición delante:
+ * al entrar o salir un elemento cambiaban todas las de detrás y se redibujaba la lista entera (y se perdía el cursor).
+ */
+fun <T> uniqueKeys(list: List<T>, key: (T) -> String): List<String> {
+    val seen = HashMap<String, Int>()
+    return list.map { x ->
+        val k = key(x)
+        val n = (seen[k] ?: 0) + 1
+        seen[k] = n
+        if (n == 1) k else "$k#$n"
+    }
+}
