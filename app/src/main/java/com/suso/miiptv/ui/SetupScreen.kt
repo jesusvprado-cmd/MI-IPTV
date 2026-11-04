@@ -223,7 +223,7 @@ private fun Field(
         },
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = C.gold,
-            unfocusedBorderColor = Color(0xFF555555),
+            unfocusedBorderColor = C.fieldBorder,
             focusedLabelColor = C.gold,
             cursorColor = C.gold,
         ),

@@ -21,6 +21,12 @@ object Motion {
     const val SCROLL_MS = 520
     const val FADE_MS = 260
 
+    /**
+     * Pausa al pasar el cursor por una sección o categoría antes de abrirla (para poder pasar de largo).
+     * La misma en el menú de arriba, en las categorías, en la Guía y en Ajustes (antes: 260, 400, 350 y 180 ms).
+     */
+    const val DWELL_MS = 300L
+
     fun <T> focusSpec(): AnimationSpec<T> = tween(FOCUS_MS, easing = FastOutSlowInEasing)
 }
 

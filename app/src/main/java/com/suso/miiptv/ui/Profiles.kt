@@ -96,7 +96,7 @@ fun ProfilePicker(onDone: () -> Unit) {
                 }
             }
             Spacer(Modifier.height(36.dp))
-            Text("Los perfiles se gestionan en Ajustes → Perfiles", color = Color(0xFF6E6E6E), fontSize = Sz.small)
+            Text("Los perfiles se gestionan en Ajustes → Perfiles", color = C.textFaint, fontSize = Sz.small)
         }
     }
 }

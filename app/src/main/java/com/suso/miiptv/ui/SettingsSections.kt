@@ -170,7 +170,7 @@ internal fun VpnSection(onMode: () -> Unit, onConnect: () -> Unit, onFile: () ->
             VpnManager.State.ON -> "Conectada" to S.ok
             VpnManager.State.CONNECTING -> (VpnManager.message ?: "Conectando…") to S.warn
             VpnManager.State.ERROR -> "Error" to S.bad
-            VpnManager.State.OFF -> "Desconectada" to Color(0xFF777777)
+            VpnManager.State.OFF -> "Desconectada" to C.textFaint
         }
         // Siempre las mismas filas (con «—» si no hay dato) para que nada cambie de altura al conectar o desconectar.
         val rows = mutableListOf("Tipo" to label(VPN_MODE, p.vpnMode))
@@ -213,7 +213,7 @@ internal fun VpnSection(onMode: () -> Unit, onConnect: () -> Unit, onFile: () ->
         SettingRow("Cargar desde una dirección web", "set_vpn_url") { onUrl() }
         Text(
             "Sirve el archivo de Proton VPN (gratis) o de cualquier VPN que ofrezca WireGuard.",
-            color = Color(0xFF777777), fontSize = Sz.small, modifier = Modifier.padding(start = 4.dp, top = 4.dp),
+            color = C.textFaint, fontSize = Sz.small, modifier = Modifier.padding(start = 4.dp, top = 4.dp),
         )
     }
 }

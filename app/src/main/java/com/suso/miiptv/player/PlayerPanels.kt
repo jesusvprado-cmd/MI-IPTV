@@ -417,7 +417,7 @@ internal fun NumberPad(
         Spacer(Modifier.height(12.dp))
         PadKey("Ir", "pad_go", wide = true, enabled = typed.isNotEmpty()) { onGo() }
         Spacer(Modifier.height(8.dp))
-        Text("↩ canal anterior · ⌫ borrar · Atrás cerrar", color = Color(0xFF7A7A7A), fontSize = Sz.small)
+        Text("↩ canal anterior · ⌫ borrar · Atrás cerrar", color = C.textFaint, fontSize = Sz.small)
     }
 }
 
@@ -461,7 +461,7 @@ internal fun PadKey(label: String, key: String, modifier: Modifier = Modifier, w
             color = when {
                 focused -> Color.Black
                 enabled -> Color.White
-                else -> Color(0xFF555555)
+                else -> C.fieldBorder
             },
         )
     }

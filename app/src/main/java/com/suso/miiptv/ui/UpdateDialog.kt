@@ -85,7 +85,7 @@ fun UpdateDialog() {
                 Text("Novedades", color = C.text2, fontSize = Sz.small, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(4.dp))
                 Column(Modifier.heightIn(max = 150.dp).verticalScroll(rememberScrollState())) {
-                    Text(rel.notes, color = Color(0xFFDDDDDD), fontSize = Sz.body, lineHeight = 20.sp)
+                    Text(rel.notes, color = C.text3, fontSize = Sz.body, lineHeight = 20.sp)
                 }
             }
             Spacer(Modifier.height(20.dp))

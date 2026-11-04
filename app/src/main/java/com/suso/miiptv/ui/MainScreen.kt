@@ -62,6 +62,7 @@ import androidx.compose.ui.unit.sp
 import com.suso.miiptv.data.Kind
 import kotlinx.coroutines.delay
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun MainScreen() {
     // Si volvemos de una ficha, el foco lo recupera la tarjeta; si no, va a la pestaña.
@@ -74,7 +75,19 @@ fun MainScreen() {
     val compact = com.suso.miiptv.data.Device.touch && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 700
     Column(Modifier.fillMaxSize()) {
         TopBar(restoring, compact)
-        Box(Modifier.fillMaxWidth().weight(1f).fadeInOnChange(UiState.tab)) {
+        Box(
+            Modifier.fillMaxWidth().weight(1f)
+                // ▲ desde el contenido sube siempre a la sección abierta del menú, aunque la carátula esté a la
+                // derecha (antes caía en la rueda de Ajustes, que queda justo encima).
+                .focusProperties {
+                    exit = { d ->
+                        if (d == androidx.compose.ui.focus.FocusDirection.Up) UiState.tabRequester(UiState.tab).orDefault()
+                        else FocusRequester.Default
+                    }
+                }
+                .focusGroup()
+                .fadeInOnChange(UiState.tab),
+        ) {
             when (UiState.tab) {
                 Tab.HOME -> HomeScreen()
                 Tab.LIVE -> BrowseScreen(Kind.LIVE)
@@ -98,7 +111,7 @@ private fun TopBar(restoring: Boolean, compact: Boolean = false) {
     var hovered by remember { mutableStateOf<Tab?>(null) }
     LaunchedEffect(hovered) {
         val h = hovered ?: return@LaunchedEffect
-        delay(260)
+        delay(Motion.DWELL_MS)
         if (UiState.tab != h) UiState.tab = h
     }
     Column(Modifier.fillMaxWidth()) {
@@ -162,7 +175,7 @@ private fun TopBar(restoring: Boolean, compact: Boolean = false) {
             // Hora discreta: más pequeña y en gris tenue.
             // En el móvil en horizontal la hora quitaba sitio a las pestañas (se cortaba «Series»).
             if (!com.suso.miiptv.data.Device.touch) {
-                Clock(fontSize = 14, color = Color(0xFF7C7C7C))
+                Clock(fontSize = 14, color = C.textFaint)
                 Spacer(Modifier.width(14.dp))
             }
             // Con la VPN conectada, el círculo del centro de la rueda se pone verde.
@@ -175,7 +188,7 @@ private fun TopBar(restoring: Boolean, compact: Boolean = false) {
 
 /** Hora en la esquina, como en las apps de TV. */
 @Composable
-fun Clock(fontSize: Int = 17, color: androidx.compose.ui.graphics.Color = androidx.compose.ui.graphics.Color(0xFFB4B4B4)) {
+fun Clock(fontSize: Int = 17, color: androidx.compose.ui.graphics.Color = C.textInactive) {
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -220,7 +233,7 @@ private fun TopTab(
         selected && !menuFocused -> C.gold
         // La lupa: abierta Buscar, se queda en verde aunque el cursor pase al campo de texto.
         icon != null && selected -> C.gold
-        else -> Color(0xFFB4B4B4)
+        else -> C.textInactive
     }
     Box(
         Modifier
@@ -264,7 +277,7 @@ private fun iconTint(c: Color): Color = if (c == C.gold) C.greenIcon else c
 private fun TopIcon(icon: ImageVector, label: String, focusKey: String, centerDot: Color? = null, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     // Igual que las secciones del menú: con el cursor, el mismo verde (sin halo ni recuadro); un pelín más grande.
-    val color = if (focused) C.gold else Color(0xFFB4B4B4)
+    val color = if (focused) C.gold else C.textInactive
     val scale by androidx.compose.animation.core.animateFloatAsState(if (focused) 1.1f else 1f, Motion.focusSpec(), label = "gear")
     Box(
         Modifier
@@ -301,7 +314,7 @@ private fun BottomNav() {
         Row(Modifier.fillMaxWidth().height(62.dp), verticalAlignment = Alignment.CenterVertically) {
             Tab.values().forEach { t ->
                 val sel = UiState.tab == t
-                val col = if (sel) C.gold else Color(0xFF9A9A9A)
+                val col = if (sel) C.gold else C.text2
                 androidx.compose.foundation.layout.Column(
                     Modifier
                         .weight(1f)

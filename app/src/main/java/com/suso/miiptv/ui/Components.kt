@@ -126,6 +126,8 @@ fun TvButton(
     filled: Boolean = false,
     focusRequester: FocusRequester? = null,
     vertical: Boolean = false,
+    /** Nombre del botón para el lector de pantalla cuando solo lleva icono (p. ej. el corazón de favoritos). */
+    description: String? = null,
     onClick: () -> Unit,
 ) {
     // Sin recuadros. Botones en fila (horizontal): como el menú de arriba, con el cursor el texto se pone verde y en negrita.
@@ -134,7 +136,7 @@ fun TvButton(
     var focused by remember { mutableStateOf(false) }
     @Suppress("UNUSED_VARIABLE") val principal = filled // «Reproducir» se comporta como los demás.
     // Verde vivo para el botón con el cursor (el verde pastel se veía apagado sobre fondo oscuro).
-    val fg = if (focused) C.greenStrong else Color(0xFFBDBDBD) // mismo verde que la sección abierta en Ajustes
+    val fg = if (focused) C.greenStrong else C.textInactive // mismo verde que la sección abierta en Ajustes
     Row(
         modifier
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
@@ -144,7 +146,7 @@ fun TvButton(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (vertical) FocusBar(focused) else Spacer(Modifier.width(10.dp))
-        if (icon != null) Icon(icon, contentDescription = text, tint = iconTint ?: fg, modifier = Modifier.size(24.dp))
+        if (icon != null) Icon(icon, contentDescription = text ?: description, tint = iconTint ?: fg, modifier = Modifier.size(24.dp))
         if (icon != null && text != null) Spacer(Modifier.width(8.dp))
         if (text != null) {
             Box {
@@ -351,7 +353,7 @@ fun CategoryRow(name: String, selected: Boolean, focusKey: String, onFocused: ()
         Spacer(Modifier.width(14.dp - bar))
         Text(
             name,
-            color = if (active) accent else Color(0xFF9A9A9A),
+            color = if (active) accent else C.text2,
             fontSize = Sz.body,
             fontWeight = when {
                 active && focused -> FontWeight.ExtraBold

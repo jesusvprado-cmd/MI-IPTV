@@ -103,7 +103,7 @@ fun SideItem(
     // Sin recuadro: la sección activa se marca con la línea, el icono en verde y el texto en blanco.
     // Con el cursor en el menú solo se marca la que tiene el cursor (nunca dos a la vez); si no, la sección abierta.
     val active = if (cursorInMenu) focused else selected
-    val fgBase = Color(0xFF8A8A8A)
+    val fgBase = C.text2
     // Verde intenso con el cursor en el menú; más claro cuando ya estás dentro de las opciones de esa sección.
     val accent = if (cursorInMenu) PaneFocus else C.greenPale
     Row(
@@ -124,7 +124,7 @@ fun SideItem(
         Box(Modifier.width(bar).height(26.dp).clip(RoundedCornerShape(2.dp)).background(accent))
         Spacer(Modifier.width(14.dp - bar))
         Box(Modifier.size(22.dp)) {
-            Icon(icon, contentDescription = null, tint = iconColor ?: if (active) accent else Color(0xFF8A8A8A), modifier = Modifier.size(22.dp))
+            Icon(icon, contentDescription = null, tint = iconColor ?: if (active) accent else C.text2, modifier = Modifier.size(22.dp))
             if (overlay != null) Icon(overlay, contentDescription = null, tint = overlayColor, modifier = Modifier.size(22.dp))
         }
         Spacer(Modifier.width(14.dp))
@@ -215,7 +215,7 @@ fun ToggleRow(title: String, focusKey: String, checked: Boolean, subtitle: Strin
 private fun Switch(checked: Boolean, focused: Boolean) {
     // Dibujado a mano (Canvas) para que el círculo quede siempre entero y centrado en el carril.
     // Apagado: círculo blanco a la izquierda. Encendido: círculo verde vivo a la derecha.
-    val track = if (focused) Color(0xFFB9B9B9) else Color(0xFF6E6E6E)
+    val track = if (focused) C.textInactive else C.textFaint
     val on = C.greenStrong
     val knob by animateColorAsState(if (checked) on else Color.White, Motion.focusSpec(), label = "knobc")
     val pos by androidx.compose.animation.core.animateFloatAsState(if (checked) 1f else 0f, Motion.focusSpec(), label = "knob")
@@ -254,7 +254,7 @@ fun InfoCard(rows: List<Pair<String, String>>, status: Pair<String, Color>? = nu
         rows.forEach { (k, v) ->
             Row {
                 Text(k, color = C.text2, fontSize = Sz.body, modifier = Modifier.width(130.dp))
-                Text(v, color = Color(0xFFE6E6E6), fontSize = Sz.body, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(v, color = C.textBody, fontSize = Sz.body, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }

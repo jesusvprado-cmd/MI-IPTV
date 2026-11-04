@@ -253,7 +253,7 @@ private fun HeaderText(
 private fun PlotAndCredits(h: HeaderInfo, maxPlotLines: Int, modifier: Modifier, onOverflow: (Boolean) -> Unit) {
     BoxWithConstraints(modifier) {
         val base = androidx.compose.material3.LocalTextStyle.current
-        val plotStyle = base.merge(androidx.compose.ui.text.TextStyle(color = Color(0xFFE6E6E6), fontSize = Sz.body, lineHeight = 21.sp))
+        val plotStyle = base.merge(androidx.compose.ui.text.TextStyle(color = C.textBody, fontSize = Sz.body, lineHeight = 21.sp))
         val creditStyle = base.merge(androidx.compose.ui.text.TextStyle(color = C.text2, fontSize = Sz.small))
         val measurer = androidx.compose.ui.text.rememberTextMeasurer()
         val p1 = remember(plotStyle) { measurer.measure("Ág", plotStyle, maxLines = 1).size.height }
@@ -293,7 +293,7 @@ private fun PlotAndCredits(h: HeaderInfo, maxPlotLines: Int, modifier: Modifier,
 private fun FittingPlot(text: String, modifier: Modifier, maxLinesCap: Int, onOverflow: (Boolean) -> Unit) {
     BoxWithConstraints(modifier) {
         val style = androidx.compose.material3.LocalTextStyle.current.merge(
-            androidx.compose.ui.text.TextStyle(color = Color(0xFFE6E6E6), fontSize = Sz.body, lineHeight = 21.sp)
+            androidx.compose.ui.text.TextStyle(color = C.textBody, fontSize = Sz.body, lineHeight = 21.sp)
         )
         // Se mide de verdad cuánto ocupa una línea y dos líneas con esta letra, y solo se muestran las que caben enteras.
         val measurer = androidx.compose.ui.text.rememberTextMeasurer()
@@ -366,7 +366,7 @@ private fun FullPlotPanel(info: HeaderInfo, onClose: () -> Unit) {
                 Text(info.meta, color = C.text2, fontSize = Sz.body)
             }
             Spacer(Modifier.height(16.dp))
-            Text(info.plot ?: "", color = Color(0xFFEDEDED), fontSize = Sz.emph, lineHeight = 25.sp)
+            Text(info.plot ?: "", color = C.textBody, fontSize = Sz.emph, lineHeight = 25.sp)
             info.director?.let {
                 Spacer(Modifier.height(14.dp))
                 Text("Dirección: $it", color = C.text2, fontSize = Sz.body)
@@ -511,7 +511,10 @@ fun MovieDetailScreen(item: Item) {
                             ) { play(prog?.pos ?: 0L) }
                             if (prog != null) TvButton("Empezar", "d_restart") { play(0L) }
                             if (hs.overflow) TvButton("Leer más", "d_more", focusRequester = hs.moreFr) { hs.fullOpen = true }
-                            TvButton(null, "d_fav", icon = if (fav) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder, iconTint = if (fav) C.fav else null) {
+                            TvButton(
+                                null, "d_fav", icon = if (fav) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder, iconTint = if (fav) C.fav else null,
+                                description = if (fav) "Quitar de favoritos" else "Añadir a favoritos",
+                            ) {
                                 Actions.toggleFav(ctx, item)
                             }
                             det.trailer?.let { t -> TvButton("Tráiler", "d_trailer") { Actions.openTrailer(ctx, t) } }
@@ -651,6 +654,7 @@ fun SeriesDetailScreen(item: Item) {
                         icon = if (fav) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                         iconTint = if (fav) C.fav else null,
                         focusRequester = if (!hasPlay) firstFr else null,
+                        description = if (fav) "Quitar de favoritos" else "Añadir a favoritos",
                     ) { Actions.toggleFav(ctx, item) }
                 }
             }

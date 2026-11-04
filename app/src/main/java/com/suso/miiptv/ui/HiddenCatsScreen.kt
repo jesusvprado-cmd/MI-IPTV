@@ -218,7 +218,7 @@ fun PinEntry(title: String, onCancel: () -> Unit, maxLen: Int = 8, onDone: (Stri
                 keyboardActions = KeyboardActions(onDone = { onDone(value) }),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = C.gold,
-                    unfocusedBorderColor = Color(0xFF555555),
+                    unfocusedBorderColor = C.fieldBorder,
                     focusedLabelColor = C.gold,
                     cursorColor = C.gold,
                 ),

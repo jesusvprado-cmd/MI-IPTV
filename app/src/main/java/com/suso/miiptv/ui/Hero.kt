@@ -230,7 +230,7 @@ fun HeroCarousel(items: List<Item>) {
                     if (meta.isNotBlank()) Text(meta, color = Color.White, fontSize = Sz.body, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     hh?.plot?.let {
                         Spacer(Modifier.height(8.dp))
-                        Text(it, color = Color(0xFFDADADA), fontSize = Sz.body, lineHeight = 20.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(it, color = C.textBody, fontSize = Sz.body, lineHeight = 20.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
@@ -244,7 +244,10 @@ fun HeroCarousel(items: List<Item>) {
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                val playLabel = if (item.kind == Kind.SERIES) "Ver serie" else "Reproducir"
+                // Película a medias: «Continuar» en vez de «Reproducir» (ya empezaba donde la dejaste).
+                val started = item.kind == Kind.MOVIE &&
+                    remember(Repo.prefs.version, item.key) { Repo.prefs.progress(item.key) } != null
+                val playLabel = if (item.kind == Kind.SERIES) "Ver serie" else if (started) "Continuar" else "Reproducir"
                 Box(Modifier.trackFocus { f -> firstFocused = f }) {
                     TvButton(playLabel, "hero_play", icon = Icons.Filled.PlayArrow, filled = true, focusRequester = playFr) {
                         if (item.kind == Kind.MOVIE) playMovie(ctx, item, h) else Actions.open(item)

@@ -129,7 +129,7 @@ fun MissingLogosScreen() {
                     ) {
                         Text(
                             if (cat.isNotEmpty()) "$name   ·   $cat" else name,
-                            color = if (f) Color.Black else Color(0xFFDDDDDD), fontSize = Sz.body,
+                            color = if (f) Color.Black else C.text3, fontSize = Sz.body,
                         )
                     }
                 }

@@ -92,7 +92,7 @@ fun SearchScreen() {
                 keyboardActions = KeyboardActions(onSearch = { kb?.hide() }),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = C.gold,
-                    unfocusedBorderColor = Color(0xFF555555),
+                    unfocusedBorderColor = C.fieldBorder,
                     cursorColor = C.gold,
                 ),
                 modifier = Modifier

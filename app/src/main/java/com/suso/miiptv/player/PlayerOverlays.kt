@@ -230,7 +230,7 @@ internal fun VodOverlay(ctl: PlayerCtl, item: PlayItem) {
                     StreamBadges(ctl.streamBadges)
                 }
                 item.subtitle?.let {
-                    Text(it, color = Color(0xFFDDDDDD), fontSize = Sz.emph, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(it, color = C.text3, fontSize = Sz.emph, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 if (ctl.duration > 0) {
                     val rest = ((ctl.duration - ctl.position).coerceAtLeast(0) / ctl.speed.coerceAtLeast(0.25f)).toLong()

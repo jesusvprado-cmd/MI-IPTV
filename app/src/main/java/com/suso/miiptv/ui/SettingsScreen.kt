@@ -122,7 +122,7 @@ fun SettingsScreen(onChangeList: () -> Unit) {
     var pending by remember { mutableStateOf<Sec?>(null) }
     LaunchedEffect(pending) {
         val s = pending ?: return@LaunchedEffect
-        delay(180)
+        delay(Motion.DWELL_MS)
         sec = s
         lastSec = s
     }
@@ -506,7 +506,7 @@ fun SettingsScreen(onChangeList: () -> Unit) {
             // ---------------- Menú lateral (fijo) ----------------
             if (!compact || !mobilePane) Column(
                 Modifier
-                    .then(if (compact) Modifier.fillMaxWidth() else Modifier.width(280.dp))
+                    .then(if (compact) Modifier.fillMaxWidth() else Modifier.width(railWidth()))
                     .fillMaxHeight()
                     // Menú lateral en negro (más contraste para los iconos); las opciones, sobre el verde oscuro.
                     .background(C.bg)

@@ -21,8 +21,19 @@ object C {
     val bg = Color(0xFF050906)
     val sel = Color(0xFF18221A)
     val card = Color(0xFF212B23)
-    val text2 = Color(0xFFA0A0A0)
+    // Grises del texto: solo estos cinco en toda la app (antes había siete tonos sueltos).
+    /** Texto de lectura claro: sinopsis, notas. */
+    val textBody = Color(0xFFE6E6E6)
+    /** Títulos de tarjetas y textos sobre fondo oscuro. */
     val text3 = Color(0xFFDDDDDD)
+    /** Opciones sin el cursor: secciones del menú, botones, hora. */
+    val textInactive = Color(0xFFB4B4B4)
+    /** Texto secundario: datos, explicaciones. */
+    val text2 = Color(0xFFA0A0A0)
+    /** Pistas y avisos discretos, cosas desactivadas o ya pasadas. */
+    val textFaint = Color(0xFF777777)
+    /** Borde de los campos de texto sin el cursor. */
+    val fieldBorder = Color(0xFF555555)
     /** Acento (antes dorado): verde pepino claro. */
     val gold = Color(0xFFA6EE90)
     /** Verde intenso de la marca (icono, etiquetas). */
@@ -101,7 +112,7 @@ fun AppTheme(content: @Composable () -> Unit) {
             onSurface = Color.White,
             surfaceVariant = C.card,
             onSurfaceVariant = C.text2,
-            outline = Color(0xFF777777),
+            outline = C.textFaint,
         ),
         typography = AppTypography,
         content = content,
@@ -133,6 +144,16 @@ fun isNarrowTouch(): Boolean {
     if (!com.suso.miiptv.data.Device.touch) return false
     val c = androidx.compose.ui.platform.LocalConfiguration.current
     return c.screenWidthDp < 600 || c.screenHeightDp > c.screenWidthDp
+}
+
+/**
+ * Ancho de la columna de la izquierda (categorías, Guía, Ajustes): el mismo en todas las pantallas, para que no
+ * «baile» al cambiar de sección (antes 290, 250 y 280). [narrow]: pantalla estrecha (móvil en horizontal pequeño).
+ */
+fun railWidth(narrow: Boolean = false): androidx.compose.ui.unit.Dp = when {
+    narrow -> 140.dp
+    com.suso.miiptv.data.Device.touch -> 240.dp
+    else -> 280.dp
 }
 
 /** Margen a los lados del contenido: amplio en la tele (zona segura) y estrecho en el móvil en vertical. */

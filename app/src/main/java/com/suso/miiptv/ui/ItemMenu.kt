@@ -225,7 +225,7 @@ private fun MenuOption(
             androidx.compose.foundation.layout.Spacer(Modifier.padding(start = 8.dp))
         }
         Text(
-            text, color = if (focused) C.gold else Color(0xFFE6E6E6), fontSize = 14.sp,
+            text, color = if (focused) C.gold else C.textBody, fontSize = 14.sp,
             fontWeight = if (focused) FontWeight.Medium else FontWeight.Normal,
         )
     }

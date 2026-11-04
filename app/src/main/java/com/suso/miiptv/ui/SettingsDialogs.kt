@@ -100,7 +100,7 @@ internal fun ErrorLogView(onClose: () -> Unit) {
         ) {
             Text(
                 text.ifBlank { "No hay errores registrados." },
-                color = Color(0xFFDDDDDD), fontSize = Sz.small, lineHeight = 16.sp,
+                color = C.text3, fontSize = Sz.small, lineHeight = 16.sp,
                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
             )
         }
@@ -161,7 +161,7 @@ internal fun UrlEntry(
                 keyboardActions = KeyboardActions(onDone = { if (value.isNotBlank()) onDone(value) }),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = C.gold,
-                    unfocusedBorderColor = Color(0xFF555555),
+                    unfocusedBorderColor = C.fieldBorder,
                     focusedLabelColor = C.gold,
                     cursorColor = C.gold,
                 ),

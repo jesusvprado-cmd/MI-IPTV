@@ -148,7 +148,7 @@ fun GuideScreen() {
     var pending by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(pending) {
         val p = pending ?: return@LaunchedEffect
-        delay(350)
+        delay(Motion.DWELL_MS)
         sel = p
     }
     val pv = Repo.prefs.version
@@ -179,7 +179,7 @@ fun GuideScreen() {
         // Categorías (en el móvil, como píldoras arriba)
         if (!compact) LazyColumn(
             state = catsState,
-            modifier = Modifier.width(250.dp).fillMaxHeight().onFocusChanged { catsFocused = it.hasFocus }
+            modifier = Modifier.width(railWidth()).fillMaxHeight().onFocusChanged { catsFocused = it.hasFocus }
                 // Tras saltar al menú manteniendo ◀, las repeticiones de ◀ no hacen nada.
                 .onPreviewKeyEvent { e ->
                     e.key == Key.DirectionLeft && e.type == KeyEventType.KeyDown && e.nativeKeyEvent.repeatCount > 0
@@ -479,7 +479,7 @@ private fun GuideRow(
                 if (logo != null) ChannelLogoImage(logo, Modifier.fillMaxSize().padding(5.dp), fallback = ch.image) { shown = it }
             }
             Spacer(Modifier.width(if (compact) 6.dp else 8.dp))
-            Text(ch.name, color = Color(0xFFCFCFCF), fontSize = if (compact) Sz.label else Sz.small, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 14.sp)
+            Text(ch.name, color = C.text3, fontSize = if (compact) Sz.label else Sz.small, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 14.sp)
         }
         // Programas
         Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(6.dp)).onFocusChanged { rowFocused = it.hasFocus }) {
@@ -638,7 +638,7 @@ private fun ProgramCell(
                 fontWeight = if (focused || live) FontWeight.SemiBold else FontWeight.Medium,
                 color = when {
                     focused -> Color.Black
-                    past -> Color(0xFF8A8A8A)
+                    past -> C.text2
                     else -> Color.White
                 },
             )
@@ -708,7 +708,7 @@ fun ReminderPopup(onVisible: (Boolean) -> Unit = {}, onWatch: (Prefs.Reminder) -
 @Composable
 private fun GuidePill(text: String, onClick: () -> Unit) {
     Text(
-        text, color = Color(0xFFDDDDDD), fontSize = Sz.small, fontWeight = FontWeight.SemiBold,
+        text, color = C.text3, fontSize = Sz.small, fontWeight = FontWeight.SemiBold,
         modifier = Modifier
             .clip(RoundedCornerShape(16.dp))
             .background(Color(0xFF1F2A21))

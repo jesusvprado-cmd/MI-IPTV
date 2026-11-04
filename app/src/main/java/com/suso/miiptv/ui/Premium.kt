@@ -109,22 +109,25 @@ fun SkeletonHome() {
     }
 }
 
-/** Esqueleto de la cuadrícula de canales o carátulas. */
+/** Esqueleto de la cuadrícula de canales o carátulas: mismas columnas, márgenes y tamaños que la cuadrícula real. */
 @Composable
 fun SkeletonGrid(kind: Kind) {
-    LazyVerticalGrid(
-        columns = GridCells.Adaptive(if (kind == Kind.LIVE) 112.dp else 128.dp),
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 14.dp, end = 30.dp, top = 14.dp, bottom = 40.dp),
-        horizontalArrangement = Arrangement.spacedBy(18.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
-        userScrollEnabled = false,
-    ) {
-        items(24) {
-            Column {
-                Box(Modifier.fillMaxWidth().aspectRatio(if (kind == Kind.LIVE) 16f / 10.5f else 2f / 3f).shimmer())
-                Spacer(Modifier.height(8.dp))
-                Box(Modifier.fillMaxWidth(0.7f).height(12.dp).shimmer(RoundedCornerShape(3.dp)))
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+        val spec = gridSpec(kind, maxWidth, maxHeight)
+        LazyVerticalGrid(
+            columns = spec.columns,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = spec.padding,
+            horizontalArrangement = spec.hArrangement,
+            verticalArrangement = Arrangement.spacedBy(spec.vGap),
+            userScrollEnabled = false,
+        ) {
+            items(24) {
+                Column {
+                    Box(Modifier.fillMaxWidth().aspectRatio(if (kind == Kind.LIVE) 16f / 10.5f else 2f / 3f).shimmer())
+                    Spacer(Modifier.height(7.dp))
+                    Box(Modifier.fillMaxWidth(0.7f).height(12.dp).shimmer(RoundedCornerShape(3.dp)))
+                }
             }
         }
     }
