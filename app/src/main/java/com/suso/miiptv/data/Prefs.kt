@@ -154,6 +154,20 @@ class Prefs(ctx: Context) {
     }
     // ---------------- Audio y subtítulos elegidos en cada película o episodio ----------------
 
+    // ---------- Retardo del audio (por canal, película o serie) ----------
+
+    private fun delays(): JSONObject = runCatching { JSONObject(sp.getString("adelay", "{}") ?: "{}") }.getOrDefault(JSONObject())
+
+    fun audioDelay(key: String): Int = delays().optInt(key, 0)
+
+    fun setAudioDelay(key: String, ms: Int) {
+        val o = delays()
+        if (ms == 0) o.remove(key) else o.put(key, ms)
+        // Como mucho 300 (se van los más antiguos).
+        while (o.length() > 300) o.remove(o.keys().next())
+        sp.edit().putString("adelay", o.toString()).apply()
+    }
+
     /** Lo elegido para [key] (o, si es un episodio, para la serie): "a" audio y "t" subtítulos ("off" = sin subtítulos). */
     fun trackChoice(key: String): JSONObject? {
         val own = sp.getString(pk("tracks_$key"), null)

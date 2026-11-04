@@ -240,6 +240,20 @@ internal fun OptionsPanel(
                 ctl.selectTrack(MC.TRACK_TYPE_AUDIO, o)
             }
         }
+        // Sonido desincronizado (canales de satélite, sobre todo): se ajusta en pasos de 50 ms y se recuerda
+        // para este canal, película o serie.
+        val dl = ctl.audioDelayMs
+        Text(
+            "Sincronía del sonido: " + when {
+                dl == 0 -> "sin ajuste"
+                dl > 0 -> "sonido retrasado ${dl} ms"
+                else -> "sonido adelantado ${-dl} ms"
+            },
+            color = C.text2, fontSize = Sz.small, modifier = Modifier.padding(start = 10.dp, top = 10.dp, bottom = 2.dp),
+        )
+        TrackRow("Retrasar el sonido (+50 ms)", false, requestFocus = false) { ctl.changeAudioDelay(50) }
+        TrackRow("Adelantar el sonido (−50 ms)", false, requestFocus = false) { ctl.changeAudioDelay(-50) }
+        if (dl != 0) TrackRow("Quitar el ajuste del sonido", false, requestFocus = false) { ctl.resetAudioDelay() }
         Spacer(Modifier.height(22.dp))
         Text("Subtítulos", color = C.gold, fontSize = Sz.emph, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 10.dp, bottom = 8.dp))
         TrackRow("Desactivados", subsOff, requestFocus = opening && audio.isEmpty()) {

@@ -435,6 +435,32 @@ class PlayerCtl(ctx: Context) {
 
     val speeds = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f)
 
+    // ---------- Retardo del audio ----------
+
+    /** Retardo del sonido de lo que se está viendo (ms; positivo = el sonido va más tarde). */
+    var audioDelayMs by mutableIntStateOf(0)
+        private set
+
+    /** Se recuerda por canal, por película o por serie entera (no por episodio). */
+    private fun delayKey(): String {
+        val k = current.channel?.key ?: current.key
+        return if (k.startsWith("EP|")) k.substringBeforeLast('|') else k
+    }
+
+    private fun loadAudioDelay() {
+        audioDelayMs = Repo.prefs.audioDelay(delayKey())
+        AudioDelay.ms = audioDelayMs
+    }
+
+    fun changeAudioDelay(deltaMs: Int) {
+        val v = (audioDelayMs + deltaMs).coerceIn(-3000, 3000)
+        audioDelayMs = v
+        AudioDelay.ms = v
+        Repo.prefs.setAudioDelay(delayKey(), v)
+    }
+
+    fun resetAudioDelay() = changeAudioDelay(-audioDelayMs)
+
     fun nextSpeed() {
         if (current.live) return
         val i = speeds.indexOf(speed)
@@ -575,6 +601,7 @@ class PlayerCtl(ctx: Context) {
         if (PlayQueue.handoff && it.live && PlayerHolder.currentUrl() == shown && player.playbackState != Player.STATE_IDLE) {
             altLiveFormat = alt
             index = PlayQueue.index
+            loadAudioDelay()
             error = null
             buffering = player.playbackState == Player.STATE_BUFFERING
             isPlaying = player.isPlaying
@@ -635,6 +662,7 @@ class PlayerCtl(ctx: Context) {
         restoredTextFor = null
         handler.removeCallbacksAndMessages(null)
         index = i
+        loadAudioDelay()
         error = null
         triedHls = false
         retries = 0
@@ -1122,6 +1150,8 @@ class PlayerCtl(ctx: Context) {
 
     fun release() {
         saveProgress()
+        // La previsualización va siempre sin retardo.
+        AudioDelay.ms = 0
         handler.removeCallbacksAndMessages(null)
         scope.cancel()
         try {

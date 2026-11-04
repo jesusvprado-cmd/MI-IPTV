@@ -113,6 +113,16 @@ object PlayerHolder {
                 )
             )
             .setLoadControl(load)
+            // Cede el sonido a una llamada o a otra app (y vuelve después), y pausa si se desconectan
+            // los auriculares o el altavoz Bluetooth (en vez de seguir sonando por el móvil).
+            .setAudioAttributes(
+                androidx.media3.common.AudioAttributes.Builder()
+                    .setUsage(androidx.media3.common.C.USAGE_MEDIA)
+                    .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MOVIE)
+                    .build(),
+                true,
+            )
+            .setHandleAudioBecomingNoisy(true)
             .build()
         exo.playWhenReady = true
         exo.addListener(previewListener)
@@ -211,6 +221,14 @@ object PlayerHolder {
  * y entregue cada imagen a su hora (el aparato ya la sincroniza con la pantalla).
  */
 private class NoVsyncRenderersFactory(ctx: Context, private val noVsync: Boolean) : DefaultRenderersFactory(ctx) {
+    /** Salida de sonido con el retardo de audio elegido en el reproductor (ver [AudioDelay]). */
+    override fun buildAudioSink(
+        context: Context,
+        enableFloatOutput: Boolean,
+        enableAudioTrackPlaybackParams: Boolean,
+    ): androidx.media3.exoplayer.audio.AudioSink? =
+        super.buildAudioSink(context, enableFloatOutput, enableAudioTrackPlaybackParams)?.let { DelayedAudioSink(it) }
+
     override fun buildVideoRenderers(
         context: Context,
         extensionRendererMode: Int,
@@ -230,4 +248,28 @@ private class NoVsyncRenderersFactory(ctx: Context, private val noVsync: Boolean
 private class NoDisplayContext(base: Context) : android.content.ContextWrapper(base) {
     override fun getApplicationContext(): Context = this
     override fun getSystemService(name: String): Any? = if (name == Context.DISPLAY_SERVICE) null else super.getSystemService(name)
+}
+
+/**
+ * Retardo del sonido respecto a la imagen, en milisegundos (positivo = el sonido va más tarde).
+ * Lo pone el reproductor al abrir cada canal o vídeo; 0 en la previsualización.
+ */
+object AudioDelay {
+    @Volatile
+    var ms = 0
+}
+
+/**
+ * El reloj del vídeo es la posición del sonido: si se informa la posición desplazada, la imagen se adelanta o se
+ * retrasa respecto al sonido. Así se corrigen los canales con el sonido desincronizado, sin tocar el audio.
+ */
+@OptIn(UnstableApi::class)
+private class DelayedAudioSink(sink: androidx.media3.exoplayer.audio.AudioSink) :
+    androidx.media3.exoplayer.audio.ForwardingAudioSink(sink) {
+    override fun getCurrentPositionUs(sourceEnded: Boolean): Long {
+        val p = super.getCurrentPositionUs(sourceEnded)
+        val d = AudioDelay.ms
+        if (d == 0 || p == androidx.media3.exoplayer.audio.AudioSink.CURRENT_POSITION_NOT_SET) return p
+        return (p + d * 1000L).coerceAtLeast(0L)
+    }
 }

@@ -379,6 +379,8 @@ fun PlayerScreen(ctl: PlayerCtl, onExit: () -> Unit) {
                         findViewById<android.widget.ProgressBar>(androidx.media3.ui.R.id.exo_buffering)?.indeterminateTintList =
                             android.content.res.ColorStateList.valueOf(C.gold.toArgb())
                         setShutterBackgroundColor(android.graphics.Color.BLACK)
+                        // Al cambiar de canal se queda la última imagen hasta que llega la nueva (sin pantallazo negro).
+                        setKeepContentOnPlayerReset(true)
                         keepScreenOn = true
                         styleSubtitles(subtitleView)
                         // Se escucha después que el propio PlayerView, así que nuestros subtítulos (abajo) son los que quedan.
