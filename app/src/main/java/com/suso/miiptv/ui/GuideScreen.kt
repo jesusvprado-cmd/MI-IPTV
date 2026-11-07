@@ -477,7 +477,7 @@ private fun TimeHeader(winStart: Long, chW: Dp, perMin: Dp, now: Long) {
                 // A medianoche, el nombre del día en verde para que se note el cambio.
                 val midnight = HM.format(Date(t)) == "00:00"
                 if (m > -20f) Text(
-                    if (midnight) "${relDay(t)} 00:00" else HM.format(Date(t)),
+                    if (midnight && perMin * 30f >= 120.dp) "${relDay(t)} 00:00" else HM.format(Date(t)),
                     color = if (midnight) C.gold else Color.White, fontSize = Sz.small, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.offset(x = perMin * m + 6.dp, y = 6.dp),
                 )
