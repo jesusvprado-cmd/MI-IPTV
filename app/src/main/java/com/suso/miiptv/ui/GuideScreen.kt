@@ -826,7 +826,7 @@ private fun ChannelDaySheet(ch: Item, now: Long, pv: Int, onPick: (EpgEntry?) ->
                     val liveIdx = items.indexOfFirst { it.start <= now && it.end > now }.coerceAtLeast(0)
                     val st = rememberLazyListState(initialFirstVisibleItemIndex = maxOf(0, liveIdx - 1))
                     LazyColumn(state = st, contentPadding = PaddingValues(vertical = 8.dp)) {
-                        itemsIndexed(items, key = { _, e -> e.start }) { k, e ->
+                        itemsIndexed(items, key = { k, e -> "$k:${e.start}" }) { k, e ->
                             val prevDay = if (k == 0) null else relDay(items[k - 1].start)
                             val day = relDay(e.start)
                             if (day != prevDay) Text(
