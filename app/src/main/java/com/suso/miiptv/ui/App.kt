@@ -89,7 +89,14 @@ fun AppRoot(activity: Activity) {
                         null -> MainScreen()
                         is Screen.Movie -> key(top) { MovieDetailScreen(top.item) }
                         is Screen.Series -> key(top) { SeriesDetailScreen(top.item) }
-                        Screen.Settings -> SettingsScreen(onChangeList = { editing = true })
+                        Screen.Settings -> {
+                            // Móvil en vertical: letra un punto más pequeña en Ajustes, para que quepan más opciones.
+                            val d = androidx.compose.ui.platform.LocalDensity.current
+                            if (isCompactPhone()) androidx.compose.runtime.CompositionLocalProvider(
+                                androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(d.density, d.fontScale * 0.86f),
+                            ) { SettingsScreen(onChangeList = { editing = true }) }
+                            else SettingsScreen(onChangeList = { editing = true })
+                        }
                         Screen.HiddenCats -> HiddenCatsScreen()
                         Screen.MissingLogos -> MissingLogosScreen()
                     }

@@ -31,7 +31,7 @@ object C {
     /** Texto secundario: datos, explicaciones. */
     val text2 = Color(0xFFA0A0A0)
     /** Pistas y avisos discretos, cosas desactivadas o ya pasadas. */
-    val textFaint = Color(0xFF777777)
+    val textFaint = Color(0xFF8C8C8C)
     /** Borde de los campos de texto sin el cursor. */
     val fieldBorder = Color(0xFF555555)
     /** Acento (antes dorado): verde pepino claro. */

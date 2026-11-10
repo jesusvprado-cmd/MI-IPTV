@@ -117,7 +117,7 @@ fun SearchScreen() {
                 )
             }
             r.live.isEmpty() && r.movies.isEmpty() && r.series.isEmpty() -> item {
-                Text("Sin resultados", color = C.text2, fontSize = Sz.body, modifier = Modifier.padding(horizontal = gap))
+                EmptyText("Sin resultados", icon = Icons.Filled.Search, hint = "Prueba con otra palabra o con menos letras")
             }
             else -> {
                 if (r.live.isNotEmpty()) item { HomeRowView(HomeRow("search_live", "Canales (${r.live.size})", Kind.LIVE, r.live)) }

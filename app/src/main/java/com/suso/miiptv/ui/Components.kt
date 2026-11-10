@@ -385,9 +385,19 @@ fun ErrorBox(message: String, onRetry: () -> Unit) {
 }
 
 @Composable
-fun EmptyText(text: String) {
+fun EmptyText(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector? = null, hint: String? = null) {
     Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
-        Text(text, color = C.text2, fontSize = Sz.emph, textAlign = TextAlign.Center)
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            if (icon != null) {
+                Icon(icon, contentDescription = null, tint = C.textFaint, modifier = Modifier.size(44.dp))
+                Spacer(Modifier.height(14.dp))
+            }
+            Text(text, color = C.text2, fontSize = Sz.emph, textAlign = TextAlign.Center)
+            if (hint != null) {
+                Spacer(Modifier.height(8.dp))
+                Text(hint, color = C.textFaint, fontSize = Sz.small, textAlign = TextAlign.Center)
+            }
+        }
     }
 }
 

@@ -1,5 +1,6 @@
 package com.suso.miiptv.ui
 
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.ui.layout.onSizeChanged
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
@@ -243,10 +244,11 @@ fun BrowseScreen(kind: Kind) {
                 when {
                     its == null -> SkeletonGrid(kind)
                     ie != null && its.isEmpty() -> ErrorBox(ie) { Repo.reload() }
-                    its.isEmpty() -> EmptyText(
-                        if (sel == FAV) "Aún no tienes favoritos aquí.\nAñádelos con el botón ♥ de la ficha o manteniendo pulsado OK."
-                        else "No hay contenido en esta categoría"
-                    )
+                    its.isEmpty() -> if (sel == FAV) EmptyText(
+                        "Aún no tienes favoritos aquí", icon = androidx.compose.material.icons.Icons.Filled.FavoriteBorder,
+                        hint = if (com.suso.miiptv.data.Device.touch) "Mantén pulsado un canal o una carátula para añadirlo"
+                        else "Mantén pulsado OK sobre un canal o una carátula para añadirlo",
+                    ) else EmptyText("No hay contenido en esta categoría")
                     else -> CompositionLocalProvider(LocalBringIntoViewSpec provides RevealBringIntoView) {
                     val tvGrid = !com.suso.miiptv.data.Device.touch
                     // Móvil: canales 3 por fila, con los márgenes iguales a ambos lados.

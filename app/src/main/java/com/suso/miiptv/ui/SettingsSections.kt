@@ -65,7 +65,7 @@ internal fun AccountSection(onChangeList: () -> Unit, onServer: (String?) -> Uni
         if (cfg != null) {
             if (cfg.type == "xtream") {
                 rows += "Tipo" to "Xtream Codes"
-                rows += "Servidor" to cfg.server
+                rows += "Servidor" to cfg.server.removePrefix("https://").removePrefix("http://").trimEnd('/')
                 rows += "Usuario" to cfg.user
             } else {
                 rows += "Tipo" to "Lista M3U"

@@ -1,5 +1,7 @@
 package com.suso.miiptv.ui
 
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.size
 import androidx.compose.animation.core.animateDecay
 import androidx.compose.foundation.clickable
@@ -231,8 +233,28 @@ fun GuideScreen() {
 
         Column(Modifier.weight(1f).fillMaxHeight().padding(end = if (compact) 6.dp else 24.dp)) {
             if (compact) CategoryChips(cats, sel) { id -> sel = id }
-            InfoPanel(focused, now, touch)
+            // Móvil (y tablet en vertical): sin título, para que quepan más canales; la información del programa
+            // tocado sale en una tarjeta flotante abajo, así la parrilla no se mueve al tocar.
+            if (!compact) InfoPanel(focused, now, touch)
+            else Text(
+                "Toca un programa para ver su información", color = C.text2, fontSize = Sz.small, maxLines = 1,
+                overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 14.dp, top = 6.dp, bottom = 4.dp),
+            )
             BoxWithConstraints(Modifier.fillMaxSize()) {
+                val card = if (compact) focused else null
+                if (card != null) Box(
+                    Modifier.align(Alignment.BottomCenter).zIndex(3f).padding(start = 8.dp, end = 8.dp, bottom = 10.dp).fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp)).background(Color(0xF2141F16))
+                        .border(1.dp, C.divider, RoundedCornerShape(14.dp)),
+                ) {
+                    InfoPanel(card, now, touch = true, card = true)
+                    Text(
+                        "✕", color = C.text2, fontSize = 16.sp,
+                        modifier = Modifier.align(Alignment.TopEnd).clip(RoundedCornerShape(20.dp))
+                            .semantics { contentDescription = "Cerrar" }
+                            .clickable { focused = null }.padding(horizontal = 12.dp, vertical = 6.dp),
+                    )
+                }
                 // Número de canal que se está tecleando.
                 if (typed.isNotEmpty()) Text(
                     "Canal $typed", color = Color.White, fontSize = Sz.sub, fontWeight = FontWeight.Bold,
@@ -259,7 +281,7 @@ fun GuideScreen() {
                     visible = winStart != floorHalfHour(now),
                     enter = androidx.compose.animation.fadeIn(),
                     exit = androidx.compose.animation.fadeOut(),
-                    modifier = Modifier.align(Alignment.BottomEnd).zIndex(2f).padding(end = 14.dp, bottom = 18.dp),
+                    modifier = Modifier.align(Alignment.BottomEnd).zIndex(2f).padding(end = 14.dp, bottom = if (compact && focused != null) 150.dp else 18.dp),
                 ) {
                     Text(
                         "Ahora", color = Color.Black, fontSize = Sz.small, fontWeight = FontWeight.Bold,
@@ -350,6 +372,7 @@ fun GuideScreen() {
                             }
                             LazyColumn(
                                 state = state,
+                                contentPadding = PaddingValues(bottom = if (compact) 150.dp else if (touch) 70.dp else 0.dp),
                                 modifier = Modifier.fillMaxSize().focusProperties {
                                     exit = { d ->
                                         if (d == androidx.compose.ui.focus.FocusDirection.Left) catReqs[sel].orDefault()
@@ -427,8 +450,11 @@ private fun pick(ctx: Context, list: List<Item>, i: Int, ch: Item, e: EpgEntry?,
 }
 
 @Composable
-private fun InfoPanel(f: Focused?, now: Long, touch: Boolean = false) {
-    Column(Modifier.fillMaxWidth().height(if (touch) 104.dp else 118.dp).padding(start = 14.dp, top = if (touch) 8.dp else 14.dp, end = 10.dp)) {
+private fun InfoPanel(f: Focused?, now: Long, touch: Boolean = false, card: Boolean = false) {
+    Column(
+        Modifier.fillMaxWidth().then(if (card) Modifier.padding(bottom = 10.dp) else Modifier.height(if (touch) 104.dp else 118.dp))
+            .padding(start = 14.dp, top = if (touch) 8.dp else 14.dp, end = if (card) 40.dp else 10.dp),
+    ) {
         if (f == null) {
             Text("Guía de programación", color = Color.White, fontSize = if (touch) Sz.sub else Sz.title, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(6.dp))
@@ -440,24 +466,37 @@ private fun InfoPanel(f: Focused?, now: Long, touch: Boolean = false) {
             return@Column
         }
         val e = f.e
-        Text(e?.title ?: f.ch.name, color = C.gold, fontSize = Sz.title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(e?.title ?: catLabel(f.ch.name), color = C.gold, fontSize = if (card) Sz.emph else Sz.title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Spacer(Modifier.height(2.dp))
         val whenTxt = if (e == null) (if (f.loading) "Cargando la guía…" else "Sin guía") else {
             val day = if (DAY.format(Date(e.start)) != DAY.format(Date(now))) DAY.format(Date(e.start)) + " · " else ""
             val state = when {
                 e.start <= now && e.end > now -> "  ·  EN EMISIÓN"
                 e.end <= now && f.ch.archive > 0 && e.archived == false -> "  ·  ya emitido · no está grabado"
-                e.end <= now && f.ch.archive > 0 -> "  ·  ya emitido · OK para verlo"
+                e.end <= now && f.ch.archive > 0 -> if (touch) "  ·  ya emitido" else "  ·  ya emitido · OK para verlo"
                 e.end <= now -> "  ·  ya emitido"
                 Repo.prefs.hasReminder("${f.ch.key}@${e.start}") -> "  ·  con recordatorio"
                 else -> ""
             }
-            "$day${HM.format(Date(e.start))} – ${HM.format(Date(e.end))}  ·  ${f.ch.name}$state"
+            "$day${HM.format(Date(e.start))} – ${HM.format(Date(e.end))}  ·  ${catLabel(f.ch.name)}$state"
         }
-        Text(whenTxt, color = Color.White, fontSize = Sz.body, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(whenTxt, color = Color.White, fontSize = if (card) Sz.small else Sz.body, maxLines = if (card) 2 else 1, overflow = TextOverflow.Ellipsis)
         e?.desc?.let {
             Spacer(Modifier.height(4.dp))
             Text(it, color = C.text2, fontSize = Sz.small, lineHeight = 18.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+        // Tarjeta del móvil: qué hace el segundo toque sobre ese programa.
+        if (card && e != null) {
+            val hint = when {
+                e.start <= now && e.end > now -> "Tócalo otra vez para ver el canal"
+                e.end <= now && f.ch.archive > 0 && e.archived != false -> "Tócalo otra vez para verlo desde el principio"
+                e.end <= now -> null
+                else -> "Tócalo otra vez para poner o quitar el aviso"
+            }
+            if (hint != null) {
+                Spacer(Modifier.height(4.dp))
+                Text(hint, color = C.gold, fontSize = Sz.small, fontWeight = FontWeight.SemiBold)
+            }
         }
     }
 }
@@ -543,7 +582,7 @@ private fun GuideRow(
                 if (logo != null) ChannelLogoImage(logo, Modifier.fillMaxSize().padding(5.dp), fallback = ch.image) { shown = it }
             }
             Spacer(Modifier.width(if (compact) 6.dp else 8.dp))
-            Text(ch.name, color = C.text3, fontSize = if (compact) Sz.label else Sz.small, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 14.sp)
+            Text(remember(ch.name) { catLabel(ch.name) }, color = C.text3, fontSize = if (compact) Sz.label else Sz.small, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 14.sp)
         }
         // Programas
         Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(6.dp)).onFocusChanged { rowFocused = it.hasFocus }) {
@@ -560,7 +599,7 @@ private fun GuideRow(
                         l.isEmpty() -> "Sin guía"
                         else -> "Sin programación en esta franja"
                     },
-                    x = 0.dp, w = perMin * WIN_MIN.toFloat(), live = l != null, past = false, reminder = false, archived = false,
+                    x = 0.dp, w = perMin * WIN_MIN.toFloat(), live = false, past = l != null, reminder = false, archived = false,
                     onFocus = { onFocus(null, l == null) },
                     onLeft = { onShift(-60 * 60_000L) },
                     onRight = { onShift(60 * 60_000L) },
@@ -807,7 +846,7 @@ private fun ChannelDaySheet(ch: Item, now: Long, pv: Int, onPick: (EpgEntry?) ->
                 ) { if (logo != null) ChannelLogoImage(logo, Modifier.fillMaxSize().padding(4.dp), fallback = ch.image) }
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(ch.name, color = Color.White, fontSize = Sz.body, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(catLabel(ch.name), color = Color.White, fontSize = Sz.body, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text("Programación", color = C.text2, fontSize = Sz.small)
                 }
                 Text(

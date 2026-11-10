@@ -250,8 +250,8 @@ fun InfoCard(rows: List<Pair<String, String>>, status: Pair<String, Color>? = nu
         }
         rows.forEach { (k, v) ->
             Row {
-                Text(k, color = C.text2, fontSize = Sz.body, modifier = Modifier.width(130.dp))
-                Text(v, color = C.textBody, fontSize = Sz.body, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(k, color = C.text2, fontSize = Sz.body, modifier = Modifier.width(if (isCompactPhone()) 92.dp else 130.dp))
+                Text(v, color = C.textBody, fontSize = Sz.body, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         }
     }
