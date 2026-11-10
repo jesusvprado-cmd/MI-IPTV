@@ -63,6 +63,17 @@ internal fun ErrorLogView(onClose: () -> Unit) {
                 com.suso.miiptv.data.ErrorLog.clear()
                 onClose()
             }
+            // Móvil y tablet: enviarlo como texto (correo, WhatsApp…) en vez de hacerle una foto.
+            if (com.suso.miiptv.data.Device.touch && text.isNotBlank()) {
+                val ctx = androidx.compose.ui.platform.LocalContext.current
+                TvButton("Compartir", "log_share") {
+                    val body = "Pepino IPTV ${com.suso.miiptv.data.Updater.currentName(ctx)} · ${com.suso.miiptv.data.ErrorLog.device()}\n\n$text"
+                    val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain")
+                        .putExtra(android.content.Intent.EXTRA_SUBJECT, "Registro de errores de Pepino IPTV")
+                        .putExtra(android.content.Intent.EXTRA_TEXT, body)
+                    runCatching { ctx.startActivity(android.content.Intent.createChooser(send, "Compartir el registro")) }
+                }
+            }
         }
         Spacer(Modifier.height(14.dp))
         Box(

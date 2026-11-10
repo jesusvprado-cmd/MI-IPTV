@@ -15,8 +15,12 @@ object ErrorLog {
     private const val MAX_BYTES = 60_000L
     private var file: File? = null
 
+    /** Versión de la app, para saber de cuál es cada línea del registro. */
+    private var version = ""
+
     fun init(ctx: Context) {
         file = File(ctx.filesDir, "errores.txt")
+        version = runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull().orEmpty()
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { t, e ->
             add("CIERRE de la app: ${e.javaClass.simpleName}: ${e.message}\n" + e.stackTrace.take(8).joinToString("\n") { "   en $it" })
@@ -38,7 +42,7 @@ object ErrorLog {
         val f = file ?: return
         try {
             val stamp = SimpleDateFormat("dd/MM HH:mm:ss", Locale("es", "ES")).format(Date())
-            f.appendText("[$stamp] $msg\n")
+            f.appendText("[$stamp · $version] $msg\n")
             if (f.length() > MAX_BYTES) {
                 val keep = f.readText().takeLast((MAX_BYTES / 2).toInt())
                 f.writeText(keep.substringAfter('\n'))

@@ -8,6 +8,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 class Prefs(ctx: Context) {
+    private val appCtx: Context = ctx.applicationContext
     data class Progress(val play: PlayItem, val pos: Long, val dur: Long, val ts: Long)
 
     companion object {
@@ -417,6 +418,7 @@ class Prefs(ctx: Context) {
         }
         sp.edit().putString(pk("reminders"), a.toString()).apply()
         bump()
+        ReminderAlarms.sync(appCtx)
     }
 
     fun hasReminder(id: String): Boolean = reminders().any { it.id == id }

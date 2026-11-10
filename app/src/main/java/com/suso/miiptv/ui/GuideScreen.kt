@@ -430,6 +430,7 @@ private fun pick(ctx: Context, list: List<Item>, i: Int, ch: Item, e: EpgEntry?,
         e == null || (e.start <= now && e.end > now) -> Actions.playLive(ctx, list, i)
         e.start > now -> {
             val on = Repo.prefs.toggleReminder(Prefs.Reminder(ch, e.title, e.start))
+            if (on) com.suso.miiptv.data.ReminderAlarms.askPermission(ctx)
             Actions.toast(ctx, if (on) "Te avisaré cuando empiece «${e.title}»" else "Recordatorio quitado")
         }
         // El proveedor dice que ese programa no está grabado: no se intenta (daría error 404).

@@ -20,6 +20,24 @@ class MiApp : Application(), ImageLoaderFactory {
         VpnManager.init(this)
         VpnManager.autoStart()
         Logos.init(this)
+        // Avisos de la guía: saber si la app está a la vista y dejar puestas las alarmas de los recordatorios.
+        registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
+            private var started = 0
+            override fun onActivityStarted(a: android.app.Activity) {
+                started++
+                com.suso.miiptv.data.ReminderAlarms.foreground = true
+            }
+            override fun onActivityStopped(a: android.app.Activity) {
+                started = (started - 1).coerceAtLeast(0)
+                com.suso.miiptv.data.ReminderAlarms.foreground = started > 0
+            }
+            override fun onActivityCreated(a: android.app.Activity, b: android.os.Bundle?) {}
+            override fun onActivityResumed(a: android.app.Activity) {}
+            override fun onActivityPaused(a: android.app.Activity) {}
+            override fun onActivitySaveInstanceState(a: android.app.Activity, b: android.os.Bundle) {}
+            override fun onActivityDestroyed(a: android.app.Activity) {}
+        })
+        com.suso.miiptv.data.ReminderAlarms.sync(this)
     }
 
     override fun onTrimMemory(level: Int) {

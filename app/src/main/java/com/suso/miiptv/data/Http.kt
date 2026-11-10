@@ -65,12 +65,19 @@ object Http {
                 busyUntil = System.currentTimeMillis() + 5 * 60_000L
                 throw IOException("El servidor pide esperar un poco (demasiadas peticiones, HTTP 429).")
             }
-            throw IOException(
-                if (c == 401 || c == 403) "Acceso denegado (HTTP $c). Revisa usuario y contraseña."
-                else "El servidor respondió con un error (HTTP $c)."
-            )
+            throw IOException(httpMessage(c))
         }
         return r
+    }
+
+    /** Mensaje para la persona, sin jerga: qué pasa y qué hacer (el código va al final, para poder consultarlo). */
+    fun httpMessage(c: Int): String = when (c) {
+        401, 403 -> "Acceso denegado. Revisa el usuario y la contraseña, o si la suscripción ha caducado (HTTP $c)."
+        404 -> "El servidor no reconoce esa dirección. Revisa la dirección de la lista (HTTP $c)."
+        in 520..527, 502, 503, 504 ->
+            "El servidor de tu proveedor no responde: está caído o saturado. Suele arreglarse solo; prueba dentro de un rato (HTTP $c)."
+        in 500..599 -> "El servidor de tu proveedor ha fallado. Prueba dentro de un rato (HTTP $c)."
+        else -> "El servidor respondió con un error (HTTP $c)."
     }
 
     fun text(url: String): String = open(url).use { it.body?.string() ?: "" }
