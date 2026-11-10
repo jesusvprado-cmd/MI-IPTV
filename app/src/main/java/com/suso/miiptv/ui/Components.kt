@@ -199,7 +199,10 @@ fun PosterCard(
                 .tvClick(onLong, onClick)
                 .clip(shape)
                 .background(C.card)
-                .border(2.dp, focusFrame(borderA), shape)
+                // Cursor: marco fino en el verde claro de la app, con una línea oscura por dentro para que también
+                // se distinga sobre las carátulas claras (el marco anterior, verde a blanco, se perdía en ellas).
+                .border(2.dp, C.gold.copy(alpha = borderA), shape)
+                .border(3.dp, Color.Black.copy(alpha = 0.6f * borderA), shape)
         ) {
             if (image != null) {
                 if (!loaded) Box(Modifier.fillMaxSize().shimmer(RoundedCornerShape(0.dp)))
@@ -241,10 +244,10 @@ fun PosterCard(
         Spacer(Modifier.height(7.dp))
         Text(
             title,
-            color = if (focused) Color.White else C.text3,
+            color = if (focused) C.gold else C.text3,
             // En el móvil, un punto menos: el título no le quita protagonismo a la carátula.
             fontSize = if (isCompactPhone()) (Sz.small.value - 1f).sp else Sz.small,
-            fontWeight = FontWeight.Medium,
+            fontWeight = if (focused) FontWeight.SemiBold else FontWeight.Medium,
             maxLines = 1,
             overflow = if (focused) TextOverflow.Clip else TextOverflow.Ellipsis,
             modifier = safeMarquee(focused),
