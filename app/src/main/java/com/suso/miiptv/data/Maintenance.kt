@@ -77,6 +77,9 @@ object ErrorLog {
 object Backup {
     const val FILE_NAME = "pepino-iptv-copia.json"
 
+    /** Datos que se guardan cifrados con la llave del aparato («p2_favs»... para los demás perfiles). */
+    private val SEALED = setOf("config", "wgConf", "warpConf", "prog", "favs", "reminders")
+
     fun file(): File = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), FILE_NAME)
 
     fun export(ctx: Context, pin: String): File {
@@ -92,7 +95,7 @@ object Backup {
                 // que no sirve en otro: en la copia van en claro, pero dentro del cifrado con el PIN.
                 is String -> JSONObject().put("t", "s").put(
                     "v",
-                    if (k == "config" || k == "wgConf" || k == "warpConf" || k == "prog" || k.endsWith("_prog")) Secure.open(v) ?: continue else v,
+                    if (k in SEALED || SEALED.any { k.endsWith("_$it") }) Secure.open(v) ?: continue else v,
                 )
                 is Set<*> -> JSONObject().put("t", "set").put("v", JSONArray(v.map { it.toString() }))
                 else -> continue

@@ -68,7 +68,21 @@ class MainActivity : ComponentActivity() {
         val exiting = isFinishing
         super.onDestroy()
         // Al salir de la app se cierra del todo: no queda nada sonando ni funcionando en segundo plano.
-        if (exiting) android.os.Process.killProcess(android.os.Process.myPid())
+        if (exiting) {
+            flushSavedData()
+            android.os.Process.killProcess(android.os.Process.myPid())
+        }
+    }
+
+    /**
+     * Antes de cerrar del todo: los ajustes se guardan en el disco poco a poco (apply), y al cerrar de golpe
+     * se podía perder lo último (el punto por el que ibas, un favorito recién puesto...).
+     * Un commit() espera a que todo lo pendiente quede escrito.
+     */
+    private fun flushSavedData() {
+        for (name in listOf("miiptv", "miiptv_watchnext", "avisos", "updater")) {
+            runCatching { getSharedPreferences(name, MODE_PRIVATE).edit().commit() }
+        }
     }
 
     private fun closeApp() {
