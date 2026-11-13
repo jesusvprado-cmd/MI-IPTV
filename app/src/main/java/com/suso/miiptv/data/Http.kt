@@ -20,8 +20,17 @@ object Http {
             .followRedirects(true)
             .followSslRedirects(true)
             .retryOnConnectionFailure(true)
+            // «Solo con VPN»: sin VPN conectada no sale nada (listas, guía, logos, vídeo...).
+            .addInterceptor { chain ->
+                val r = chain.request()
+                if (r.url.host !in VPN_SETUP_HOSTS && VpnManager.blocksTraffic()) throw VpnRequired()
+                chain.proceed(r)
+            }
             .build()
     }
+
+    /** Lo que hace falta para poder conectar la VPN (alta de la cuenta WARP): se deja pasar siempre. */
+    private val VPN_SETUP_HOSTS = setOf("api.cloudflareclient.com")
 
     /**
      * Para descargar catálogo, guías y logos: el mismo cliente, pero con un tiempo máximo total de 10 minutos
@@ -82,6 +91,9 @@ object Http {
 
     fun text(url: String): String = open(url).use { it.body?.string() ?: "" }
 }
+
+/** Ajuste «Solo con VPN» activado y la VPN no está conectada: no se sale a internet. */
+class VpnRequired : IOException("La VPN no está conectada y tienes activado «Solo con VPN». Conéctala en Ajustes → VPN.")
 
 /** La respuesta del servidor se cortó a medias: lleva lo que se pudo leer (no se guarda como copia buena). */
 class PartialRead(val partial: Any, cause: Throwable?) : IOException("La respuesta del servidor llegó cortada", cause)

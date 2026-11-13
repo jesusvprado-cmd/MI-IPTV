@@ -76,6 +76,13 @@ object VpnManager {
 
     fun isConnecting() = state == State.CONNECTING
 
+    /**
+     * «Solo con VPN» activado, hay una VPN elegida y no está conectada: la app no debe salir a internet.
+     * Se llama desde los hilos de las descargas (leer el estado desde ellos es seguro).
+     */
+    fun blocksTraffic(): Boolean =
+        Repo.isReady() && Repo.prefs.vpnStrict && Repo.prefs.vpnMode != "off" && state != State.ON
+
     /** Intent de permiso de Android si todavía no se ha aceptado la conexión VPN; null si ya está aceptada. */
     fun permissionIntent(ctx: Context): Intent? = try {
         VpnService.prepare(ctx)

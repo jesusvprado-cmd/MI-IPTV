@@ -121,6 +121,15 @@ object PlayQueue {
 
     /** Abre el vídeo en el reproductor elegido en Ajustes (sin preguntar). Devuelve false si no se pudo. */
     fun openExternal(ctx: Context, item: PlayItem, pos: Long = 0, pkg: String? = null): Boolean {
+        // «Solo con VPN»: el otro reproductor es otra app y no pasa por la VPN de esta (salvo si la VPN es de todo el
+        // equipo), así que saldría sin ella. (Al darle a ver, se abre entonces con el reproductor de la app.)
+        val p = Repo.prefs
+        if (p.vpnStrict && p.vpnMode != "off" &&
+            !(com.suso.miiptv.vpn.VpnManager.state == com.suso.miiptv.vpn.VpnManager.State.ON && com.suso.miiptv.vpn.VpnManager.wholeDevice)
+        ) {
+            com.suso.miiptv.ui.AppToast.show("Con «Solo con VPN» no se abre en otro reproductor: saldría sin la VPN.")
+            return false
+        }
         val chosen = (pkg ?: Repo.prefs.externalPkg)?.takeIf { p -> installedPlayers(ctx).any { it.second == p } }
         val i = Intent(Intent.ACTION_VIEW)
             .setDataAndType(Uri.parse(item.url), "video/*")
@@ -787,6 +796,12 @@ class PlayerCtl(ctx: Context) {
         if (code == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
             player.seekToDefaultPosition()
             player.prepare()
+            return
+        }
+        // «Solo con VPN» y la VPN no está conectada: no tiene sentido reintentar (al conectarla, el canal se vuelve a abrir).
+        if (generateSequence<Throwable>(e) { it.cause }.take(8).any { it is com.suso.miiptv.data.VpnRequired }) {
+            buffering = false
+            error = "La VPN no está conectada y tienes activado «Solo con VPN». Conéctala para ver este contenido."
             return
         }
         // Algunos servidores dan HLS aunque la dirección no lo diga: probamos una vez.

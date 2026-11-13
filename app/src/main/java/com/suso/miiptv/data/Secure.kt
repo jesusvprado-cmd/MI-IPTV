@@ -125,8 +125,8 @@ object Secure {
         c.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(128, unb64(o.getString("iv"))))
         String(c.doFinal(unb64(o.getString("datos"))), Charsets.UTF_8)
     } catch (e: javax.crypto.AEADBadTagException) {
-        throw IllegalStateException("PIN incorrecto")
+        throw IllegalStateException("Contraseña o PIN incorrecto")
     } catch (e: java.security.GeneralSecurityException) {
-        throw IllegalStateException("PIN incorrecto o copia dañada")
+        throw IllegalStateException("Contraseña o PIN incorrecto, o copia dañada")
     }
 }

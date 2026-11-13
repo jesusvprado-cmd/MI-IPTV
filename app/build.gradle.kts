@@ -69,8 +69,11 @@ android {
         unitTests.isIncludeAndroidResources = true
     }
     lint {
+        // La revisión de Android (lint) no para la compilación: se pasa aparte en GitHub y sus avisos se ven allí.
         checkReleaseBuilds = false
         abortOnError = false
+        textReport = true
+        textOutput = file("build/reports/lint.txt")
     }
     packaging {
         resources {
