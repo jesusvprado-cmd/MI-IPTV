@@ -192,9 +192,12 @@ private fun CatToggleRow(name: String, hidden: Boolean, focusKey: String, onClic
     }
 }
 
-/** Pantalla para escribir un PIN numérico. */
+/**
+ * Pantalla para escribir un PIN numérico o, con [password], una contraseña que admite letras
+ * (la de la copia de seguridad: solo con números era fácil de adivinar probando todas las combinaciones).
+ */
 @Composable
-fun PinEntry(title: String, onCancel: () -> Unit, maxLen: Int = 8, onDone: (String) -> Unit) {
+fun PinEntry(title: String, onCancel: () -> Unit, maxLen: Int = 8, password: Boolean = false, onDone: (String) -> Unit) {
     var value by remember(title) { mutableStateOf("") }
     val fr = remember { FocusRequester() }
     LaunchedEffect(title) {
@@ -209,11 +212,14 @@ fun PinEntry(title: String, onCancel: () -> Unit, maxLen: Int = 8, onDone: (Stri
             Text(title, color = Color.White, fontSize = Sz.sub, fontWeight = FontWeight.Bold)
             OutlinedTextField(
                 value = value,
-                onValueChange = { v -> value = v.filter { it.isDigit() }.take(maxLen) },
+                onValueChange = { v -> value = (if (password) v.filter { it != '\n' } else v.filter { it.isDigit() }).take(maxLen) },
                 singleLine = true,
-                label = { Text("PIN") },
+                label = { Text(if (password) "Contraseña" else "PIN") },
                 visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = if (password) KeyboardType.Password else KeyboardType.NumberPassword,
+                    imeAction = ImeAction.Done,
+                ),
                 keyboardActions = KeyboardActions(onDone = { onDone(value) }),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = C.gold,

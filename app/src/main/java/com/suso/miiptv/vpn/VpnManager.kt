@@ -76,6 +76,13 @@ object VpnManager {
 
     fun isConnecting() = state == State.CONNECTING
 
+    /**
+     * «Solo con VPN» activado, hay una VPN elegida y no está conectada: la app no debe salir a internet.
+     * Se llama desde los hilos de las descargas (leer el estado desde ellos es seguro).
+     */
+    fun blocksTraffic(): Boolean =
+        Repo.isReady() && Repo.prefs.vpnStrict && Repo.prefs.vpnMode != "off" && state != State.ON
+
     /** Intent de permiso de Android si todavía no se ha aceptado la conexión VPN; null si ya está aceptada. */
     fun permissionIntent(ctx: Context): Intent? = try {
         VpnService.prepare(ctx)
@@ -83,9 +90,16 @@ object VpnManager {
         null
     }
 
-    /** Al abrir la app: si la VPN estaba activada y el permiso ya está concedido, conecta sola. */
+    /** Ya se intentó la conexión automática en esta ejecución de la app (solo se hace una vez). */
+    private var autoStarted = false
+
+    /**
+     * Al abrir la app (pantalla principal): si la VPN estaba activada y el permiso ya está concedido, conecta sola.
+     * Una sola vez por ejecución: al volver a la pantalla principal no se reconecta lo que el usuario apagó a mano.
+     */
     fun autoStart() {
-        if (!::app.isInitialized) return
+        if (!::app.isInitialized || autoStarted) return
+        autoStarted = true
         // Solo si el usuario lo ha pedido en Ajustes → VPN («Conectar al abrir la app»).
         if (Repo.prefs.vpnAuto && Repo.prefs.vpnMode != "off" && permissionIntent(app) == null) connect()
     }

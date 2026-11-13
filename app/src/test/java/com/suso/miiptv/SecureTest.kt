@@ -2,6 +2,7 @@ package com.suso.miiptv
 
 import com.suso.miiptv.data.Backup
 import com.suso.miiptv.data.Secure
+import com.suso.miiptv.ui.backupPasswordProblem
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -40,11 +41,31 @@ class SecureTest {
             Backup.restoreText(ctx, text, "9999")
             fail("con un PIN incorrecto no debe restaurar")
         } catch (e: IllegalStateException) {
-            assertTrue(e.message!!.startsWith("PIN incorrecto"))
+            assertTrue(e.message!!.startsWith("Contraseña o PIN incorrecto"))
         }
         sp.edit().clear().commit()
         Backup.restoreText(ctx, text, "1234")
         assertTrue(sp.getString("config", "")!!.contains("secreta"))
         assertEquals(true, sp.getBoolean("afr", false))
+    }
+
+    @Test
+    fun contrasenaDeLaCopia() {
+        val ok = { p: String -> backupPasswordProblem(p) }
+        // Valen: 8 o más con alguna letra, o 12 o más números.
+        assertEquals(null, ok("pepino24"))
+        assertEquals(null, ok("123456789012"))
+        // No valen: corta, solo números cortos, vacía.
+        assertTrue(ok("pep1") != null)
+        assertTrue(ok("123456") != null)
+        assertTrue(ok("   ") != null)
+        // Una copia con letras se cifra y se restaura igual que con números.
+        val ctx = RuntimeEnvironment.getApplication()
+        val sp = ctx.getSharedPreferences("miiptv", android.content.Context.MODE_PRIVATE)
+        sp.edit().clear().putString("wgName", "casa").commit()
+        val text = Backup.export(ctx, "Pepino Verde 7").readText()
+        sp.edit().clear().commit()
+        Backup.restoreText(ctx, text, "Pepino Verde 7")
+        assertEquals("casa", sp.getString("wgName", null))
     }
 }

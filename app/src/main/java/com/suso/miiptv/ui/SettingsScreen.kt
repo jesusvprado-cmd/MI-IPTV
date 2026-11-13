@@ -232,8 +232,8 @@ fun SettingsScreen(onChangeList: () -> Unit) {
     }
     var logOpen by remember { mutableStateOf(false) }
 
-    // ---- Copia de seguridad (cifrada con un PIN de 6 a 16 números) ----
-    // backupPin: null = nada; "new" = elegir PIN; "confirm:1234" = repetirlo.
+    // ---- Copia de seguridad (cifrada con una contraseña: ver [backupPasswordProblem]) ----
+    // backupPin: null = nada; "new" = elegir contraseña; "confirm:…" = repetirla.
     var backupPin by remember { mutableStateOf<String?>(null) }
     // Al terminar de guardar la copia, enviarla a otro aparato.
     var shareAfter by remember { mutableStateOf(false) }
@@ -288,7 +288,7 @@ fun SettingsScreen(onChangeList: () -> Unit) {
             } catch (e: Exception) {
                 restoreBusy = false
                 Actions.toast(ctx, e.message ?: "No se pudo restaurar la copia")
-                if (e.message?.startsWith("PIN incorrecto") != true) restoreText = null
+                if (e.message?.startsWith("Contraseña o PIN incorrecto") != true) restoreText = null
             }
         }
     }
@@ -336,21 +336,22 @@ fun SettingsScreen(onChangeList: () -> Unit) {
     val bp = backupPin
     if (bp != null) {
         if (bp == "new") {
-            // Con 4 números había solo 10.000 posibles: quien tuviera el archivo podía probarlos todos.
+            // Con pocos números, quien tuviera el archivo podía probar todas las combinaciones: ahora se admiten letras.
             PinEntry(
-                "Elige un PIN de 6 a 16 números para cifrar la copia (cuanto más largo, más seguro)",
-                onCancel = { backupPin = null; shareAfter = false }, maxLen = 16,
+                "Elige una contraseña para cifrar la copia: 8 caracteres o más con alguna letra, o 12 números o más",
+                onCancel = { backupPin = null; shareAfter = false }, maxLen = 64, password = true,
             ) { p ->
-                if (p.length < 6) Actions.toast(ctx, "El PIN debe tener al menos 6 números") else backupPin = "confirm:$p"
+                val problem = backupPasswordProblem(p)
+                if (problem != null) Actions.toast(ctx, problem) else backupPin = "confirm:$p"
             }
         } else {
             val first = bp.removePrefix("confirm:")
-            PinEntry("Repite el PIN (te lo pedirá al restaurar)", onCancel = { backupPin = null }, maxLen = 16) { p ->
+            PinEntry("Repite la contraseña (te la pedirá al restaurar)", onCancel = { backupPin = null }, maxLen = 64, password = true) { p ->
                 if (p == first) {
                     backupPin = null
                     doBackup(p)
                 } else {
-                    Actions.toast(ctx, "Los PIN no coinciden")
+                    Actions.toast(ctx, "Las contraseñas no coinciden")
                     backupPin = "new"
                 }
             }
@@ -360,9 +361,10 @@ fun SettingsScreen(onChangeList: () -> Unit) {
     val rt = restoreText
     if (rt != null) {
         PinEntry(
-            if (restoreBusy) "Restaurando…" else "PIN de la copia de seguridad",
+            if (restoreBusy) "Restaurando…" else "Contraseña o PIN de la copia de seguridad",
             onCancel = { restoreText = null },
-            maxLen = 16,
+            maxLen = 64,
+            password = true,
         ) { p -> if (!restoreBusy) applyRestore(rt, p) }
         return
     }
@@ -650,4 +652,16 @@ fun SettingsScreen(onChangeList: () -> Unit) {
             }, onClose = { closeChoice() })
         }
     }
+}
+
+/**
+ * ¿Vale esta contraseña para cifrar la copia de seguridad? null si vale; si no, qué le falta.
+ * Al menos 8 caracteres con alguna letra, o al menos 12 números (para quien solo tiene el mando numérico).
+ */
+internal fun backupPasswordProblem(p: String): String? = when {
+    p.isBlank() -> "Escribe una contraseña"
+    p.any { it.isLetter() } && p.length >= 8 -> null
+    p.all { it.isDigit() } && p.length >= 12 -> null
+    p.any { it.isLetter() } -> "La contraseña debe tener al menos 8 caracteres"
+    else -> "Pon alguna letra (8 caracteres o más) o usa al menos 12 números"
 }

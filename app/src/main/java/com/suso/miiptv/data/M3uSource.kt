@@ -1,17 +1,10 @@
 package com.suso.miiptv.data
 
-import android.util.Xml
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import org.xmlpull.v1.XmlPullParser
-import java.io.BufferedInputStream
 import java.io.BufferedReader
 import java.io.IOException
-import java.io.InputStream
 import java.io.InputStreamReader
-import java.text.SimpleDateFormat
-import java.util.Locale
-import java.util.zip.GZIPInputStream
 
 class M3uSource(private val cfg: Config) : Source {
     private val mutex = Mutex()
@@ -20,10 +13,6 @@ class M3uSource(private val cfg: Config) : Source {
     private val all = HashMap<Kind, MutableList<Item>>()
     private val episodes = HashMap<String, MutableList<Episode>>()
     private var tvgUrl: String? = null
-
-    private val epgMutex = Mutex()
-    private var epgLoaded = false
-    private val epg = HashMap<String, MutableList<EpgEntry>>()
 
     private suspend fun ensure() {
         mutex.withLock {
@@ -185,125 +174,26 @@ class M3uSource(private val cfg: Config) : Source {
 
     override fun streamUrl(item: Item): String = item.url ?: ""
 
+    // ---------- Guía ----------
+
+    /** Dirección de la guía: la escrita al configurar la lista o, si no, la que trae la propia lista (url-tvg). */
+    private fun guideUrl(): String? = cfg.epgUrl.trim().ifEmpty { tvgUrl.orEmpty() }.ifEmpty { null }
+
     override suspend fun epg(item: Item): List<EpgEntry> {
+        val now = System.currentTimeMillis()
+        return fullEpg(item).filter { it.end > now }
+    }
+
+    /**
+     * La guía XMLTV se lee con [ProviderEpg], igual que la guía completa de Xtream: se guarda en el aparato,
+     * caduca a las 6 horas, se reintenta si falla y «Actualizar la guía» la vuelve a pedir.
+     * (Antes se leía una sola vez por ejecución: a las 14 horas se quedaba vacía y, si fallaba, no se reintentaba.)
+     */
+    override suspend fun fullEpg(item: Item): List<EpgEntry> {
         if (item.kind != Kind.LIVE) return emptyList()
         ensure()
-        epgMutex.withLock {
-            if (!epgLoaded) {
-                epgLoaded = true
-                val url = cfg.epgUrl.ifBlank { tvgUrl ?: "" }
-                if (url.isNotBlank()) {
-                    try {
-                        io { loadXmltv(url) }
-                    } catch (e: Exception) {
-                        if (e is kotlinx.coroutines.CancellationException) throw e
-                        // Sin guía: no es un error grave.
-                    }
-                }
-            }
-        }
-        val now = System.currentTimeMillis()
-        val l = item.epgId?.let { epg["id:" + it.lowercase()] } ?: epg["name:" + item.name.lowercase()] ?: return emptyList()
-        return l.filter { it.end > now }
-    }
-
-    // ---------- Guía XMLTV ----------
-
-    private val fmtTz = SimpleDateFormat("yyyyMMddHHmmss Z", Locale.US)
-    private val fmtPlain = SimpleDateFormat("yyyyMMddHHmmss", Locale.US)
-
-    private fun parseTime(s: String?): Long {
-        if (s == null) return 0
-        var t = s.trim()
-        if (t.length > 14 && t[14] != ' ') t = t.substring(0, 14) + " " + t.substring(14)
-        return try {
-            if (t.length > 15) fmtTz.parse(t)?.time ?: 0 else fmtPlain.parse(t.take(14))?.time ?: 0
-        } catch (e: Exception) {
-            if (e is kotlinx.coroutines.CancellationException) throw e
-            0
-        }
-    }
-
-    private fun loadXmltv(url: String) {
-        val live = all[Kind.LIVE] ?: return
-        val wantIds = HashSet<String>()
-        val wantNames = HashSet<String>()
-        for (it in live) {
-            it.epgId?.let { id -> wantIds.add(id.lowercase()) }
-            wantNames.add(it.name.lowercase())
-        }
-        val now = System.currentTimeMillis()
-        val from = now - 3_600_000L
-        val to = now + 14 * 3_600_000L
-        val chMap = HashMap<String, String>()
-
-        Http.open(url).use { r ->
-            val body = r.body ?: return
-            var input: InputStream = BufferedInputStream(body.byteStream(), 65536)
-            input.mark(4)
-            val b1 = input.read()
-            val b2 = input.read()
-            input.reset()
-            if (b1 == 0x1f && b2 == 0x8b) input = GZIPInputStream(input, 65536)
-
-            val xp = Xml.newPullParser()
-            xp.setInput(input, null)
-            var ev = xp.eventType
-            var curChan: String? = null
-            var field = 0
-            var pKey: String? = null
-            var pStart = 0L
-            var pEnd = 0L
-            var pTitle: String? = null
-            var pDesc: String? = null
-
-            while (ev != XmlPullParser.END_DOCUMENT) {
-                if (ev == XmlPullParser.START_TAG) {
-                    when (xp.name) {
-                        "channel" -> {
-                            val c = xp.getAttributeValue(null, "id")
-                            curChan = c
-                            if (c != null && c.lowercase() in wantIds) chMap[c] = "id:" + c.lowercase()
-                        }
-                        "display-name" -> if (curChan != null) field = 3
-                        "programme" -> {
-                            val c = xp.getAttributeValue(null, "channel")
-                            val key = if (c == null) null else chMap[c] ?: (if (c.lowercase() in wantIds) "id:" + c.lowercase() else null)
-                            pStart = parseTime(xp.getAttributeValue(null, "start"))
-                            pEnd = parseTime(xp.getAttributeValue(null, "stop"))
-                            pKey = if (key != null && pEnd > from && pStart < to) key else null
-                            pTitle = null
-                            pDesc = null
-                        }
-                        "title" -> if (pKey != null && pTitle == null) field = 1
-                        "desc" -> if (pKey != null && pDesc == null) field = 2
-                    }
-                } else if (ev == XmlPullParser.TEXT) {
-                    when (field) {
-                        // El texto puede llegar en varios trozos (entidades, CDATA): se juntan.
-                        1 -> pTitle = (pTitle ?: "") + (xp.text ?: "")
-                        2 -> pDesc = (pDesc ?: "") + (xp.text ?: "")
-                        3 -> {
-                            val n = xp.text?.trim()?.lowercase()
-                            val c = curChan
-                            if (n != null && c != null && n in wantNames && !chMap.containsKey(c)) chMap[c] = "name:$n"
-                        }
-                    }
-                } else if (ev == XmlPullParser.END_TAG) {
-                    when (xp.name) {
-                        "title", "desc", "display-name" -> field = 0
-                        "channel" -> curChan = null
-                        "programme" -> {
-                            val k = pKey
-                            if (k != null) epg.getOrPut(k) { mutableListOf() }.add(EpgEntry(pTitle?.trim() ?: "", pDesc?.trim(), pStart, pEnd))
-                            pKey = null
-                        }
-                    }
-                }
-                ev = xp.next()
-            }
-        }
-        for (l in epg.values) l.sortBy { it.start }
+        val url = guideUrl() ?: return emptyList()
+        return ProviderEpg.entries(item, url) ?: emptyList()
     }
 
     companion object {

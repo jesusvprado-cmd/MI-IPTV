@@ -25,9 +25,15 @@ class Prefs(ctx: Context) {
         // y del PIN solo su huella. Los que aún estén sin cifrar (versiones anteriores o una copia restaurada) se cifran ahora.
         try {
             val e = sp.edit()
-            for (k in listOf("config", "wgConf")) {
+            for (k in listOf("config", "wgConf", "warpConf")) {
                 val v = sp.getString(k, null)
                 if (v != null && !Secure.isSealed(v)) Secure.seal(v)?.let { e.putString(k, it) }
+            }
+            // Favoritos y recordatorios de todos los perfiles («favs», «p2_favs»...).
+            for ((k, v) in sp.all) {
+                if (v is String && (k == "favs" || k == "reminders" || k.endsWith("_favs") || k.endsWith("_reminders")) &&
+                    !Secure.isSealed(v)
+                ) Secure.seal(v)?.let { e.putString(k, it) }
             }
             val pin = sp.getString("pin", "") ?: ""
             if (pin.isNotEmpty() && !pin.startsWith("p1:")) e.putString("pin", Secure.pinHash(pin))
@@ -302,6 +308,11 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("vpn_auto", false)
         set(v) = putBool("vpn_auto", v)
 
+    /** «Solo con VPN»: si la VPN no está conectada, la app no se conecta a nada (para no salir nunca sin ella). */
+    var vpnStrict: Boolean
+        get() = sp.getBoolean("vpn_strict", false)
+        set(v) = putBool("vpn_strict", v)
+
     /** Si un canal se corta varias veces seguidas, conectar la VPN sola y volver a intentarlo. */
     var vpnFallback: Boolean
         get() = sp.getBoolean("vpn_fallback", true)
@@ -331,9 +342,11 @@ class Prefs(ctx: Context) {
         get() = str("vpnMode", "off")
         set(v) = putStr("vpnMode", v)
 
+    /** Cuenta WARP (lleva la clave privada de WireGuard): cifrada con la llave del aparato, como [wgConf].
+     *  Si no se puede descifrar (copia de otro aparato), vale null y se pide una cuenta nueva al conectar. */
     var warpConf: String?
-        get() = sp.getString("warpConf", null)
-        set(v) = putStr("warpConf", v)
+        get() = Secure.open(sp.getString("warpConf", null))
+        set(v) = putStr("warpConf", Secure.seal(v))
 
     var wgConf: String?
         get() = Secure.open(sp.getString("wgConf", null))
@@ -399,7 +412,8 @@ class Prefs(ctx: Context) {
     fun reminders(): List<Reminder> {
         val l = mutableListOf<Reminder>()
         runCatching {
-            val a = JSONArray(sp.getString(pk("reminders"), "[]"))
+            // Va cifrado con la llave del aparato (lleva la dirección del canal, que en M3U incluye usuario y contraseña).
+            val a = JSONArray(Secure.open(sp.getString(pk("reminders"), null)) ?: "[]")
             for (i in 0 until a.length()) {
                 val o = a.optJSONObject(i) ?: continue
                 val ch = runCatching { Item.fromJson(o.getJSONObject("ch")) }.getOrNull() ?: continue
@@ -416,7 +430,7 @@ class Prefs(ctx: Context) {
         l.filter { it.start > min }.forEach { r ->
             a.put(org.json.JSONObject().put("ch", r.channel.toJson()).put("t", r.title).put("s", r.start))
         }
-        sp.edit().putString(pk("reminders"), a.toString()).apply()
+        sp.edit().putString(pk("reminders"), Secure.seal(a.toString())).apply()
         bump()
         ReminderAlarms.sync(appCtx)
     }
@@ -448,7 +462,8 @@ class Prefs(ctx: Context) {
         favs?.let { return it }
         val l = mutableListOf<Item>()
         runCatching {
-            val a = JSONArray(sp.getString(pk("favs"), "[]"))
+            // Va cifrado con la llave del aparato (lleva la dirección del canal, que en M3U incluye usuario y contraseña).
+            val a = JSONArray(Secure.open(sp.getString(pk("favs"), null)) ?: "[]")
             for (i in 0 until a.length()) {
                 val o = a.optJSONObject(i) ?: continue
                 runCatching { Item.fromJson(o) }.getOrNull()?.let { l.add(it) }
@@ -474,7 +489,7 @@ class Prefs(ctx: Context) {
         favs = l
         val a = JSONArray()
         l.forEach { a.put(it.toJson()) }
-        sp.edit().putString(pk("favs"), a.toString()).apply()
+        sp.edit().putString(pk("favs"), Secure.seal(a.toString())).apply()
         bump()
         return added
     }

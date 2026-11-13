@@ -160,6 +160,10 @@ internal fun VpnSection(onMode: () -> Unit, onConnect: () -> Unit, onFile: () ->
             "Activarla si un canal se corta", "set_vpn_fallback", p.vpnFallback,
             subtitle = "Si un directo se congela 3 veces seguidas, conecta la VPN sola y lo reintenta",
         ) { p.vpnFallback = it }
+        ToggleRow(
+            "Solo con VPN", "set_vpn_strict", p.vpnStrict,
+            subtitle = "Si la VPN no está conectada, la app no se conecta a nada (ni listas, ni guía, ni vídeo)",
+        ) { p.vpnStrict = it }
         if (p.vpnMode != "off") {
             // Una sola fila que cambia de texto: así el foco se queda en ella al conectar o desconectar.
             val connected = vs == VpnManager.State.ON || vs == VpnManager.State.CONNECTING
@@ -472,14 +476,14 @@ internal fun AboutSection(onLog: () -> Unit, onBackup: () -> Unit, onRestore: ()
     val last = remember { com.suso.miiptv.data.Backup.readFile()?.let { com.suso.miiptv.data.Backup.date(it) } }
     SettingRow(
         "Guardar copia de seguridad", "set_backup",
-        subtitle = "Lista, ajustes, perfiles, favoritos y vistos, cifrados con un PIN, en Download/${com.suso.miiptv.data.Backup.FILE_NAME}",
+        subtitle = "Lista, ajustes, perfiles, favoritos y vistos, cifrados con una contraseña, en Download/${com.suso.miiptv.data.Backup.FILE_NAME}",
         chevron = false,
     ) { onBackup() }
     // Pasar favoritos, perfiles y ajustes a otro aparato: la copia cifrada se envía por WhatsApp, Drive, correo,
-    // «Send Files to TV»… y en el otro aparato se restaura con el mismo PIN.
+    // «Send Files to TV»… y en el otro aparato se restaura con la misma contraseña.
     if (com.suso.miiptv.data.Device.touch) SettingRow(
         "Enviar copia a otro aparato", "set_share",
-        subtitle = "La copia cifrada, para restaurarla en otro aparato con el mismo PIN",
+        subtitle = "La copia cifrada, para restaurarla en otro aparato con la misma contraseña",
         chevron = false,
     ) { onShare() }
     SettingRow(

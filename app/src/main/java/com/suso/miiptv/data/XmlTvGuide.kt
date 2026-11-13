@@ -52,7 +52,16 @@ class XmlTvGuide(private val label: String, private val cacheName: String, priva
                 // Si falló hace poco, no se insiste (se usa la guía canal a canal mientras tanto).
                 if (loadedUrl == url && failedAt > 0 && now - failedAt < 30 * 60_000L) return null
                 try {
-                    byKey = withContext(Dispatchers.IO) { load(url) }
+                    // Los canales de la lista se piden aquí, en el hilo de quien llama (el principal), y no dentro
+                    // de la descarga: el catálogo de [Repo] no está preparado para usarse desde varios hilos a la vez.
+                    val live = try {
+                        Repo.items(Kind.LIVE, null)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        emptyList()
+                    }
+                    byKey = withContext(Dispatchers.IO) { load(url, live) }
                     loadedUrl = url
                     loadedAt = now
                     failedAt = 0
@@ -114,15 +123,8 @@ class XmlTvGuide(private val label: String, private val cacheName: String, priva
         return f
     }
 
-    private suspend fun load(url: String): Map<String, List<EpgEntry>> {
-        // Solo se guardan los canales que hay en tu lista (la guía completa ocupa mucho).
-        val live = try {
-            Repo.items(Kind.LIVE, null)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            emptyList()
-        }
+    /** Lee la guía y se queda solo con los canales que hay en tu lista ([live]): la guía completa ocupa mucho. */
+    private fun load(url: String, live: List<Item>): Map<String, List<EpgEntry>> {
         val wantIds = HashSet<String>()
         val wantNames = HashSet<String>()
         for (it in live) {

@@ -72,10 +72,14 @@ object ErrorLog {
 
 /**
  * Copia de seguridad de ajustes, lista, favoritos y perfiles en un archivo de la carpeta Download,
- * cifrada con un PIN de 6 a 16 números (las copias antiguas, de 4; sin él no se puede leer ni restaurar).
+ * cifrada con una contraseña (8 caracteres con alguna letra, o 12 números o más; las copias antiguas, con un PIN
+ * de 4 a 16 números, se siguen pudiendo restaurar). Sin ella no se puede leer ni restaurar.
  */
 object Backup {
     const val FILE_NAME = "pepino-iptv-copia.json"
+
+    /** Datos que se guardan cifrados con la llave del aparato («p2_favs»... para los demás perfiles). */
+    private val SEALED = setOf("config", "wgConf", "warpConf", "prog", "favs", "reminders")
 
     fun file(): File = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), FILE_NAME)
 
@@ -92,7 +96,7 @@ object Backup {
                 // que no sirve en otro: en la copia van en claro, pero dentro del cifrado con el PIN.
                 is String -> JSONObject().put("t", "s").put(
                     "v",
-                    if (k == "config" || k == "wgConf" || k == "prog" || k.endsWith("_prog")) Secure.open(v) ?: continue else v,
+                    if (k in SEALED || SEALED.any { k.endsWith("_$it") }) Secure.open(v) ?: continue else v,
                 )
                 is Set<*> -> JSONObject().put("t", "set").put("v", JSONArray(v.map { it.toString() }))
                 else -> continue

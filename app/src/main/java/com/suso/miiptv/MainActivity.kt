@@ -12,6 +12,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Repo.init(applicationContext)
+        // VPN «Conectar al abrir la app»: antes de pintar nada, para que la primera descarga ya espere a la VPN.
+        com.suso.miiptv.vpn.VpnManager.autoStart()
         // La app gestiona ella misma el hueco del teclado (imePadding) para que los campos no queden tapados.
         WindowCompat.setDecorFitsSystemWindows(window, false)
         // Móvil en horizontal: la app llega hasta el borde también por el lado de la cámara (sin franja negra).
@@ -66,7 +68,21 @@ class MainActivity : ComponentActivity() {
         val exiting = isFinishing
         super.onDestroy()
         // Al salir de la app se cierra del todo: no queda nada sonando ni funcionando en segundo plano.
-        if (exiting) android.os.Process.killProcess(android.os.Process.myPid())
+        if (exiting) {
+            flushSavedData()
+            android.os.Process.killProcess(android.os.Process.myPid())
+        }
+    }
+
+    /**
+     * Antes de cerrar del todo: los ajustes se guardan en el disco poco a poco (apply), y al cerrar de golpe
+     * se podía perder lo último (el punto por el que ibas, un favorito recién puesto...).
+     * Un commit() espera a que todo lo pendiente quede escrito.
+     */
+    private fun flushSavedData() {
+        for (name in listOf("miiptv", "miiptv_watchnext", "avisos", "updater")) {
+            runCatching { getSharedPreferences(name, MODE_PRIVATE).edit().commit() }
+        }
     }
 
     private fun closeApp() {

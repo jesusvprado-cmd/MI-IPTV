@@ -9,11 +9,12 @@ val buildNumber = (project.findProperty("buildNumber") as String?)?.toIntOrNull(
 
 android {
     namespace = "com.suso.miiptv"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.suso.miiptv"
-        minSdk = 21
+        // Android 8 o superior (todos los aparatos de casa lo son): las librerías nuevas ya no admiten Android 5.
+        minSdk = 26
         targetSdk = 35
         versionCode = buildNumber
         versionName = "1.$buildNumber"
@@ -58,9 +59,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
-    }
     buildFeatures {
         compose = true
     }
@@ -69,8 +67,11 @@ android {
         unitTests.isIncludeAndroidResources = true
     }
     lint {
+        // La revisión de Android (lint) no para la compilación: se pasa aparte en GitHub y sus avisos se ven allí.
         checkReleaseBuilds = false
         abortOnError = false
+        textReport = true
+        textOutput = file("build/reports/lint.txt")
     }
     packaging {
         resources {
@@ -79,31 +80,38 @@ android {
     }
 }
 
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
+}
+
 dependencies {
-    val composeBom = platform("androidx.compose:compose-bom:2025.05.00")
+    val composeBom = platform("androidx.compose:compose-bom:2026.06.01")
     implementation(composeBom)
-    implementation("androidx.core:core-ktx:1.16.0")
-    implementation("androidx.activity:activity-compose:1.10.1")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+    implementation("androidx.core:core-ktx:1.18.0")
+    implementation("androidx.activity:activity-compose:1.13.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.10.0")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-core")
 
-    implementation("androidx.media3:media3-exoplayer:1.8.0")
-    implementation("androidx.media3:media3-exoplayer-hls:1.8.0")
-    implementation("androidx.media3:media3-ui:1.8.0")
-    implementation("androidx.media3:media3-datasource-okhttp:1.8.0")
+    implementation("androidx.media3:media3-exoplayer:1.9.4")
+    implementation("androidx.media3:media3-exoplayer-hls:1.9.4")
+    implementation("androidx.media3:media3-ui:1.9.4")
+    implementation("androidx.media3:media3-datasource-okhttp:1.9.4")
     // Decodificador de audio (AC3, E-AC3, DTS...) para los equipos que no lo traen.
-    implementation("org.jellyfin.media3:media3-ffmpeg-decoder:1.8.0+1")
+    // Va con Media3 1.9 (no hay versión para 1.10 o superior): al subir Media3, subir los dos a la vez.
+    implementation("org.jellyfin.media3:media3-ffmpeg-decoder:1.9.0+1")
     // VPN WireGuard (WARP y perfiles propios).
-    implementation("com.wireguard.android:tunnel:1.0.20230706")
+    implementation("com.wireguard.android:tunnel:1.0.20260102")
 
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("io.coil-kt:coil-compose:2.7.0")
     // Fila «Continuar viendo» de la pantalla de inicio de Android TV.
-    implementation("androidx.tvprovider:tvprovider:1.0.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    implementation("androidx.tvprovider:tvprovider:1.1.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 
     // Prueba automática de logos (se ejecuta en GitHub antes de publicar cada versión).
     testImplementation("junit:junit:4.13.2")

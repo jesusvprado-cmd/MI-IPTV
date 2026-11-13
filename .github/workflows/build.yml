@@ -1,8 +1,10 @@
 name: Compilar APK
 
+# En «main» compila y publica la versión (la que se descargan los aparatos).
+# En cualquier otra rama solo compila y pasa las pruebas: sirve para comprobar los cambios sin publicar nada.
 on:
   push:
-    branches: [ main ]
+    branches: [ '**', '!registro' ]
   workflow_dispatch:
 
 permissions:
@@ -10,9 +12,10 @@ permissions:
 
 # Una compilación cada vez y en orden: así una antigua que termine tarde no queda como «última versión».
 # (Sin cancelar la que está en marcha, para no dejar a medias una versión publicada.)
+# En las ramas de prueba, una compilación nueva cancela la anterior de esa rama (no publica nada).
 concurrency:
-  group: compilar-apk
-  cancel-in-progress: false
+  group: compilar-apk-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   build:
@@ -30,7 +33,7 @@ jobs:
           SDKM=$(ls -d $ANDROID_HOME/cmdline-tools/*/bin/sdkmanager | sort -V | tail -1)
           echo "Usando $SDKM"
           yes | "$SDKM" --licenses > /dev/null || true
-          "$SDKM" "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+          "$SDKM" "platforms;android-36" "build-tools;35.0.0" "platform-tools"
 
       - uses: gradle/actions/setup-gradle@v5
 
@@ -71,7 +74,7 @@ jobs:
 
       # Si falla, el registro se guarda en la rama «registro» (para poder leerlo sin entrar en GitHub).
       - name: Guardar registro si falla
-        if: failure()
+        if: failure() && github.ref == 'refs/heads/main'
         run: |
           mkdir -p /tmp/reg
           cp build.log test.log /tmp/reg/ 2>/dev/null || true
@@ -85,6 +88,30 @@ jobs:
           git commit -m "Registro de la compilación ${{ github.run_number }}"
           git push -f origin HEAD:registro
 
+      # Revisión de Android (lint): de momento solo avisa (no para la compilación ni la publicación).
+      - name: Revisión de Android (lint)
+        continue-on-error: true
+        run: |
+          ./gradlew lintDebug --no-daemon -PbuildNumber=${{ github.run_number }} > lint.log 2>&1 || true
+          f=app/build/reports/lint.txt
+          if [ -f "$f" ]; then
+            tail -1 "$f"
+            grep -E ": (Error|Warning): " "$f" | sed -E 's/^.*\/(app\/src\/)/\1/' | sort | uniq | head -60 | while IFS= read -r l; do
+              case "$l" in *": Error: "*) echo "::error::$l" ;; *) echo "::warning::$l" ;; esac
+            done
+          else
+            echo "::warning::La revisión de Android no ha generado informe"; tail -30 lint.log
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: revision-android
+          path: |
+            app/build/reports/lint.txt
+            app/build/reports/lint-results-debug.html
+          if-no-files-found: ignore
+
       - name: Renombrar APK
         run: cp app/build/outputs/apk/release/app-release.apk MiIPTV.apk
 
@@ -94,6 +121,7 @@ jobs:
           path: MiIPTV.apk
 
       - name: Publicar versión descargable
+        if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ github.run_number }}

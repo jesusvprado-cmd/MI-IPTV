@@ -27,6 +27,9 @@ object WatchNext {
         }.start()
     }
 
+    // La revisión de Android marca como «uso restringido» las funciones de WatchNextProgram.Builder que hereda de su
+    // clase base interna: es un fallo conocido de la librería tvprovider, son las funciones públicas de siempre.
+    @android.annotation.SuppressLint("RestrictedApi")
     @Synchronized
     private fun doSync(ctx: Context, wanted: List<Prefs.Progress>) {
         val sp = ctx.getSharedPreferences("miiptv_watchnext", Context.MODE_PRIVATE)
