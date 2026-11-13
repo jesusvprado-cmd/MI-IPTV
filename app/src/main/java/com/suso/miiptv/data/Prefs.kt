@@ -25,7 +25,7 @@ class Prefs(ctx: Context) {
         // y del PIN solo su huella. Los que aún estén sin cifrar (versiones anteriores o una copia restaurada) se cifran ahora.
         try {
             val e = sp.edit()
-            for (k in listOf("config", "wgConf")) {
+            for (k in listOf("config", "wgConf", "warpConf")) {
                 val v = sp.getString(k, null)
                 if (v != null && !Secure.isSealed(v)) Secure.seal(v)?.let { e.putString(k, it) }
             }
@@ -331,9 +331,11 @@ class Prefs(ctx: Context) {
         get() = str("vpnMode", "off")
         set(v) = putStr("vpnMode", v)
 
+    /** Cuenta WARP (lleva la clave privada de WireGuard): cifrada con la llave del aparato, como [wgConf].
+     *  Si no se puede descifrar (copia de otro aparato), vale null y se pide una cuenta nueva al conectar. */
     var warpConf: String?
-        get() = sp.getString("warpConf", null)
-        set(v) = putStr("warpConf", v)
+        get() = Secure.open(sp.getString("warpConf", null))
+        set(v) = putStr("warpConf", Secure.seal(v))
 
     var wgConf: String?
         get() = Secure.open(sp.getString("wgConf", null))

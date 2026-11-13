@@ -673,6 +673,7 @@ class PlayerCtl(ctx: Context) {
         decoderName = null
         videoInfo = null
         saveProgress()
+        lastAutoSave = 0L
         scrubPos = null
         restoredFor = null
         restoredTextFor = null
@@ -1123,8 +1124,22 @@ class PlayerCtl(ctx: Context) {
             noFrameTicks++
             if (noFrameTicks >= 16) reportVideoProblem("el decodificador de este aparato no muestra su vídeo (${codecName(lastVideoFormat?.sampleMimeType)})")
         }
+        // Película o episodio: el punto por el que vas se guarda cada minuto (antes solo al salir del vídeo,
+        // y si la app se cerraba de golpe o se iba la luz se perdía lo visto).
+        if (!current.live && player.isPlaying) {
+            val now = android.os.SystemClock.elapsedRealtime()
+            if (lastAutoSave == 0L) {
+                lastAutoSave = now
+            } else if (now - lastAutoSave >= AUTO_SAVE_MS) {
+                lastAutoSave = now
+                saveProgress()
+            }
+        }
         watchdog()
     }
+
+    /** Última vez que se guardó solo el punto por el que vas (0 = aún no en este vídeo). */
+    private var lastAutoSave = 0L
 
     fun isFavorite(): Boolean = current.channel?.let { Repo.prefs.isFavorite(it.key) } ?: false
 
@@ -1230,6 +1245,9 @@ private val TRANSIENT_HTTP = setOf(500, 502, 503, 504)
 
 /** Reconexiones automáticas seguidas de un directo antes de dejar de intentarlo. */
 private const val MAX_AUTO_RELOADS = 6
+
+/** Cada cuánto se guarda solo el punto por el que vas en una película o episodio. */
+private const val AUTO_SAVE_MS = 60_000L
 
 internal fun swapLiveFormat(url: String): String {
     // La extensión va antes de «?» o «#» (direcciones con «?token=…»).

@@ -76,6 +76,7 @@ object Repo {
     private fun clear() {
         catCache.clear()
         itemCache.clear()
+        itemsInFlight.clear()
         epgCache.clear()
         searchIndex = null
         dataVersion++
@@ -108,8 +109,11 @@ object Repo {
     suspend fun items(kind: Kind, cat: String?): List<Item> {
         val k = "${kind.name}|${cat ?: "*"}"
         itemCache[k]?.let { return it }
+        val version = dataVersion
         val everything = itemCache["${kind.name}|*"]
-        val raw = if (cat != null && everything != null) everything.filter { it.categoryId == cat } else src().items(kind, cat)
+        val raw = if (cat != null && everything != null) everything.filter { it.categoryId == cat } else fetchOnce(k) { src().items(kind, cat) }
+        // Mientras se descargaba se cambió o recargó la lista: esto es de la anterior, no se guarda.
+        if (version != dataVersion) return raw
         // Canales: nombre sin «Movistar» delante de los autonómicos y familias numeradas en orden (1, 2, 3...).
         val l = if (kind == Kind.LIVE) withContext(Dispatchers.Default) { ChannelNames.tidy(raw, sortGroups = cat != null) } else raw
         // Sección de cada canal: algunos logos se retocan según la sección (Liga RFEF, Fanplay...).
@@ -124,6 +128,25 @@ object Repo {
             for (it in l) runCatching { Logos.url(it.name, it.image) }
         }
         return l
+    }
+
+    private val itemsInFlight = HashMap<String, kotlinx.coroutines.Deferred<List<Item>>>()
+
+    /**
+     * Una sola descarga por lista a la vez: si Inicio, Buscar y la guía piden el catálogo completo al mismo tiempo,
+     * esperan todos a la misma (antes se descargaba dos o tres veces, muy lento en la Mi Box con catálogos grandes).
+     */
+    private suspend fun fetchOnce(k: String, block: suspend () -> List<Item>): List<Item> {
+        itemsInFlight[k]?.let { return it.await() }
+        val job = repoScope.async {
+            try {
+                block()
+            } finally {
+                itemsInFlight.remove(k)
+            }
+        }
+        itemsInFlight[k] = job
+        return job.await()
     }
 
     suspend fun latest(kind: Kind): List<Item> {

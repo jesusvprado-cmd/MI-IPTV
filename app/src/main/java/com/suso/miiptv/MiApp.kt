@@ -18,7 +18,8 @@ class MiApp : Application(), ImageLoaderFactory {
         com.suso.miiptv.data.Device.init(this)
         Repo.init(this)
         VpnManager.init(this)
-        VpnManager.autoStart()
+        // La conexión automática de la VPN se hace al abrir la app (MainActivity), no aquí: Android también
+        // arranca la app por detrás al encender el aparato y al saltar un aviso, y entonces no debe conectarse.
         Logos.init(this)
         // Avisos de la guía: saber si la app está a la vista y dejar puestas las alarmas de los recordatorios.
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {

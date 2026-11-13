@@ -92,7 +92,7 @@ object Backup {
                 // que no sirve en otro: en la copia van en claro, pero dentro del cifrado con el PIN.
                 is String -> JSONObject().put("t", "s").put(
                     "v",
-                    if (k == "config" || k == "wgConf" || k == "prog" || k.endsWith("_prog")) Secure.open(v) ?: continue else v,
+                    if (k == "config" || k == "wgConf" || k == "warpConf" || k == "prog" || k.endsWith("_prog")) Secure.open(v) ?: continue else v,
                 )
                 is Set<*> -> JSONObject().put("t", "set").put("v", JSONArray(v.map { it.toString() }))
                 else -> continue

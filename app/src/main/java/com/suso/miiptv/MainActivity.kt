@@ -12,6 +12,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Repo.init(applicationContext)
+        // VPN «Conectar al abrir la app»: antes de pintar nada, para que la primera descarga ya espere a la VPN.
+        com.suso.miiptv.vpn.VpnManager.autoStart()
         // La app gestiona ella misma el hueco del teclado (imePadding) para que los campos no queden tapados.
         WindowCompat.setDecorFitsSystemWindows(window, false)
         // Móvil en horizontal: la app llega hasta el borde también por el lado de la cámara (sin franja negra).
