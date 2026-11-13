@@ -1,0 +1,20 @@
+name: Versiones (temporal)
+# Paso temporal: lista las últimas versiones de las herramientas de Google para actualizar las librerías.
+on:
+  push:
+    paths: [ '.github/workflows/versiones.yml' ]
+jobs:
+  versiones:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          G=https://dl.google.com/dl/android/maven2
+          for a in com/android/tools/build/gradle androidx/compose/compose-bom androidx/core/core-ktx androidx/activity/activity-compose androidx/lifecycle/lifecycle-runtime-ktx androidx/media3/media3-exoplayer androidx/tvprovider/tvprovider; do
+            echo "== $a: $(curl -sS $G/$a/maven-metadata.xml | grep -o '<version>[^<]*</version>' | sed 's/<[^>]*>//g' | grep -viE 'alpha|beta|rc|dev' | tail -6 | tr '\n' ' ')"
+          done
+          for a in androidx/core/core-ktx/1.19.1/core-ktx-1.19.1 androidx/activity/activity-compose/1.13.0/activity-compose-1.13.0 androidx/lifecycle/lifecycle-runtime-android/2.11.0/lifecycle-runtime-android-2.11.0 androidx/media3/media3-exoplayer/1.9.0/media3-exoplayer-1.9.0 androidx/tvprovider/tvprovider/1.1.0/tvprovider-1.1.0; do
+            curl -sS -o x.aar $G/$a.aar && echo "== $a: $(unzip -p x.aar META-INF/com/android/build/gradle/aar-metadata.properties | tr '\n' ' ') $(unzip -p x.aar AndroidManifest.xml | grep -o 'minSdkVersion="[0-9]*"')"
+          done
+          curl -sS $G/androidx/compose/compose-bom/maven-metadata.xml | grep -o '<version>[^<]*</version>' | sed 's/<[^>]*>//g' | grep -viE 'alpha|beta|rc' | tail -1 > bom.txt
+          B=$(cat bom.txt); echo "== BOM $B"; curl -sS $G/androidx/compose/compose-bom/$B/compose-bom-$B.pom | grep -A1 -E "<artifactId>(ui|material3|foundation)</artifactId>" | grep -o '<version>[^<]*' 
+          curl -sS -o x.aar "$G/androidx/compose/ui/ui-android/$(curl -sS $G/androidx/compose/compose-bom/$B/compose-bom-$B.pom | grep -A1 '<artifactId>ui</artifactId>' | grep -o '[0-9][^<]*' | head -1)/ui-android-$(curl -sS $G/androidx/compose/compose-bom/$B/compose-bom-$B.pom | grep -A1 '<artifactId>ui</artifactId>' | grep -o '[0-9][^<]*' | head -1).aar" && echo "== compose ui: $(unzip -p x.aar META-INF/com/android/build/gradle/aar-metadata.properties | tr '\n' ' ')"
