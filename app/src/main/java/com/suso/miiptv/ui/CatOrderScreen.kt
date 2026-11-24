@@ -2,6 +2,7 @@ package com.suso.miiptv.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -109,7 +110,10 @@ fun CatOrderScreen() {
             color = C.text2, fontSize = Sz.body,
         )
         Spacer(Modifier.height(14.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically,
+        ) {
             TabChip("TV en directo", kind == Kind.LIVE, "co_live", focusRequester = firstFr) { kind = Kind.LIVE }
             TabChip("Películas", kind == Kind.MOVIE, "co_mov") { kind = Kind.MOVIE }
             TabChip("Series", kind == Kind.SERIES, "co_ser") { kind = Kind.SERIES }

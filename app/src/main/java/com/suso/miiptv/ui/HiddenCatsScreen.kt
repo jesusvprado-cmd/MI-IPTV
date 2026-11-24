@@ -1,6 +1,8 @@
 package com.suso.miiptv.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -98,7 +100,8 @@ fun HiddenCatsScreen() {
         runCatching { firstFr.requestFocus() }
     }
 
-    Column(Modifier.fillMaxSize().background(C.bg).padding(horizontal = 48.dp, vertical = 28.dp)) {
+    val touch = com.suso.miiptv.data.Device.touch
+    Column(Modifier.fillMaxSize().background(C.bg).padding(horizontal = if (touch) 16.dp else 48.dp, vertical = if (touch) 20.dp else 28.dp)) {
         Text("Categorías ocultas", color = Color.White, fontSize = Sz.title, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(6.dp))
         Text(
@@ -107,13 +110,17 @@ fun HiddenCatsScreen() {
             color = C.text2, fontSize = Sz.body,
         )
         Spacer(Modifier.height(14.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+        // En el móvil no caben las tres pestañas a lo ancho: se desplazan (antes «Series» quedaba fuera de la pantalla).
+        Row(
+            Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically,
+        ) {
             TabChip("TV en directo", kind == Kind.LIVE, "hc_live", focusRequester = firstFr) { kind = Kind.LIVE }
             TabChip("Películas", kind == Kind.MOVIE, "hc_mov") { kind = Kind.MOVIE }
             TabChip("Series", kind == Kind.SERIES, "hc_ser") { kind = Kind.SERIES }
         }
         Spacer(Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             TvButton("Ocultar adultos", "hc_adult") {
                 val l = cats ?: emptyList()
                 val keys = l.filter { Repo.isAdult(it.name) }.map { prefs.catKey(kind, it.id) }

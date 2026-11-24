@@ -64,14 +64,20 @@ fun HomeScreen() {
                     if (e is kotlinx.coroutines.CancellationException) throw e
                     if (required) throw e else emptyList()
                 }
-                val first = cats.firstOrNull() ?: continue
-                val list: List<Item> = try {
-                    Repo.items(kind, first.id)
-                } catch (e: Exception) {
-                    if (e is kotlinx.coroutines.CancellationException) throw e
-                    emptyList()
+                // La primera categoría (en tu orden) que tenga algo; si la primera viene vacía o falla, la siguiente.
+                for (c in cats.take(5)) {
+                    val list: List<Item> = try {
+                        Repo.items(kind, c.id)
+                    } catch (e: Exception) {
+                        if (e is kotlinx.coroutines.CancellationException) throw e
+                        com.suso.miiptv.data.ErrorLog.add("Inicio: no se pudo cargar «${c.name}» (${e.message})")
+                        emptyList()
+                    }
+                    if (list.isNotEmpty()) {
+                        rows.add(HomeRow("home_${kind.name}", "$label · ${catLabel(c.name, kind)}", kind, list.take(40)))
+                        break
+                    }
                 }
-                if (list.isNotEmpty()) rows.add(HomeRow("home_${kind.name}", "$label · ${catLabel(first.name, kind)}", kind, list.take(40)))
             }
             UiState.homeCache = rows
             UiState.homeVer = ver
