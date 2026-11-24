@@ -25,7 +25,7 @@ class Prefs(ctx: Context) {
         // y del PIN solo su huella. Los que aún estén sin cifrar (versiones anteriores o una copia restaurada) se cifran ahora.
         try {
             val e = sp.edit()
-            for (k in listOf("config", "wgConf", "warpConf")) {
+            for (k in listOf("config", "wgConf", "warpConf", "savedLists")) {
                 val v = sp.getString(k, null)
                 if (v != null && !Secure.isSealed(v)) Secure.seal(v)?.let { e.putString(k, it) }
             }
@@ -57,6 +57,55 @@ class Prefs(ctx: Context) {
     fun saveConfig(c: Config) {
         sp.edit().putString("config", Secure.seal(c.toJson().toString())).apply()
     }
+
+    // ---------- Listas guardadas (para cambiar de una a otra sin volver a escribir los datos) ----------
+
+    /** Una lista guardada: sus datos y un nombre para reconocerla («usuario · servidor»). */
+    data class SavedList(val name: String, val cfg: Config) {
+        /** Misma cuenta = mismo tipo, servidor (o dirección M3U) y usuario. */
+        val key: String get() = listKey(cfg)
+    }
+
+    private fun listKey(c: Config): String =
+        if (c.type == "xtream") "x|${c.server.trimEnd('/').lowercase()}|${c.user}" else "m|${c.m3uUrl}"
+
+    /** Nombre por defecto: usuario y servidor, sin «https://». */
+    fun defaultListName(c: Config): String {
+        fun host(u: String) = runCatching { android.net.Uri.parse(u).host }.getOrNull() ?: u
+        return if (c.type == "xtream") "${c.user} · ${host(c.server)}" else "Lista M3U · ${host(c.m3uUrl)}"
+    }
+
+    fun savedLists(): List<SavedList> {
+        val raw = Secure.open(sp.getString("savedLists", null)) ?: return emptyList()
+        return runCatching {
+            val a = JSONArray(raw)
+            (0 until a.length()).mapNotNull { i ->
+                val o = a.optJSONObject(i) ?: return@mapNotNull null
+                SavedList(o.optString("name"), Config.fromJson(o.getJSONObject("cfg")))
+            }
+        }.getOrDefault(emptyList())
+    }
+
+    private fun saveLists(l: List<SavedList>) {
+        val a = JSONArray()
+        l.forEach { a.put(JSONObject().put("name", it.name).put("cfg", it.cfg.toJson())) }
+        sp.edit().putString("savedLists", Secure.seal(a.toString())).apply()
+        settingsVersion++
+    }
+
+    /** Guarda (o actualiza) la lista; si ya estaba, conserva su nombre. La que está en uso va la primera. */
+    fun rememberList(c: Config) {
+        val l = savedLists()
+        val old = l.firstOrNull { it.key == listKey(c) }
+        saveLists(listOf(SavedList(old?.name ?: defaultListName(c), c)) + l.filter { it.key != listKey(c) })
+    }
+
+    fun renameList(key: String, name: String) =
+        saveLists(savedLists().map { if (it.key == key) it.copy(name = name.trim().ifBlank { defaultListName(it.cfg) }) else it })
+
+    fun forgetList(key: String) = saveLists(savedLists().filter { it.key != key })
+
+    fun isCurrentList(s: SavedList, current: Config?): Boolean = current != null && s.key == listKey(current)
 
     var lastLive: String?
         get() = sp.getString(pk("lastLive"), null)

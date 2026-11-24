@@ -45,7 +45,14 @@ internal fun <T> Ask.of(title: String, options: List<Pair<String, T>>, selected:
 // ---------------- Secciones ----------------
 
 @Composable
-internal fun AccountSection(onChangeList: () -> Unit, onServer: (String?) -> Unit, busy: Boolean, ask: Ask) {
+internal fun AccountSection(
+    onChangeList: () -> Unit,
+    onServer: (String?) -> Unit,
+    busy: Boolean,
+    onSwitchList: (com.suso.miiptv.data.Config) -> Unit = {},
+    onRenameList: (String) -> Unit = {},
+    ask: Ask,
+) {
     @Suppress("UNUSED_VARIABLE")
     val sv = Repo.prefs.settingsVersion // se redibuja al momento al cambiar un ajuste
     val ctx = LocalContext.current
@@ -106,7 +113,43 @@ internal fun AccountSection(onChangeList: () -> Unit, onServer: (String?) -> Uni
                 }
             }
         }
-        SettingRow("Cambiar lista o cuenta", "set_change", subtitle = "Otro servidor, usuario o lista M3U") { onChangeList() }
+        // Mis listas: varias cuentas guardadas para pasar de una a otra sin volver a escribir dirección, usuario y contraseña.
+        GroupLabel("Mis listas")
+        val lists = Repo.prefs.savedLists()
+        val inUse = lists.firstOrNull { Repo.prefs.isCurrentList(it, cfg) }
+        val others = lists.filter { it !== inUse }
+        if (others.isNotEmpty()) SettingRow(
+            "Cambiar de lista", "set_switch_list",
+            subtitle = if (busy) "Comprobando la lista…" else "${lists.size} guardadas",
+            value = inUse?.name,
+        ) {
+            if (busy) return@SettingRow
+            ask.of("Cambiar de lista", others.map { it.name to it.key }, "") { k ->
+                others.firstOrNull { it.key == k }?.let { onSwitchList(it.cfg) }
+            }
+        }
+        SettingRow(
+            "Añadir otra lista", "set_change",
+            subtitle = if (lists.isEmpty()) "Otro servidor, usuario o lista M3U" else "Otro servidor, usuario o lista M3U; la actual queda guardada",
+        ) { onChangeList() }
+        if (lists.isNotEmpty()) SettingRow("Renombrar o quitar listas", "set_manage_lists", subtitle = "Ponles un nombre para reconocerlas") {
+            ask.of("Elige una lista", lists.map { (if (it === inUse) "${it.name}  (en uso)" else it.name) to it.key }, "") { k ->
+                val l = lists.firstOrNull { it.key == k } ?: return@of
+                val opts = buildList {
+                    add("Cambiar el nombre" to "rename")
+                    if (l !== inUse) add("Quitar de mis listas" to "forget")
+                }
+                ask.of(l.name, opts, "") { a ->
+                    when (a) {
+                        "rename" -> onRenameList(l.key)
+                        "forget" -> {
+                            Repo.prefs.forgetList(l.key)
+                            Actions.toast(ctx, "«${l.name}» quitada de tus listas")
+                        }
+                    }
+                }
+            }
+        }
         if (cfg != null && cfg.type == "xtream") {
             GroupLabel("Directo")
             SettingRow(

@@ -196,6 +196,27 @@ fun SettingsScreen(onChangeList: () -> Unit) {
     var nameDialog by remember { mutableStateOf<Int?>(null) }
     var serverDialog by remember { mutableStateOf(false) }
     var serverBusy by remember { mutableStateOf(false) }
+    // Lista guardada que se está renombrando (su clave).
+    var listRename by remember { mutableStateOf<String?>(null) }
+
+    /** Pasa a otra lista guardada; antes comprueba que responde, y si no, se sigue con la que había. */
+    fun switchList(c: com.suso.miiptv.data.Config) {
+        val name = p.savedLists().firstOrNull { it.cfg == c }?.name ?: p.defaultListName(c)
+        serverBusy = true
+        Actions.toast(ctx, "Comprobando «$name»…")
+        scope.launch {
+            try {
+                val src = Repo.createSource(c)
+                src.check()
+                Repo.save(c, src)
+                Actions.toast(ctx, "Ahora usas «$name»")
+            } catch (e: Exception) {
+                Actions.toast(ctx, "«$name» no responde (${e.message ?: "error"}). Sigues con la que tenías.")
+            } finally {
+                serverBusy = false
+            }
+        }
+    }
 
     /** Cambia solo la dirección del servidor (mismo usuario y contraseña); antes comprueba que responde. */
     fun changeServer(raw: String) {
@@ -434,6 +455,17 @@ fun SettingsScreen(onChangeList: () -> Unit) {
         }
         return
     }
+    listRename?.let { key ->
+        val old = p.savedLists().firstOrNull { it.key == key }?.name.orEmpty()
+        UrlEntry(
+            title = "Nombre de la lista", button = "Guardar", initial = old, hint = "Por ejemplo: Lista de casa", text = true,
+            onCancel = { listRename = null },
+        ) { name ->
+            listRename = null
+            p.renameList(key, name)
+        }
+        return
+    }
     // Nombre de perfil: -1 = nuevo; si no, el id del perfil a renombrar.
     val nd = nameDialog
     if (nd != null) {
@@ -618,6 +650,8 @@ fun SettingsScreen(onChangeList: () -> Unit) {
                             onChangeList,
                             onServer = { picked -> if (picked == null) serverDialog = true else changeServer(picked) },
                             busy = serverBusy,
+                            onSwitchList = { switchList(it) },
+                            onRenameList = { listRename = it },
                         ) { t, o, s, f -> ask(t, o, s, f) } }
                         Sec.VPN -> item(key = "vpn") {
                             VpnSection(

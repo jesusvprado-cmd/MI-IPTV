@@ -48,7 +48,11 @@ object Repo {
         if (isReady()) return
         DiskCache.init(ctx.applicationContext)
         prefs = Prefs(ctx.applicationContext)
-        prefs.loadConfig()?.let { activate(it, createSource(it)) }
+        prefs.loadConfig()?.let {
+            // La lista que ya había antes de existir «Mis listas» también queda guardada.
+            if (prefs.savedLists().none { s -> prefs.isCurrentList(s, it) }) prefs.rememberList(it)
+            activate(it, createSource(it))
+        }
     }
 
     fun createSource(cfg: Config): Source = if (cfg.type == "xtream") XtreamSource(cfg) else M3uSource(cfg)
@@ -64,6 +68,7 @@ object Repo {
         // Lista nueva o cambiada: lo guardado de la anterior ya no sirve.
         DiskCache.clear()
         prefs.saveConfig(cfg)
+        prefs.rememberList(cfg)
         activate(cfg, src)
     }
 

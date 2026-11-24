@@ -79,7 +79,7 @@ object Backup {
     const val FILE_NAME = "pepino-iptv-copia.json"
 
     /** Datos que se guardan cifrados con la llave del aparato («p2_favs»... para los demás perfiles). */
-    private val SEALED = setOf("config", "wgConf", "warpConf", "prog", "favs", "reminders")
+    private val SEALED = setOf("config", "wgConf", "warpConf", "savedLists", "prog", "favs", "reminders")
 
     fun file(): File = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), FILE_NAME)
 
