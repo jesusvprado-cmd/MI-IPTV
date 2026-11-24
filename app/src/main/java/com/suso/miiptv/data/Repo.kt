@@ -91,7 +91,8 @@ object Repo {
 
     /** Todas las categorías, incluidas las ocultas (para la pantalla de Ajustes). */
     suspend fun allCategories(kind: Kind): List<Category> {
-        catCache[kind]?.let { return it }
+        // Lo guardado en memoria es el orden de la lista: el tuyo se aplica siempre al devolverlo.
+        catCache[kind]?.let { return orderCategories(it, prefs.catOrder(orderKey(kind))) }
         val l = src().categories(kind)
         // Las categorías nuevas con nombre de adultos se ocultan solas (una única vez).
         val keys = l.map { prefs.catKey(kind, it.id) }
