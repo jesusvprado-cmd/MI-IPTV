@@ -259,6 +259,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.MenuFooter() {
 
 
 /** Menú de una categoría (mantenerla pulsada): ponerla la primera, moverla u ocultarla. */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 private fun CatMenu(kind: Kind, c: com.suso.miiptv.data.Category) {
     val ctx = LocalContext.current
