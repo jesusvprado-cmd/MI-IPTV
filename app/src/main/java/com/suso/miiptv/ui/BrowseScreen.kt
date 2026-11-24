@@ -1,5 +1,6 @@
 package com.suso.miiptv.ui
 
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.ui.layout.onSizeChanged
 import kotlinx.coroutines.launch
@@ -178,6 +179,7 @@ fun BrowseScreen(kind: Kind) {
                         focusKey = "cat_${kind.name}_${c.id}",
                         onFocused = { pending = c.id },
                         cursorInMenu = catsFocused,
+                        onLongClick = { ItemMenu.openCat(kind, c) },
                     ) {
                         pending = null
                         st.selected = c.id
@@ -314,7 +316,8 @@ fun BrowseScreen(kind: Kind) {
 }
 
 
-/** Categorías como fila de «píldoras» deslizable (móvil). */
+/** Categorías como fila de «píldoras» deslizable (móvil). Mantener pulsada una abre su menú. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CategoryChips(cats: List<Category>, selected: String?, kind: com.suso.miiptv.data.Kind? = null, onPick: (String) -> Unit) {
     val state = androidx.compose.foundation.lazy.rememberLazyListState()
@@ -341,7 +344,10 @@ fun CategoryChips(cats: List<Category>, selected: String?, kind: com.suso.miiptv
                 modifier = Modifier
                     .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
                     .background(if (sel) C.gold else Color(0xFF1F2A21))
-                    .clickable { onPick(c.id) }
+                    .combinedClickable(
+                        onLongClick = if (kind != null) ({ ItemMenu.openCat(kind, c) }) else null,
+                        onClick = { onPick(c.id) },
+                    )
                     .padding(horizontal = 12.dp, vertical = 6.dp),
             )
         }

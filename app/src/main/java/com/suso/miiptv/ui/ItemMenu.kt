@@ -1,5 +1,6 @@
 package com.suso.miiptv.ui
 
+import kotlinx.coroutines.launch
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -70,15 +71,31 @@ object ItemMenu {
         progress = p
     }
 
+    /** Categoría (con su tipo) cuyo menú está abierto: ocultarla o moverla. */
+    var cat by mutableStateOf<Pair<Kind, com.suso.miiptv.data.Category>?>(null)
+
+    /** Mantener pulsada una categoría: menú para ocultarla o moverla (no para Favoritos ni Recientes). */
+    fun openCat(kind: Kind, c: com.suso.miiptv.data.Category) {
+        if (c.id == FAV || c.id == RECENT) return
+        item = null
+        progress = null
+        cat = kind to c
+    }
+
     fun close() {
         item = null
         progress = null
+        cat = null
     }
 }
 
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun ItemMenuHost() {
+    ItemMenu.cat?.let { (k, c) ->
+        CatMenu(k, c)
+        return
+    }
     val x = ItemMenu.item
     val p = ItemMenu.progress
     if (x == null && p == null) return
@@ -238,4 +255,72 @@ private fun androidx.compose.foundation.layout.ColumnScope.MenuFooter() {
         "↩ Atrás para cerrar", color = C.text2, fontSize = Sz.label,
         modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp),
     )
+}
+
+
+/** Menú de una categoría (mantenerla pulsada): ponerla la primera, moverla u ocultarla. */
+@Composable
+private fun CatMenu(kind: Kind, c: com.suso.miiptv.data.Category) {
+    val ctx = LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val fr = remember(c.id) { FocusRequester() }
+    var armed by remember(c.id) { mutableStateOf(false) }
+    BackHandler { ItemMenu.close() }
+    LaunchedEffect(c.id) {
+        delay(80)
+        runCatching { fr.requestFocus() }
+    }
+    val name = catLabel(c.name, kind)
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Color(0xCC000000))
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { ItemMenu.close() },
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            Modifier
+                .widthIn(max = 420.dp)
+                .fillMaxWidth(0.86f)
+                .clip(RoundedCornerShape(16.dp))
+                .background(C.card)
+                .border(1.dp, C.gold.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
+                .padding(horizontal = 22.dp, vertical = 20.dp)
+                .focusProperties { exit = { FocusRequester.Cancel } }
+                .onPreviewKeyEvent { e ->
+                    // Se abre manteniendo OK: al soltarlo, ese OK no debe pulsar la primera opción.
+                    val ok = e.key == Key.DirectionCenter || e.key == Key.Enter || e.key == Key.NumPadEnter
+                    if (!armed && ok) {
+                        if (e.type == KeyEventType.KeyUp) armed = true
+                        true
+                    } else false
+                }
+                .focusGroup(),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(name, color = Color.White, fontSize = Sz.emph, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text("Categoría", color = C.text2, fontSize = Sz.label)
+            MenuOption("Ponerla la primera", "cm_top", focusRequester = fr) {
+                ItemMenu.close()
+                scope.launch {
+                    val ids = runCatching { Repo.categories(kind) }.getOrDefault(emptyList()).map { it.id }
+                    if (ids.isNotEmpty()) Repo.setCategoryOrder(kind, listOf(c.id) + ids.filter { it != c.id })
+                    AppToast.show("«$name» es ahora la primera")
+                }
+            }
+            MenuOption("Moverla a otro sitio…", "cm_move") {
+                ItemMenu.close()
+                CatOrderStart.kind = kind
+                CatOrderStart.id = c.id
+                UiState.push(Screen.CatOrder)
+            }
+            MenuOption("Ocultar esta categoría", "cm_hide") {
+                ItemMenu.close()
+                Repo.prefs.setHidden(listOf(Repo.prefs.catKey(kind, c.id)), true)
+                AppToast.show("«$name» oculta. Puedes volver a mostrarla en Ajustes › Contenido › Categorías ocultas")
+            }
+            MenuFooter()
+        }
+    }
 }

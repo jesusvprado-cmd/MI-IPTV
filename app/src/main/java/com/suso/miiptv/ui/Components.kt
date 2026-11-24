@@ -330,7 +330,15 @@ fun ChannelCard(
 
 /** Fila de la columna de categorías de la izquierda. */
 @Composable
-fun CategoryRow(name: String, selected: Boolean, focusKey: String, onFocused: () -> Unit, cursorInMenu: Boolean = false, onClick: () -> Unit) {
+fun CategoryRow(
+    name: String,
+    selected: Boolean,
+    focusKey: String,
+    onFocused: () -> Unit,
+    cursorInMenu: Boolean = false,
+    onLongClick: (() -> Unit)? = null,
+    onClick: () -> Unit,
+) {
     var focused by remember { mutableStateOf(false) }
     // Como en Ajustes: sin recuadro, con una línea verde a la izquierda. Con el cursor en la lista solo se marca
     // la categoría con el cursor (nunca dos a la vez); si estás en la cuadrícula, la categoría abierta, en verde más intenso.
@@ -345,7 +353,7 @@ fun CategoryRow(name: String, selected: Boolean, focusKey: String, onFocused: ()
                 focused = it
                 if (it) onFocused()
             }
-            .tvClick(onClick = onClick)
+            .tvClick(onLongClick = onLongClick, onClick = onClick)
             .height(46.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

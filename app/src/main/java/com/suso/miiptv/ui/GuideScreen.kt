@@ -226,13 +226,14 @@ fun GuideScreen() {
                     focusKey = "guide_cat_${c.id}",
                     onFocused = { pending = c.id },
                     cursorInMenu = catsFocused,
+                    onLongClick = { ItemMenu.openCat(Kind.LIVE, c) },
                 ) { sel = c.id }
                 }
             }
         }
 
         Column(Modifier.weight(1f).fillMaxHeight().padding(end = if (compact) 6.dp else 24.dp)) {
-            if (compact) CategoryChips(cats, sel) { id -> sel = id }
+            if (compact) CategoryChips(cats, sel, Kind.LIVE) { id -> sel = id }
             // Móvil (y tablet en vertical): sin título, para que quepan más canales; la información del programa
             // tocado sale en una tarjeta flotante abajo, así la parrilla no se mueve al tocar.
             if (!compact) InfoPanel(focused, now, touch)

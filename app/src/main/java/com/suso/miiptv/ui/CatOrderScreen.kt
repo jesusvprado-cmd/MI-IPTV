@@ -59,23 +59,40 @@ import kotlinx.coroutines.launch
  * Con mando: OK coge una categoría, ▲▼ la mueven y OK (o Atrás) la sueltan. Con el dedo: botones de subir, bajar y al principio.
  * Solo salen las visibles: las ocultas no se enseñan aquí (pueden estar protegidas con PIN).
  */
+/** Desde el menú de una categoría: abrir esta pantalla con esa categoría ya cogida. */
+object CatOrderStart {
+    var kind: Kind? = null
+    var id: String? = null
+}
+
 @Composable
 fun CatOrderScreen() {
     val ctx = LocalContext.current
     val touch = Device.touch
-    var kind by remember { mutableStateOf(Kind.LIVE) }
+    val start = remember { CatOrderStart.kind to CatOrderStart.id }.also { CatOrderStart.kind = null; CatOrderStart.id = null }
+    var kind by remember { mutableStateOf(start.first ?: Kind.LIVE) }
     var cats by remember(kind) { mutableStateOf<List<Category>?>(null) }
     LaunchedEffect(kind, Repo.dataVersion) {
         cats = runCatching { Repo.categories(kind) }.getOrDefault(emptyList())
     }
     // Categoría cogida con el mando (su id).
-    var moving by remember(kind) { mutableStateOf<String?>(null) }
+    var moving by remember(kind) { mutableStateOf(if (kind == start.first) start.second else null) }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val firstFr = remember { FocusRequester() }
     LaunchedEffect(Unit) {
         delay(80)
-        runCatching { firstFr.requestFocus() }
+        if (start.second == null) runCatching { firstFr.requestFocus() }
+    }
+    // Abierta desde el menú de una categoría: se va a ella y, con mando, se le pone el cursor (ya cogida).
+    LaunchedEffect(cats != null) {
+        val id = start.second ?: return@LaunchedEffect
+        val l = cats ?: return@LaunchedEffect
+        val i = l.indexOfFirst { it.id == id }
+        if (i < 0) return@LaunchedEffect
+        listState.scrollToItem((i - 2).coerceAtLeast(0))
+        delay(120)
+        if (!touch) FocusMemory.requesters["co_${kind.name}_$id"]?.let { runCatching { it.requestFocus() } }
     }
     androidx.activity.compose.BackHandler(enabled = moving != null) { moving = null }
 
@@ -137,7 +154,7 @@ fun CatOrderScreen() {
                         pos = i + 1,
                         name = catLabel(c.name, kind),
                         focusKey = "co_${kind.name}_${c.id}",
-                        moving = moving == c.id,
+                        moving = moving == c.id && (!touch || start.second == c.id),
                         touch = touch,
                         first = i == 0,
                         last = i == l.lastIndex,
