@@ -122,7 +122,7 @@ fun CatOrderScreen() {
         Text("Ordenar categorías", color = Color.White, fontSize = Sz.title, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(6.dp))
         Text(
-            if (touch) "Usa las flechas de cada categoría para subirla o bajarla, o ⤒ para ponerla la primera."
+            if (touch) "Toca una categoría y después toca el sitio donde quieres ponerla."
             else "Pulsa OK en una categoría para cogerla, muévela con ▲ ▼ y pulsa OK otra vez para soltarla.",
             color = C.text2, fontSize = Sz.body,
         )
@@ -148,23 +148,42 @@ fun CatOrderScreen() {
         when {
             l == null -> Loading()
             l.isEmpty() -> EmptyText("No hay categorías")
-            else -> LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 40.dp)) {
+            else -> Column {
+                val m = moving
+                if (touch && m != null) {
+                    val n = l.firstOrNull { it.id == m }?.let { catLabel(it.name, kind) }.orEmpty()
+                    Text(
+                        "Toca dónde quieres poner «$n» · tócala otra vez para cancelar",
+                        color = C.gold, fontSize = Sz.small, fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                }
+                LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 40.dp)) {
                 itemsIndexed(l, key = { _, c -> c.id }) { i, c ->
                     OrderRow(
                         pos = i + 1,
                         name = catLabel(c.name, kind),
                         focusKey = "co_${kind.name}_${c.id}",
-                        moving = moving == c.id && (!touch || start.second == c.id),
+                        moving = moving == c.id,
                         touch = touch,
                         first = i == 0,
                         last = i == l.lastIndex,
                         onToggle = {
-                            moving = if (moving == c.id) null else c.id
+                            val m = moving
+                            when {
+                                // Con el dedo: primer toque coge, segundo toque (en otra) la deja en ese sitio.
+                                touch && m != null && m != c.id -> {
+                                    move(m) { _, _ -> i }
+                                    moving = null
+                                }
+                                else -> moving = if (m == c.id) null else c.id
+                            }
                         },
                         onUp = { move(c.id) { k, _ -> k - 1 } },
                         onDown = { move(c.id) { k, _ -> k + 1 } },
                         onTop = { move(c.id) { _, _ -> 0 } },
                     )
+                }
                 }
             }
         }
@@ -193,7 +212,7 @@ private fun OrderRow(
             .fillMaxWidth()
             .padding(vertical = 2.dp)
             .then(
-                if (touch) Modifier
+                if (touch) Modifier.clickable { onToggle() }
                 else Modifier
                     .memFocus(focusKey) { focused = it }
                     // Con la categoría cogida, ▲▼ la mueven en vez de mover el cursor.
@@ -217,18 +236,13 @@ private fun OrderRow(
                 },
             )
             .then(if (touch) Modifier.border(1.dp, C.divider, shape) else Modifier)
-            .padding(horizontal = 12.dp, vertical = if (touch) 4.dp else 10.dp),
+            .padding(horizontal = 12.dp, vertical = if (touch) 14.dp else 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val ink = if (moving || focused) Color.Black else Color.White
         Text("$pos", color = if (moving || focused) Color.Black else C.textFaint, fontSize = Sz.small, modifier = Modifier.width(34.dp))
         Text(name, color = ink, fontSize = Sz.body, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-        if (moving) Text("▲ ▼  ·  OK para soltar", color = Color.Black, fontSize = Sz.small, fontWeight = FontWeight.SemiBold)
-        if (touch) {
-            OrderButton("⤒", "Poner la primera", enabled = !first, onTop)
-            OrderButton("▲", "Subir", enabled = !first, onUp)
-            OrderButton("▼", "Bajar", enabled = !last, onDown)
-        }
+        if (moving && !touch) Text("▲ ▼  ·  OK para soltar", color = Color.Black, fontSize = Sz.small, fontWeight = FontWeight.SemiBold)
     }
 }
 
