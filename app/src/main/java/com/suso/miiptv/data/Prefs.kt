@@ -12,6 +12,10 @@ class Prefs(ctx: Context) {
     data class Progress(val play: PlayItem, val pos: Long, val dur: Long, val ts: Long)
 
     companion object {
+        /** Clave de una lista: mismo tipo, servidor (o dirección M3U) y usuario = misma cuenta. */
+        fun listKey(c: Config): String =
+            if (c.type == "xtream") "x|${c.server.trimEnd('/').lowercase()}|${c.user}" else "m|${c.m3uUrl}"
+
         /** A partir de aquí (92 %) un vídeo cuenta como terminado: visto y fuera de «Continuar viendo». */
         const val FINISHED = 0.92
     }
@@ -66,8 +70,6 @@ class Prefs(ctx: Context) {
         val key: String get() = listKey(cfg)
     }
 
-    private fun listKey(c: Config): String =
-        if (c.type == "xtream") "x|${c.server.trimEnd('/').lowercase()}|${c.user}" else "m|${c.m3uUrl}"
 
     /** Nombre por defecto: usuario y servidor, sin «https://». */
     fun defaultListName(c: Config): String {
