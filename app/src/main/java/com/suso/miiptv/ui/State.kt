@@ -17,6 +17,7 @@ sealed interface Screen {
     data object Settings : Screen
     data object HiddenCats : Screen
     data object CatOrder : Screen
+    data object Sync : Screen
     data object MissingLogos : Screen
 }
 

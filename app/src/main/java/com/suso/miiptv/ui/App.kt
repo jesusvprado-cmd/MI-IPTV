@@ -99,11 +99,13 @@ fun AppRoot(activity: Activity) {
                         }
                         Screen.HiddenCats -> HiddenCatsScreen()
                         Screen.CatOrder -> CatOrderScreen()
+                        Screen.Sync -> SyncScreen()
                         Screen.MissingLogos -> MissingLogosScreen()
                     }
                 }
             }
             if (configured && !editing && !picking) ItemMenuHost()
+            SyncAskHost()
             if (configured && !editing && !picking) UpdateDialog()
             ExitHint(exitHint)
             AppToastHost()

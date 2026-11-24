@@ -526,6 +526,10 @@ internal fun AboutSection(onLog: () -> Unit, onBackup: () -> Unit, onRestore: ()
         subtitle = "Lista, ajustes, perfiles, favoritos y vistos, cifrados con una contraseña, en Download/${com.suso.miiptv.data.Backup.FILE_NAME}",
         chevron = false,
     ) { onBackup() }
+    SettingRow(
+        "Enviar a otros aparatos", "set_sync",
+        subtitle = "Orden de categorías, ocultas, listas, favoritos y ajustes, por la wifi de casa",
+    ) { UiState.push(Screen.Sync) }
     // Pasar favoritos, perfiles y ajustes a otro aparato: la copia cifrada se envía por WhatsApp, Drive, correo,
     // «Send Files to TV»… y en el otro aparato se restaura con la misma contraseña.
     if (com.suso.miiptv.data.Device.touch) SettingRow(

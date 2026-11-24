@@ -25,11 +25,14 @@ class MiApp : Application(), ImageLoaderFactory {
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
             private var started = 0
             override fun onActivityStarted(a: android.app.Activity) {
+                // Con la app a la vista, se puede recibir ajustes de otros aparatos de casa.
+                if (started == 0) com.suso.miiptv.data.Sync.start(this@MiApp)
                 started++
                 com.suso.miiptv.data.ReminderAlarms.foreground = true
             }
             override fun onActivityStopped(a: android.app.Activity) {
                 started = (started - 1).coerceAtLeast(0)
+                if (started == 0) com.suso.miiptv.data.Sync.stop(this@MiApp)
                 com.suso.miiptv.data.ReminderAlarms.foreground = started > 0
             }
             override fun onActivityCreated(a: android.app.Activity, b: android.os.Bundle?) {}

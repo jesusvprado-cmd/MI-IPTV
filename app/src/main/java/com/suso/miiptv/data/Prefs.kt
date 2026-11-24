@@ -102,6 +102,34 @@ class Prefs(ctx: Context) {
         saveLists(listOf(SavedList(old?.name ?: defaultListName(c), c)) + l.filter { it.key != listKey(c) })
     }
 
+    /** Listas recibidas de otro aparato (en claro): se añaden a las de aquí; con el mismo nombre que allí. */
+    fun mergeLists(plain: String) {
+        val inc = runCatching {
+            val a = JSONArray(plain)
+            (0 until a.length()).mapNotNull { i ->
+                val o = a.optJSONObject(i) ?: return@mapNotNull null
+                SavedList(o.optString("name"), Config.fromJson(o.getJSONObject("cfg")))
+            }
+        }.getOrDefault(emptyList())
+        if (inc.isEmpty()) return
+        val mine = savedLists()
+        val merged = mine.map { m -> inc.firstOrNull { it.key == m.key }?.let { m.copy(name = it.name) } ?: m } +
+            inc.filter { i -> mine.none { it.key == i.key } }
+        saveLists(merged)
+    }
+
+    /** Tras recibir ajustes de otro aparato: se olvida lo guardado en memoria y se redibuja todo. */
+    fun reloadAfterSync() {
+        favs = null
+        prog = null
+        watchedSet = null
+        hidden = null
+        if (profiles().none { it.id == profileId }) switchProfile(0)
+        settingsVersion++
+        hiddenVersion++
+        bump()
+    }
+
     fun renameList(key: String, name: String) =
         saveLists(savedLists().map { if (it.key == key) it.copy(name = name.trim().ifBlank { defaultListName(it.cfg) }) else it })
 
