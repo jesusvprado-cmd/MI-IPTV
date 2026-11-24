@@ -446,6 +446,10 @@ internal fun ContentSection() {
     val p = Repo.prefs
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SettingRow(
+            "Ordenar categorías", "set_cat_order",
+            subtitle = "Pon las categorías de canales, películas y series en el orden que quieras",
+        ) { UiState.push(Screen.CatOrder) }
+        SettingRow(
             "Categorías ocultas", "set_hidden",
             subtitle = "Las de adultos se ocultan solas. Puedes proteger esta opción con un PIN.",
             value = if (p.hasPin) "Con PIN" else null,

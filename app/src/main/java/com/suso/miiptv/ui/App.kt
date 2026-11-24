@@ -98,6 +98,7 @@ fun AppRoot(activity: Activity) {
                             else SettingsScreen(onChangeList = { editing = true })
                         }
                         Screen.HiddenCats -> HiddenCatsScreen()
+                        Screen.CatOrder -> CatOrderScreen()
                         Screen.MissingLogos -> MissingLogosScreen()
                     }
                 }

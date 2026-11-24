@@ -102,7 +102,7 @@ private const val PREFETCH_MAX = 150
 fun GuideScreen() {
     val ctx = LocalContext.current
     var cats by remember { mutableStateOf<List<Category>>(emptyList()) }
-    LaunchedEffect(Unit) {
+    LaunchedEffect(Repo.prefs.hiddenVersion) {
         cats = listOf(Category(FAV, "Favoritos")) + runCatching { Repo.categories(Kind.LIVE) }.getOrDefault(emptyList())
         if (GuideState.sel == null) GuideState.sel = cats.getOrNull(1)?.id ?: FAV
     }

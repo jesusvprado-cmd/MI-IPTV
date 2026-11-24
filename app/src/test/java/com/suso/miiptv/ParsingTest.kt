@@ -8,6 +8,8 @@ import com.suso.miiptv.data.XtreamSource
 import com.suso.miiptv.data.normalizeServer
 import com.suso.miiptv.player.maskUrl
 import com.suso.miiptv.ui.catLabel
+import com.suso.miiptv.data.orderCategories
+import com.suso.miiptv.data.Category
 import com.suso.miiptv.ui.sentenceLabel
 import com.suso.miiptv.player.swapLiveFormat
 import kotlinx.coroutines.runBlocking
@@ -148,5 +150,14 @@ class ParsingTest {
         assertEquals("S01E01 - Piloto de HBO", sentenceLabel("S01E01 - PILOTO DE HBO"))
         assertEquals("Capítulo 3", sentenceLabel("CAPÍTULO 3"))
         assertEquals("Ya Bien Escrito", sentenceLabel("Ya Bien Escrito"))
+    }
+
+    @Test fun ordenDeCategorias() {
+        val prov = listOf("a", "b", "c", "d").map { Category(it, it.uppercase()) }
+        assertEquals(listOf("a", "b", "c", "d"), orderCategories(prov, emptyList()).map { it.id })
+        assertEquals(listOf("c", "a", "b", "d"), orderCategories(prov, listOf("c", "a", "b", "d")).map { it.id })
+        // «x» es nueva: va detrás de «b», que la tenía delante en la lista del proveedor; «zz» ya no existe.
+        val prov2 = listOf("a", "b", "x", "c").map { Category(it, it) }
+        assertEquals(listOf("c", "a", "b", "x"), orderCategories(prov2, listOf("c", "a", "b", "zz")).map { it.id })
     }
 }

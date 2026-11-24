@@ -433,6 +433,14 @@ class Prefs(ctx: Context) {
         hiddenVersion++
     }
 
+    /** Orden propio de categorías (ids), guardado con la clave que da Repo. */
+    fun catOrder(key: String): List<String> = sp.getString(key, "").orEmpty().split('\n').filter { it.isNotEmpty() }
+
+    fun setCatOrder(key: String, ids: List<String>) {
+        sp.edit().apply { if (ids.isEmpty()) remove(key) else putString(key, ids.joinToString("\n")) }.apply()
+        hiddenVersion++ // las pantallas que enseñan categorías se vuelven a dibujar
+    }
+
     /** Categorías ya vistas alguna vez (para aplicar la detección automática solo a las nuevas). */
     fun unseen(keys: Collection<String>): List<String> {
         val seen = sp.getStringSet("seenCats", emptySet()) ?: emptySet()

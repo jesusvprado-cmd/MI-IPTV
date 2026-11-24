@@ -102,7 +102,18 @@ object Repo {
             prefs.markSeen(fresh)
         }
         catCache[kind] = l
-        return l
+        return orderCategories(l, prefs.catOrder(orderKey(kind)))
+    }
+
+    /** Orden propio de las categorías, por lista (cada lista tiene sus categorías) y por tipo. */
+    private fun orderKey(kind: Kind): String =
+        "catOrder_${kind.name}_" + (config?.let { Prefs.listKey(it).hashCode().toUInt().toString(16) } ?: "")
+
+    /** Guarda el orden (ids de las categorías visibles; vacío = el de la lista). Las ocultas van detrás. */
+    fun setCategoryOrder(kind: Kind, ids: List<String>) {
+        val all = catCache[kind]?.let { orderCategories(it, prefs.catOrder(orderKey(kind))) }.orEmpty()
+        val full = if (ids.isEmpty()) emptyList() else ids + all.map { it.id }.filter { it !in ids }
+        prefs.setCatOrder(orderKey(kind), full)
     }
 
     /** Categorías visibles. */
@@ -399,4 +410,24 @@ object Repo {
 /** Mapa que guarda como mucho [max] elementos: al pasar, se va el que hace más tiempo que no se usa. */
 private fun <K, V> lru(max: Int): LinkedHashMap<K, V> = object : LinkedHashMap<K, V>(64, 0.75f, true) {
     override fun removeEldestEntry(eldest: MutableMap.MutableEntry<K, V>?): Boolean = size > max
+}
+
+
+/**
+ * Pone las categorías en el orden guardado. Las que no están en él (nuevas en la lista) quedan justo detrás
+ * de la que tenían delante en la lista del proveedor, para que no acaben todas al final.
+ */
+fun orderCategories(provider: List<Category>, saved: List<String>): List<Category> {
+    if (saved.isEmpty()) return provider
+    val byId = provider.associateBy { it.id }
+    val out = saved.mapNotNull { byId[it] }.distinctBy { it.id }.toMutableList()
+    val placed = out.mapTo(HashSet()) { it.id }
+    for ((i, c) in provider.withIndex()) {
+        if (c.id in placed) continue
+        val prev = (i - 1 downTo 0).map { provider[it].id }.firstOrNull { it in placed }
+        val at = if (prev == null) 0 else out.indexOfFirst { it.id == prev } + 1
+        out.add(at, c)
+        placed.add(c.id)
+    }
+    return out
 }
